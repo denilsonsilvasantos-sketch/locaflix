@@ -1,0 +1,72 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg: #141414;
+  --color-surface: #1F1F1F;
+  --color-surface2: #2A2A2A;
+  --color-primary: #E50914;
+  --color-primary-hover: #F40612;
+  --color-accent: #F5A623;
+  --color-text: #FFFFFF;
+  --color-text-muted: #B3B3B3;
+  --color-success: #46D369;
+  --color-border: #333333;
+  --font-sans: "Inter", sans-serif;
+  --font-display: "Oswald", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  background-color: #141414;
+  color: #ffffff;
+  font-family: "Inter", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  margin: 0;
+}
+
+#root {
+  width: 100%;
+  min-height: 100vh;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #1F1F1F;
+}
+::-webkit-scrollbar-thumb {
+  background: #333333;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #444444;
+}
+
+.font-display {
+  font-family: "Oswald", sans-serif;
+}
+
+.netflix-gradient {
+  background: linear-gradient(to top, rgba(20,20,20,1) 0%, rgba(20,20,20,0.7) 50%, rgba(20,20,20,0) 100%);
+}
+
+.card-hover {
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+.card-hover:hover {
+  transform: scale(1.05);
+  box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
