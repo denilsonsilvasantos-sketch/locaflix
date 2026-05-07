@@ -150,7 +150,7 @@ export function DateRangePicker({ from, to, onChange, onClose }: DateRangePicker
   const canPrev = isAfter(leftMonth, startOfMonth(today))
 
   return (
-    <div className="bg-[#1A1A1A] border border-[#333] rounded-2xl shadow-2xl p-5 w-full">
+    <div className="bg-[#1A1A1A] border border-[#333] rounded-2xl shadow-2xl p-5 w-max min-w-[320px]">
       {/* Status bar */}
       <div className="flex items-center gap-3 mb-4 pb-4 border-b border-[#2A2A2A]">
         <button

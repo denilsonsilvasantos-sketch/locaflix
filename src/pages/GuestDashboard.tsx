@@ -54,21 +54,27 @@ export function GuestDashboard() {
   }, [profile])
 
   async function loadData() {
+    if (!user?.id) return
     setLoading(true)
-    const [{ data: bk }, { data: fav }] = await Promise.all([
-      supabase.from('bookings')
-        .select('*, property:properties(id,name,photos,city,state,price_per_night), installments(*)')
-        .eq('guest_id', user!.id)
-        .order('created_at', { ascending: false })
-        .limit(20),
-      supabase.from('favorites')
-        .select('*, property:properties(id,name,photos,city,state,price_per_night,rating)')
-        .eq('user_id', user!.id)
-        .limit(20),
-    ])
-    setBookings((bk ?? []) as Booking[])
-    setFavorites((fav ?? []) as Favorite[])
-    setLoading(false)
+    try {
+      const [{ data: bk }, { data: fav }] = await Promise.all([
+        supabase.from('bookings')
+          .select('*, property:properties(id,name,photos,city,state,price_per_night), installments(*)')
+          .eq('guest_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(20),
+        supabase.from('favorites')
+          .select('*, property:properties(id,name,photos,city,state,price_per_night,rating)')
+          .eq('user_id', user.id)
+          .limit(20),
+      ])
+      setBookings((bk ?? []) as Booking[])
+      setFavorites((fav ?? []) as Favorite[])
+    } catch (err) {
+      console.error('loadData error:', err)
+    } finally {
+      setLoading(false)
+    }
   }
 
   async function saveProfile() {
@@ -104,6 +110,16 @@ export function GuestDashboard() {
   const past = bookings.filter(b => b.status === 'CONCLUIDA' || new Date(b.check_out) < new Date())
   const isPending = profile?.kyc_status === 'PENDENTE'
 
+  if (loading && bookings.length === 0 && favorites.length === 0) {
+    return (
+      <DashboardLayout title="Minha Conta" navItems={navWithBadge}>
+        <div className="flex items-center justify-center py-32">
+          <div className="w-10 h-10 border-4 border-[#E50914] border-t-transparent rounded-full animate-spin" />
+        </div>
+      </DashboardLayout>
+    )
+  }
+
   return (
     <DashboardLayout title="Minha Conta" navItems={navWithBadge}>
       {/* Stats */}
@@ -111,7 +127,7 @@ export function GuestDashboard() {
         <StatCard label="Reservas" value={bookings.length} icon={<Calendar size={18} />} />
         <StatCard label="Próximas" value={upcoming.length} icon={<Home size={18} />} />
         <StatCard label="Favoritos" value={favorites.length} icon={<Heart size={18} />} />
-        <StatCard label="Gastos" value={formatCurrency(bookings.reduce((s, b) => s + b.total_price, 0))} icon={<CreditCard size={18} />} accent />
+        <StatCard label="Gastos" value={formatCurrency(bookings.reduce((s, b) => s + (b.total_price ?? 0), 0))} icon={<CreditCard size={18} />} accent />
       </div>
 
       {/* RESERVAS TAB */}

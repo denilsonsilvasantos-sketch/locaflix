@@ -332,7 +332,7 @@ export function PropertyDetails() {
                     </div>
                   </button>
                   {calendarOpen && (
-                    <div className="absolute top-full left-0 mt-2 z-50 w-full" style={{ minWidth: 320 }}>
+                    <div className="absolute top-full right-0 mt-2 z-50 w-max max-w-[calc(100vw-2rem)]">
                       <DateRangePicker
                         from={checkIn}
                         to={checkOut}

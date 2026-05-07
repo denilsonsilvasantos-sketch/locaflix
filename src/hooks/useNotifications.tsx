@@ -9,31 +9,35 @@ export function useNotifications() {
   const [unreadCount, setUnreadCount] = useState(0)
 
   useEffect(() => {
-    if (!user) {
+    if (!user?.id) {
       setNotifications([])
       setUnreadCount(0)
       return
     }
 
+    const userId = user.id
+    let active = true
+
     supabase
       .from('notifications')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(50)
       .then(({ data }) => {
-        if (data) {
+        if (active && data) {
           setNotifications(data as Notification[])
           setUnreadCount(data.filter(n => !n.is_read).length)
         }
       })
 
     const channel = supabase
-      .channel(`notifications:${user.id}`)
+      .channel(`notifications:${userId}`)
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` },
+        { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${userId}` },
         payload => {
+          if (!active) return
           const n = payload.new as Notification
           setNotifications(prev => [n, ...prev])
           setUnreadCount(c => c + 1)
@@ -41,8 +45,11 @@ export function useNotifications() {
       )
       .subscribe()
 
-    return () => { supabase.removeChannel(channel) }
-  }, [user])
+    return () => {
+      active = false
+      supabase.removeChannel(channel)
+    }
+  }, [user?.id])
 
   async function markAllRead() {
     if (!user) return
