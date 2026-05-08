@@ -14,6 +14,7 @@
     "build": "npx esbuild server/index.ts --platform=node --target=node20 --outfile=dist/server/index.js --format=esm --packages=external",
     "build:frontend": "tsc -b && vite build --config vite.app.config.ts",
     "build:full": "npm run build:frontend && npm run build",
+    "postinstall": "npm run build:full",
     "start": "node index.js",
     "lint": "eslint .",
     "preview": "vite preview --config vite.app.config.ts"
