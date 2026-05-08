@@ -83,11 +83,12 @@ export function Navbar() {
             <Link to={`${APP_ROUTES.HOME}?tipo=cidade`} className="text-sm text-[#B3B3B3] hover:text-white transition-colors">
               Cidade
             </Link>
-            {profile?.role === 'OWNER' && (
-              <Link to={APP_ROUTES.NEW_PROPERTY} className="text-sm text-[#F5A623] hover:text-[#e6951a] transition-colors font-medium">
-                + Anunciar imóvel
-              </Link>
-            )}
+            <Link
+              to={APP_ROUTES.NEW_PROPERTY}
+              className="text-sm bg-[#F5A623] hover:bg-[#e6951a] text-black font-bold px-4 py-2 rounded-lg transition-colors whitespace-nowrap"
+            >
+              + Anuncie seu imóvel
+            </Link>
           </nav>
 
           {/* Right side */}
@@ -148,9 +149,7 @@ export function Navbar() {
                           <MenuLink to={APP_ROUTES.MESSAGES} icon={<MessageSquare size={14} />} label="Mensagens" />
                           <MenuLink to={`${dashboardRoute}?tab=favoritos`} icon={<Heart size={14} />} label="Favoritos" />
                           <MenuLink to={`${dashboardRoute}?tab=perfil`} icon={<Settings size={14} />} label="Configurações" />
-                          {profile?.role === 'OWNER' && (
-                            <MenuLink to={APP_ROUTES.NEW_PROPERTY} icon={<span className="text-[#F5A623]">+</span>} label="Anunciar imóvel" />
-                          )}
+                          <MenuLink to={APP_ROUTES.NEW_PROPERTY} icon={<span className="text-[#F5A623]">+</span>} label="Anunciar imóvel" />
                         </div>
                         <div className="border-t border-[#333] py-1">
                           <button
@@ -212,9 +211,7 @@ export function Navbar() {
                 <>
                   <MobileLink to={dashboardRoute} label="Minha conta" />
                   <MobileLink to={APP_ROUTES.MESSAGES} label="Mensagens" />
-                  {profile?.role === 'OWNER' && (
-                    <MobileLink to={APP_ROUTES.NEW_PROPERTY} label="Anunciar imóvel" />
-                  )}
+                  <MobileLink to={APP_ROUTES.NEW_PROPERTY} label="+ Anuncie seu imóvel" />
                   <button
                     onClick={handleSignOut}
                     className="text-left text-sm text-[#E50914] py-2 px-3 rounded-lg hover:bg-[#2A2A2A] transition-colors"
@@ -226,6 +223,7 @@ export function Navbar() {
                 <>
                   <MobileLink to={APP_ROUTES.LOGIN} label="Entrar" />
                   <MobileLink to={APP_ROUTES.REGISTER} label="Cadastrar" />
+                  <MobileLink to={APP_ROUTES.NEW_PROPERTY} label="+ Anuncie seu imóvel" />
                 </>
               )}
             </div>

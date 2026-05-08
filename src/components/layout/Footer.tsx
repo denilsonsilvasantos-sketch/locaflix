@@ -30,7 +30,6 @@ export function Footer() {
           <div>
             <h4 className="text-sm font-semibold text-white mb-4">Anfitrião</h4>
             <ul className="space-y-2">
-              <FooterLink to={APP_ROUTES.REGISTER} label="Anunciar meu imóvel" />
               <FooterLink to={APP_ROUTES.OWNER_DASHBOARD} label="Dashboard anfitrião" />
               <FooterLink to="#" label="Como funciona" />
               <FooterLink to="#" label="Termos para anfitriões" />
@@ -41,7 +40,7 @@ export function Footer() {
             <h4 className="text-sm font-semibold text-white mb-4">Suporte</h4>
             <ul className="space-y-2">
               <FooterLink to="#" label="Central de ajuda" />
-              <FooterLink to="#" label="Política de cancelamento" />
+              <FooterLink to="/politica-cancelamento" label="Política de cancelamento" />
               <FooterLink to="#" label="Privacidade e LGPD" />
               <FooterLink to="#" label="Termos de uso" />
             </ul>

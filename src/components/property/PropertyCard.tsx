@@ -146,11 +146,9 @@ export function PropertyCard({ property, onFavoriteToggle, isFavorited = false, 
           <div className="mt-2">
             {hasDates && nights > 0 ? (
               <div>
+                <p className="text-[11px] text-[#B3B3B3]">sua assinatura mensal será de:</p>
                 <p className="text-base font-bold text-white">
                   até {maxInstallments}x de {formatCurrency(installmentValue)}
-                </p>
-                <p className="text-xs text-[#666]">
-                  {nights} {nights === 1 ? 'noite' : 'noites'} · total {formatCurrency(total)}
                 </p>
               </div>
             ) : (

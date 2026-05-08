@@ -7,8 +7,6 @@ import { useToast } from '../hooks/useToast'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { APP_ROUTES } from '../constants'
-import type { UserRole } from '../types'
-
 interface LoginProps {
   mode?: 'login' | 'register'
 }
@@ -18,7 +16,6 @@ export function Login({ mode: initialMode = 'login' }: LoginProps) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [name, setName] = useState('')
-  const [role, setRole] = useState<UserRole>('GUEST')
   const [showPass, setShowPass] = useState(false)
   const [loading, setLoading] = useState(false)
 
@@ -41,7 +38,7 @@ export function Login({ mode: initialMode = 'login' }: LoginProps) {
           : APP_ROUTES.GUEST_DASHBOARD
         navigate(dest, { replace: true })
       } else {
-        await signUp(email, password, name, role)
+        await signUp(email, password, name, 'GUEST')
         toast('success', 'Conta criada!', 'Verifique seu e-mail para confirmar o cadastro.')
         navigate(APP_ROUTES.GUEST_DASHBOARD, { replace: true })
       }
@@ -111,40 +108,15 @@ export function Login({ mode: initialMode = 'login' }: LoginProps) {
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             {mode === 'register' && (
-              <>
-                <Input
-                  label="Nome completo"
-                  type="text"
-                  value={name}
-                  onChange={e => setName(e.target.value)}
-                  placeholder="Seu nome"
-                  leftIcon={<User size={16} />}
-                  required
-                />
-
-                {/* Role selector */}
-                <div>
-                  <label className="text-sm font-medium text-[#B3B3B3] block mb-2">
-                    Quero usar o LOCAFLIX como <span className="text-[#E50914]">*</span>
-                  </label>
-                  <div className="grid grid-cols-2 gap-3">
-                    <RoleCard
-                      active={role === 'GUEST'}
-                      onClick={() => setRole('GUEST')}
-                      title="Hóspede"
-                      description="Quero alugar imóveis"
-                      emoji="🏖️"
-                    />
-                    <RoleCard
-                      active={role === 'OWNER'}
-                      onClick={() => setRole('OWNER')}
-                      title="Anfitrião"
-                      description="Quero anunciar imóveis"
-                      emoji="🏠"
-                    />
-                  </div>
-                </div>
-              </>
+              <Input
+                label="Nome completo"
+                type="text"
+                value={name}
+                onChange={e => setName(e.target.value)}
+                placeholder="Seu nome"
+                leftIcon={<User size={16} />}
+                required
+              />
             )}
 
             <Input
@@ -208,29 +180,6 @@ export function Login({ mode: initialMode = 'login' }: LoginProps) {
   )
 }
 
-function RoleCard({ active, onClick, title, description, emoji }: {
-  active: boolean
-  onClick: () => void
-  title: string
-  description: string
-  emoji: string
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`flex flex-col items-center gap-1.5 p-4 rounded-xl border-2 transition-all text-center ${
-        active
-          ? 'border-[#E50914] bg-[#E50914]/10 text-white'
-          : 'border-[#333] text-[#B3B3B3] hover:border-[#555]'
-      }`}
-    >
-      <span className="text-2xl">{emoji}</span>
-      <span className="text-sm font-semibold">{title}</span>
-      <span className="text-xs opacity-70">{description}</span>
-    </button>
-  )
-}
 
 function translateAuthError(msg: string): string {
   const map: Record<string, string> = {

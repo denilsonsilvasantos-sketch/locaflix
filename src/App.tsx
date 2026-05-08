@@ -16,6 +16,7 @@ import { OwnerDashboard } from './pages/OwnerDashboard'
 import { AdminDashboard } from './pages/AdminDashboard'
 import { NewProperty } from './pages/NewProperty'
 import { MessagesPage } from './pages/MessagesPage'
+import { CancellationPolicy } from './pages/CancellationPolicy'
 
 function AppLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -38,6 +39,7 @@ export default function App() {
             <Route path={APP_ROUTES.LOGIN} element={<Login />} />
             <Route path={APP_ROUTES.REGISTER} element={<Login mode="register" />} />
             <Route path="/imovel/:id" element={<AppLayout><PropertyDetails /></AppLayout>} />
+            <Route path="/politica-cancelamento" element={<AppLayout><CancellationPolicy /></AppLayout>} />
 
             {/* Auth required — any role */}
             <Route path="/reservar/:id" element={
