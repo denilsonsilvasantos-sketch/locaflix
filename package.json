@@ -8,15 +8,15 @@
     "node": ">=20.0.0"
   },
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --config vite.app.config.ts",
     "dev:server": "tsx watch --env-file=.env server/index.ts",
     "dev:all": "concurrently \"npm run dev\" \"npm run dev:server\"",
     "build": "npx esbuild server/index.ts --platform=node --target=node20 --outfile=dist/server/index.js --format=esm --packages=external",
-    "build:frontend": "tsc -b && vite build",
+    "build:frontend": "tsc -b && vite build --config vite.app.config.ts",
     "build:full": "npm run build:frontend && npm run build",
     "start": "node index.js",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview --config vite.app.config.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.105.3",
