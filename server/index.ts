@@ -7,7 +7,7 @@ import { existsSync } from 'node:fs'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 const app = express()
-const PORT = process.env.PORT ?? 3001
+const PORT = process.env.PORT ?? 3000
 const ASAAS_API_KEY = process.env.ASAAS_API_KEY ?? ''
 const ASAAS_BASE_URL = process.env.ASAAS_ENV === 'production'
   ? 'https://api.asaas.com/v3'

@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { existsSync } from "node:fs";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
-const PORT = process.env.PORT ?? 3001;
+const PORT = process.env.PORT ?? 3e3;
 const ASAAS_API_KEY = process.env.ASAAS_API_KEY ?? "";
 const ASAAS_BASE_URL = process.env.ASAAS_ENV === "production" ? "https://api.asaas.com/v3" : "https://sandbox.asaas.com/api/v3";
 const WEBHOOK_SECRET = process.env.ASAAS_WEBHOOK_SECRET ?? "";
