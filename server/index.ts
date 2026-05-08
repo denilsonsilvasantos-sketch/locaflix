@@ -1,6 +1,10 @@
 import express from 'express'
 import type { Request, Response } from 'express'
-import crypto from 'node:crypto'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const IS_PROD = process.env.NODE_ENV === 'production'
 
 const app = express()
 const PORT = process.env.PORT ?? 3001
@@ -194,6 +198,17 @@ async function asaasRequest(method: string, path: string, body?: unknown) {
   const data = await res.json()
   if (!res.ok) throw new Error(data.errors?.[0]?.description ?? `Asaas error ${res.status}`)
   return data
+}
+
+// ---- Static files (production only) ----
+// dist/server/index.js → __dirname = dist/server/
+// dist/index.html      → path.join(__dirname, '..', 'index.html')
+if (IS_PROD) {
+  const distDir = path.join(__dirname, '..')
+  app.use(express.static(distDir))
+  app.use((req: Request, res: Response) => {
+    res.sendFile(path.join(distDir, 'index.html'))
+  })
 }
 
 app.listen(PORT, () => {
