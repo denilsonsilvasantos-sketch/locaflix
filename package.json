@@ -3,13 +3,17 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "main": "dist/server/index.js",
+  "main": "index.js",
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "scripts": {
     "dev": "vite",
     "dev:server": "tsx watch --env-file=.env server/index.ts",
     "dev:all": "concurrently \"npm run dev\" \"npm run dev:server\"",
     "build": "tsc -b && vite build && npm run build:server",
     "build:server": "esbuild server/index.ts --platform=node --target=node20 --outfile=dist/server/index.js --format=esm --packages=external",
+    "postinstall": "npm run build",
     "start": "node dist/server/index.js",
     "lint": "eslint .",
     "preview": "vite preview"
