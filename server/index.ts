@@ -2,9 +2,9 @@ import express from 'express'
 import type { Request, Response } from 'express'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { existsSync } from 'node:fs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const IS_PROD = process.env.NODE_ENV === 'production'
 
 const app = express()
 const PORT = process.env.PORT ?? 3001
@@ -200,14 +200,13 @@ async function asaasRequest(method: string, path: string, body?: unknown) {
   return data
 }
 
-// ---- Static files (production only) ----
-// dist/server/index.js → __dirname = dist/server/
-// dist/index.html      → path.join(__dirname, '..', 'index.html')
-if (IS_PROD) {
-  const distDir = path.join(__dirname, '..')
+// ---- Static files — serve dist/ when the built index.html exists ----
+const distDir = path.join(__dirname, '..')
+const distIndex = path.join(distDir, 'index.html')
+if (existsSync(distIndex)) {
   app.use(express.static(distDir))
-  app.use((req: Request, res: Response) => {
-    res.sendFile(path.join(distDir, 'index.html'))
+  app.use((_req: Request, res: Response) => {
+    res.sendFile(distIndex)
   })
 }
 

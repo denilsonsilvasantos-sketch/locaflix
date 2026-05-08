@@ -1,8 +1,8 @@
 import express from "express";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { existsSync } from "node:fs";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const IS_PROD = process.env.NODE_ENV === "production";
 const app = express();
 const PORT = process.env.PORT ?? 3001;
 const ASAAS_API_KEY = process.env.ASAAS_API_KEY ?? "";
@@ -154,11 +154,12 @@ async function asaasRequest(method, path2, body) {
   if (!res.ok) throw new Error(data.errors?.[0]?.description ?? `Asaas error ${res.status}`);
   return data;
 }
-if (IS_PROD) {
-  const distDir = path.join(__dirname, "..");
+const distDir = path.join(__dirname, "..");
+const distIndex = path.join(distDir, "index.html");
+if (existsSync(distIndex)) {
   app.use(express.static(distDir));
-  app.use((req, res) => {
-    res.sendFile(path.join(distDir, "index.html"));
+  app.use((_req, res) => {
+    res.sendFile(distIndex);
   });
 }
 app.listen(PORT, () => {
