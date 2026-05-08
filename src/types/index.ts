@@ -320,7 +320,7 @@ export interface AuthContextValue {
   profile: UserProfile | null
   loading: boolean
   signIn: (email: string, password: string) => Promise<UserProfile | null>
-  signUp: (email: string, password: string, name: string, role: UserRole) => Promise<void>
+  signUp: (email: string, password: string, name: string, role: UserRole, extra?: Partial<UserProfile>) => Promise<void>
   signInWithGoogle: () => Promise<void>
   signOut: () => Promise<void>
   refreshProfile: () => Promise<void>

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Bell, ChevronDown, Heart, LogOut, Menu, MessageSquare, Settings, User, X } from 'lucide-react'
+import { Bell, ChevronDown, Heart, Home, LogOut, Menu, MessageSquare, Settings, User, X } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 import { useNotifications } from '../../hooks/useNotifications'
 import { APP_ROUTES } from '../../constants'
@@ -145,12 +145,22 @@ export function Navbar() {
                           <p className="text-xs text-[#B3B3B3] truncate">{user.email}</p>
                         </div>
                         <div className="py-1">
-                          <MenuLink to={dashboardRoute} icon={<User size={14} />} label="Minha conta" />
+                          <MenuLink to={APP_ROUTES.GUEST_DASHBOARD} icon={<User size={14} />} label="Minha conta" />
                           <MenuLink to={APP_ROUTES.MESSAGES} icon={<MessageSquare size={14} />} label="Mensagens" />
-                          <MenuLink to={`${dashboardRoute}?tab=favoritos`} icon={<Heart size={14} />} label="Favoritos" />
-                          <MenuLink to={`${dashboardRoute}?tab=perfil`} icon={<Settings size={14} />} label="Configurações" />
-                          {profile?.role !== 'GUEST' && (
-                            <MenuLink to={APP_ROUTES.NEW_PROPERTY} icon={<span className="text-[#F5A623]">+</span>} label="Anunciar imóvel" />
+                          <MenuLink to={`${APP_ROUTES.GUEST_DASHBOARD}?tab=favoritos`} icon={<Heart size={14} />} label="Favoritos" />
+                          <MenuLink to={`${APP_ROUTES.GUEST_DASHBOARD}?tab=perfil`} icon={<Settings size={14} />} label="Configurações" />
+                          {(profile?.role === 'OWNER' || profile?.role === 'ADMIN') && (
+                            <>
+                              <div className="mx-4 my-1 h-px bg-[#333]" />
+                              <MenuLink to={APP_ROUTES.OWNER_DASHBOARD} icon={<Home size={14} className="text-[#F5A623]" />} label="Painel Anfitrião" />
+                              <MenuLink to={APP_ROUTES.NEW_PROPERTY} icon={<span className="text-[#F5A623] font-bold">+</span>} label="Cadastrar imóvel" />
+                            </>
+                          )}
+                          {profile?.role === 'ADMIN' && (
+                            <>
+                              <div className="mx-4 my-1 h-px bg-[#333]" />
+                              <MenuLink to={APP_ROUTES.ADMIN_DASHBOARD} icon={<Settings size={14} className="text-[#E50914]" />} label="Admin" />
+                            </>
                           )}
                         </div>
                         <div className="border-t border-[#333] py-1">
