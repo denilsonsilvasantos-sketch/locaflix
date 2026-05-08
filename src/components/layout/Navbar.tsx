@@ -36,7 +36,7 @@ export function Navbar() {
   useEffect(() => {
     setMenuOpen(false)
     setUserMenuOpen(false)
-  }, [location.pathname])
+  }, [location.pathname, location.search])
 
   async function handleSignOut() {
     await signOut()
@@ -149,7 +149,9 @@ export function Navbar() {
                           <MenuLink to={APP_ROUTES.MESSAGES} icon={<MessageSquare size={14} />} label="Mensagens" />
                           <MenuLink to={`${dashboardRoute}?tab=favoritos`} icon={<Heart size={14} />} label="Favoritos" />
                           <MenuLink to={`${dashboardRoute}?tab=perfil`} icon={<Settings size={14} />} label="Configurações" />
-                          <MenuLink to={APP_ROUTES.NEW_PROPERTY} icon={<span className="text-[#F5A623]">+</span>} label="Anunciar imóvel" />
+                          {profile?.role !== 'GUEST' && (
+                            <MenuLink to={APP_ROUTES.NEW_PROPERTY} icon={<span className="text-[#F5A623]">+</span>} label="Anunciar imóvel" />
+                          )}
                         </div>
                         <div className="border-t border-[#333] py-1">
                           <button
