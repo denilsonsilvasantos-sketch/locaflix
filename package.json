@@ -11,8 +11,9 @@
     "dev": "vite",
     "dev:server": "tsx watch --env-file=.env server/index.ts",
     "dev:all": "concurrently \"npm run dev\" \"npm run dev:server\"",
-    "build": "tsc -b && vite build && npx esbuild server/index.ts --platform=node --target=node20 --outfile=dist/server/index.js --format=esm --packages=external",
-    "build:server": "npx esbuild server/index.ts --platform=node --target=node20 --outfile=dist/server/index.js --format=esm --packages=external",
+    "build": "npx esbuild server/index.ts --platform=node --target=node20 --outfile=dist/server/index.js --format=esm --packages=external",
+    "build:frontend": "tsc -b && vite build",
+    "build:full": "npm run build:frontend && npm run build",
     "start": "node index.js",
     "lint": "eslint .",
     "preview": "vite preview"
