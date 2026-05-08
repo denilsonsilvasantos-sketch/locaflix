@@ -183,7 +183,7 @@ export function AdminDashboard() {
         const { data } = await supabase
           .from('bookings')
           .select('*, property:property_id(id,name,photos,city,state), guest:guest_id(id,name,email), owner:owner_id(id,name,email)')
-          .in('status', ['CONCLUIDA','PAGO']).order('updated_at', { ascending: false }).limit(200)
+          .in('status', ['CONCLUIDA','PAGO']).eq('repasse_liberado', false).order('updated_at', { ascending: false }).limit(200)
         setRepasses((data ?? []) as unknown as BookingRow[])
 
       } else if (t === 'sinistros') {
@@ -251,9 +251,14 @@ export function AdminDashboard() {
     toast('success','Parcela marcada como paga')
   }
 
-  function liberarRepasse(id: string) {
-    setRepasses(prev => prev.map(b => b.id === id ? { ...b, status: 'CONCLUIDA' as const } : b))
-    toast('success','Repasse liberado','O repasse foi processado para o anfitrião.')
+  async function liberarRepasse(id: string) {
+    const { error } = await supabase
+      .from('bookings')
+      .update({ repasse_liberado: true, repasse_liberado_at: new Date().toISOString() })
+      .eq('id', id)
+    if (error) { toast('error', 'Erro', error.message); return }
+    setRepasses(prev => prev.filter(b => b.id !== id))
+    toast('success', 'Repasse liberado', 'O repasse foi processado para o anfitrião.')
   }
 
   // Filters
