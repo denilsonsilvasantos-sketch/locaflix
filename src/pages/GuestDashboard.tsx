@@ -1,352 +1,443 @@
 import { useEffect, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
-import { Calendar, Heart, Home, User, CreditCard, Bell, ShieldCheck, Check, AlertCircle, X } from 'lucide-react'
+import { Link, useSearchParams } from 'react-router-dom'
+import {
+  Calendar, Heart, Bell, ShieldCheck, User,
+  AlertTriangle, CheckCircle, XCircle,
+  BedDouble, MapPin, CreditCard, LogOut,
+} from 'lucide-react'
 import { supabase } from '../lib/supabase'
-import type { Booking, Favorite, Notification } from '../types'
+import type { Booking, Favorite, Notification, KYCStatus } from '../types'
 import { useAuth } from '../hooks/useAuth'
 import { useNotifications } from '../hooks/useNotifications'
+import { useToast } from '../hooks/useToast'
 import { DashboardLayout } from '../components/layout/DashboardLayout'
-import { Card, StatCard } from '../components/ui/Card'
+import { KYCDocumentField } from '../components/ui/KYCDocumentField'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
-import { KYCDocumentField } from '../components/ui/KYCDocumentField'
-import { useToast } from '../hooks/useToast'
+import { Card } from '../components/ui/Card'
 import { formatCurrency, formatShortDate, daysUntil } from '../lib/utils'
 import { APP_ROUTES } from '../constants'
-import { Link } from 'react-router-dom'
 
-const NAV = [
-  { label: 'Reservas', icon: <Calendar size={16} />, href: '/minha-conta' },
-  { label: 'Favoritos', icon: <Heart size={16} />, href: '/minha-conta?tab=favoritos' },
-  { label: 'Notificações', icon: <Bell size={16} />, href: '/minha-conta?tab=notificacoes' },
-  { label: 'Documentos', icon: <ShieldCheck size={16} />, href: '/minha-conta?tab=documentos' },
-  { label: 'Perfil', icon: <User size={16} />, href: '/minha-conta?tab=perfil' },
+const TABS = [
+  { key: 'reservas',     label: 'Reservas',      icon: <Calendar   size={16} />, href: '/minha-conta' },
+  { key: 'favoritos',    label: 'Favoritos',      icon: <Heart      size={16} />, href: '/minha-conta?tab=favoritos' },
+  { key: 'notificacoes', label: 'Notificações',   icon: <Bell       size={16} />, href: '/minha-conta?tab=notificacoes' },
+  { key: 'documentos',   label: 'Documentos',     icon: <ShieldCheck size={16} />, href: '/minha-conta?tab=documentos' },
+  { key: 'perfil',       label: 'Perfil',         icon: <User       size={16} />, href: '/minha-conta?tab=perfil' },
 ]
 
 export function GuestDashboard() {
   const [searchParams] = useSearchParams()
   const tab = searchParams.get('tab') ?? 'reservas'
-  const { user, profile, refreshProfile } = useAuth()
+
+  const { user, profile, refreshProfile, signOut } = useAuth()
   const { notifications, unreadCount, markAllRead } = useNotifications()
   const { toast } = useToast()
 
   const [bookings, setBookings] = useState<Booking[]>([])
   const [favorites, setFavorites] = useState<Favorite[]>([])
   const [loading, setLoading] = useState(true)
-  const [editProfile, setEditProfile] = useState(false)
-  const [profileForm, setProfileForm] = useState({
-    name: profile?.name ?? '',
-    phone: profile?.phone ?? '',
-    avatar_url: profile?.avatar_url ?? '',
-  })
-  const [kycDocUrl, setKycDocUrl] = useState<string>('')
+
+  // Perfil form
+  const [saving, setSaving] = useState(false)
+  const [form, setForm] = useState({ name: '', phone: '', cpf: '', birth_date: '' })
+
+  // KYC
+  const [docUrl, setDocUrl] = useState('')
   const [submittingKyc, setSubmittingKyc] = useState(false)
 
   useEffect(() => {
-    if (user) loadData()
-  }, [user])
+    if (profile) {
+      setForm({
+        name: profile.name ?? '',
+        phone: profile.phone ?? '',
+        cpf: profile.cpf ?? '',
+        birth_date: profile.birth_date ?? '',
+      })
+      setDocUrl(profile.document_url ?? '')
+    }
+  }, [profile?.id])
 
   useEffect(() => {
-    if (profile) {
-      setProfileForm({ name: profile.name ?? '', phone: profile.phone ?? '', avatar_url: profile.avatar_url ?? '' })
-      setKycDocUrl(profile.document_url ?? '')
-    }
-  }, [profile])
+    if (user?.id) loadData()
+  }, [user?.id])
 
   async function loadData() {
-    if (!user?.id) return
     setLoading(true)
     try {
-      const [{ data: bk }, { data: fav }] = await Promise.all([
-        supabase.from('bookings')
+      const [bkRes, favRes] = await Promise.all([
+        supabase
+          .from('bookings')
           .select('*, property:properties(id,name,photos,city,state,price_per_night), installments(*)')
-          .eq('guest_id', user.id)
+          .eq('guest_id', user!.id)
           .order('created_at', { ascending: false })
           .limit(20),
-        supabase.from('favorites')
+        supabase
+          .from('favorites')
           .select('*, property:properties(id,name,photos,city,state,price_per_night,rating)')
-          .eq('user_id', user.id)
+          .eq('user_id', user!.id)
           .limit(20),
       ])
-      setBookings((bk ?? []) as Booking[])
-      setFavorites((fav ?? []) as Favorite[])
-    } catch (err) {
-      console.error('loadData error:', err)
+      setBookings((bkRes.data ?? []) as Booking[])
+      setFavorites((favRes.data ?? []) as Favorite[])
+    } catch {
+      // tables may not exist yet, render empty state
     } finally {
       setLoading(false)
     }
   }
 
   async function saveProfile() {
-    const { error } = await supabase.from('users').update(profileForm).eq('id', user!.id)
-    if (error) { toast('error', 'Erro', error.message); return }
+    if (!user) return
+    setSaving(true)
+    const { error } = await supabase.from('users').update(form).eq('id', user.id)
+    if (error) { toast('error', 'Erro ao salvar', error.message); setSaving(false); return }
     await refreshProfile()
     toast('success', 'Perfil atualizado!')
-    setEditProfile(false)
+    setSaving(false)
+  }
+
+  async function submitKyc() {
+    if (!user || !docUrl) { toast('error', 'Atenção', 'Envie o documento antes de continuar.'); return }
+    setSubmittingKyc(true)
+    const { error } = await supabase.from('users')
+      .update({ kyc_status: 'PENDENTE', document_url: docUrl })
+      .eq('id', user.id)
+    if (error) { toast('error', 'Erro', error.message); setSubmittingKyc(false); return }
+    await refreshProfile()
+    toast('success', 'Documento enviado!', 'Nossa equipe irá analisar em breve.')
+    setSubmittingKyc(false)
   }
 
   async function removeFavorite(propertyId: string) {
     await supabase.from('favorites').delete().eq('user_id', user!.id).eq('property_id', propertyId)
-    setFavorites(f => f.filter(fav => fav.property_id !== propertyId))
+    setFavorites(prev => prev.filter(f => f.property_id !== propertyId))
   }
 
-  async function submitKYC() {
-    if (!user || !kycDocUrl) return
-    setSubmittingKyc(true)
-    const { error } = await supabase.from('users')
-      .update({ kyc_status: 'PENDENTE', document_url: kycDocUrl })
-      .eq('id', user.id)
-    if (error) { toast('error', 'Erro', error.message); setSubmittingKyc(false); return }
-    await refreshProfile()
-    toast('success', 'Documentos enviados', 'Sua análise está em andamento.')
-    setSubmittingKyc(false)
-  }
-
-  const navWithBadge = NAV.map(n =>
-    n.href.includes('notificacoes') ? { ...n, badge: unreadCount } : n
+  const navItems = TABS.map(t =>
+    t.key === 'notificacoes' ? { ...t, badge: unreadCount } : t
   )
 
-  const upcoming = bookings.filter(b => b.status !== 'CANCELADA' && new Date(b.check_in) > new Date())
-  const past = bookings.filter(b => b.status === 'CONCLUIDA' || new Date(b.check_out) < new Date())
-  const isPending = profile?.kyc_status === 'PENDENTE'
-
-  if (loading && bookings.length === 0 && favorites.length === 0) {
-    return (
-      <DashboardLayout title="Minha Conta" navItems={navWithBadge}>
-        <div className="flex items-center justify-center py-32">
-          <div className="w-10 h-10 border-4 border-[#E50914] border-t-transparent rounded-full animate-spin" />
-        </div>
-      </DashboardLayout>
-    )
-  }
+  const kycStatus = profile?.kyc_status ?? 'INCOMPLETO'
+  const kycIncomplete = kycStatus === 'INCOMPLETO' || kycStatus === 'REPROVADO'
 
   return (
-    <DashboardLayout title="Minha Conta" navItems={navWithBadge}>
-      {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
-        <StatCard label="Reservas" value={bookings.length} icon={<Calendar size={18} />} />
-        <StatCard label="Próximas" value={upcoming.length} icon={<Home size={18} />} />
-        <StatCard label="Favoritos" value={favorites.length} icon={<Heart size={18} />} />
-        <StatCard label="Gastos" value={formatCurrency(bookings.reduce((s, b) => s + (b.total_price ?? 0), 0))} icon={<CreditCard size={18} />} accent />
-      </div>
+    <DashboardLayout title="Minha Conta" navItems={navItems}>
 
-      {/* RESERVAS TAB */}
-      {(tab === 'reservas' || !tab) && (
-        <div className="space-y-8">
-          {upcoming.length > 0 && (
-            <section>
-              <h2 className="font-display text-xl font-bold text-white mb-4">Próximas estadias</h2>
-              <div className="space-y-3">
-                {upcoming.map(b => <BookingRow key={b.id} booking={b} />)}
-              </div>
-            </section>
-          )}
-          {past.length > 0 && (
-            <section>
-              <h2 className="font-display text-xl font-bold text-white mb-4">Histórico</h2>
-              <div className="space-y-3">
-                {past.map(b => <BookingRow key={b.id} booking={b} />)}
-              </div>
-            </section>
-          )}
-          {bookings.length === 0 && !loading && (
-            <div className="text-center py-16">
-              <Calendar size={48} className="mx-auto text-[#333] mb-4" />
-              <p className="text-[#B3B3B3] mb-4">Você ainda não tem reservas.</p>
-              <Link to={APP_ROUTES.HOME}><Button>Explorar imóveis</Button></Link>
+      {/* Banner KYC obrigatório */}
+      {kycIncomplete && tab !== 'documentos' && (
+        <div className="mb-6 flex items-center justify-between gap-4 p-4 bg-[#F5A623]/10 border border-[#F5A623]/40 rounded-xl">
+          <div className="flex items-start gap-3">
+            <AlertTriangle size={18} className="text-[#F5A623] mt-0.5 flex-shrink-0" />
+            <div>
+              <p className="text-sm font-semibold text-[#F5A623]">
+                {kycStatus === 'REPROVADO' ? 'Documento reprovado — envie novamente' : 'Verificação de identidade obrigatória'}
+              </p>
+              <p className="text-xs text-[#B3B3B3] mt-0.5">
+                Envie um documento com foto (RG ou CNH) para fazer reservas na plataforma.
+              </p>
             </div>
-          )}
-        </div>
-      )}
-
-      {/* FAVORITOS TAB */}
-      {tab === 'favoritos' && (
-        <div>
-          <h2 className="font-display text-xl font-bold text-white mb-4">Favoritos</h2>
-          {favorites.length === 0 ? (
-            <div className="text-center py-16">
-              <Heart size={48} className="mx-auto text-[#333] mb-4" />
-              <p className="text-[#B3B3B3]">Nenhum favorito ainda.</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {favorites.map(f => f.property && (
-                <Card key={f.id} className="flex gap-4 p-4">
-                  <img src={f.property.photos?.[0] ?? ''} alt="" className="w-20 h-20 rounded-xl object-cover flex-shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <Link to={APP_ROUTES.PROPERTY(f.property_id)} className="font-semibold text-white hover:text-[#E50914] transition-colors line-clamp-1">
-                      {f.property.name}
-                    </Link>
-                    <p className="text-xs text-[#B3B3B3]">{f.property.city}, {f.property.state}</p>
-                    <p className="text-sm font-bold text-[#F5A623] mt-1">{formatCurrency(f.property.price_per_night)}/noite</p>
-                    <button onClick={() => removeFavorite(f.property_id)} className="text-xs text-[#E50914] hover:underline mt-1">
-                      Remover
-                    </button>
-                  </div>
-                </Card>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* NOTIFICAÇÕES TAB */}
-      {tab === 'notificacoes' && (
-        <div>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-display text-xl font-bold text-white">Notificações</h2>
-            {unreadCount > 0 && (
-              <Button variant="ghost" size="sm" onClick={markAllRead}>Marcar todas como lidas</Button>
-            )}
           </div>
-          {notifications.length === 0 ? (
-            <div className="text-center py-16">
-              <Bell size={48} className="mx-auto text-[#333] mb-4" />
-              <p className="text-[#B3B3B3]">Nenhuma notificação.</p>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {notifications.map(n => <NotificationRow key={n.id} notification={n} />)}
-            </div>
-          )}
+          <Link to="/minha-conta?tab=documentos" className="flex-shrink-0">
+            <Button size="sm">Enviar documento</Button>
+          </Link>
         </div>
       )}
 
-      {/* DOCUMENTOS TAB */}
-      {tab === 'documentos' && (
-        <div className="max-w-lg">
-          <h2 className="font-display text-xl font-bold text-white mb-5">Verificação de identidade</h2>
+      {loading ? (
+        <div className="flex justify-center items-center py-24">
+          <div className="w-8 h-8 border-4 border-[#E50914] border-t-transparent rounded-full animate-spin" />
+        </div>
+      ) : (
+        <>
+          {/* ── RESERVAS ─────────────────────────── */}
+          {tab === 'reservas' && (
+            <section>
+              <h2 className="font-display text-xl font-bold text-white mb-5">Minhas Reservas</h2>
+              {bookings.length === 0 ? (
+                <EmptyState icon={<Calendar size={40} />} text="Você ainda não tem reservas.">
+                  <Link to={APP_ROUTES.HOME}><Button>Explorar imóveis</Button></Link>
+                </EmptyState>
+              ) : (
+                <div className="space-y-3">
+                  {bookings.map(b => <BookingCard key={b.id} booking={b} />)}
+                </div>
+              )}
+            </section>
+          )}
 
-          <KYCStatusBanner status={profile?.kyc_status ?? 'INCOMPLETO'} />
+          {/* ── FAVORITOS ────────────────────────── */}
+          {tab === 'favoritos' && (
+            <section>
+              <h2 className="font-display text-xl font-bold text-white mb-5">Favoritos</h2>
+              {favorites.length === 0 ? (
+                <EmptyState icon={<Heart size={40} />} text="Nenhum imóvel favoritado ainda.">
+                  <Link to={APP_ROUTES.HOME}><Button>Explorar imóveis</Button></Link>
+                </EmptyState>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {favorites.map(f => f.property && (
+                    <Card key={f.id} className="flex gap-4 p-4">
+                      <img
+                        src={f.property.photos?.[0] ?? ''}
+                        alt={f.property.name}
+                        className="w-20 h-20 rounded-xl object-cover flex-shrink-0 bg-[#2A2A2A]"
+                        onError={e => { (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=400' }}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <Link
+                          to={APP_ROUTES.PROPERTY(f.property_id)}
+                          className="font-semibold text-white hover:text-[#E50914] transition-colors text-sm line-clamp-1"
+                        >
+                          {f.property.name}
+                        </Link>
+                        <p className="text-xs text-[#B3B3B3] flex items-center gap-1 mt-0.5">
+                          <MapPin size={10} /> {f.property.city}, {f.property.state}
+                        </p>
+                        <p className="text-sm font-bold text-[#F5A623] mt-1">
+                          {formatCurrency(f.property.price_per_night)}<span className="text-xs text-[#666] font-normal">/noite</span>
+                        </p>
+                        <button
+                          onClick={() => removeFavorite(f.property_id)}
+                          className="text-xs text-[#E50914] hover:underline mt-1"
+                        >
+                          Remover
+                        </button>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </section>
+          )}
 
-          {profile?.kyc_status !== 'APROVADO' && (
-            <Card className="p-6 mt-4 space-y-6">
-              <div>
-                <h3 className="font-semibold text-white mb-1">Documento com foto</h3>
-                <p className="text-xs text-[#B3B3B3] mb-4">
-                  RG ou CNH — envie uma foto clara de frente e verso (pode ser em um único arquivo).
-                </p>
-                <KYCDocumentField
-                  userId={user!.id}
-                  fieldKey="document"
-                  label="RG / CNH"
-                  hint="JPG, PNG ou PDF · máx. 10 MB"
-                  currentUrl={kycDocUrl || profile?.document_url}
-                  disabled={isPending}
-                  onSuccess={url => setKycDocUrl(url)}
+          {/* ── NOTIFICAÇÕES ─────────────────────── */}
+          {tab === 'notificacoes' && (
+            <section>
+              <div className="flex items-center justify-between mb-5">
+                <h2 className="font-display text-xl font-bold text-white">Notificações</h2>
+                {unreadCount > 0 && (
+                  <Button variant="ghost" size="sm" onClick={markAllRead}>Marcar todas como lidas</Button>
+                )}
+              </div>
+              {notifications.length === 0 ? (
+                <EmptyState icon={<Bell size={40} />} text="Nenhuma notificação ainda." />
+              ) : (
+                <div className="space-y-2">
+                  {notifications.map(n => <NotificationItem key={n.id} n={n} />)}
+                </div>
+              )}
+            </section>
+          )}
+
+          {/* ── DOCUMENTOS / KYC ─────────────────── */}
+          {tab === 'documentos' && (
+            <section className="max-w-lg">
+              <h2 className="font-display text-xl font-bold text-white mb-2">Verificação de Identidade</h2>
+              <p className="text-sm text-[#B3B3B3] mb-6">
+                Para fazer reservas na Locaflix é obrigatório enviar um documento com foto válido (RG ou CNH).
+              </p>
+
+              <KYCBanner status={kycStatus} />
+
+              {kycStatus !== 'APROVADO' && (
+                <Card className="p-6 mt-4 space-y-5">
+                  <div>
+                    <h3 className="text-sm font-semibold text-white mb-1">Documento com foto <span className="text-[#E50914]">*</span></h3>
+                    <p className="text-xs text-[#666] mb-3">RG ou CNH — foto clara de frente e verso. JPG, PNG ou PDF, máx. 10 MB.</p>
+                    <KYCDocumentField
+                      userId={user!.id}
+                      fieldKey="document"
+                      label=""
+                      hint=""
+                      currentUrl={docUrl || profile?.document_url}
+                      disabled={kycStatus === 'PENDENTE'}
+                      onSuccess={url => setDocUrl(url)}
+                    />
+                  </div>
+
+                  {kycStatus !== 'PENDENTE' && (
+                    <Button
+                      onClick={submitKyc}
+                      loading={submittingKyc}
+                      fullWidth
+                      disabled={!docUrl && !profile?.document_url}
+                    >
+                      Enviar para análise
+                    </Button>
+                  )}
+
+                  {kycStatus === 'PENDENTE' && (
+                    <p className="text-xs text-[#F5A623] text-center">
+                      Aguardando revisão. Você será notificado quando aprovado.
+                    </p>
+                  )}
+                </Card>
+              )}
+            </section>
+          )}
+
+          {/* ── PERFIL ───────────────────────────── */}
+          {tab === 'perfil' && (
+            <section className="max-w-lg">
+              <h2 className="font-display text-xl font-bold text-white mb-5">Meu Perfil</h2>
+
+              {/* Avatar / info rápida */}
+              <Card className="p-5 mb-4 flex items-center gap-4">
+                <div className="w-14 h-14 rounded-full bg-[#E50914] flex items-center justify-center text-xl font-bold text-white flex-shrink-0 overflow-hidden">
+                  {profile?.avatar_url
+                    ? <img src={profile.avatar_url} alt="" className="w-full h-full object-cover" />
+                    : (profile?.name?.[0]?.toUpperCase() ?? 'U')}
+                </div>
+                <div className="min-w-0">
+                  <p className="font-semibold text-white truncate">{profile?.name ?? 'Usuário'}</p>
+                  <p className="text-xs text-[#B3B3B3] truncate">{user?.email}</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <KYCStatusBadge status={kycStatus} />
+                    <span className="text-xs text-[#555]">·</span>
+                    <span className="text-xs text-[#555]">{profile?.role}</span>
+                  </div>
+                </div>
+              </Card>
+
+              {/* Formulário */}
+              <Card className="p-5 space-y-4">
+                <Input
+                  label="Nome completo"
+                  value={form.name}
+                  onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                  placeholder="Seu nome"
                 />
-              </div>
-
-              {(kycDocUrl || profile?.document_url) && !isPending && (
-                <Button
-                  onClick={submitKYC}
-                  loading={submittingKyc}
-                  fullWidth
-                >
-                  Enviar para análise
+                <Input
+                  label="Telefone / WhatsApp"
+                  value={form.phone}
+                  onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
+                  placeholder="(11) 99999-9999"
+                />
+                <div className="grid grid-cols-2 gap-3">
+                  <Input
+                    label="CPF"
+                    value={form.cpf}
+                    onChange={e => setForm(f => ({ ...f, cpf: e.target.value }))}
+                    placeholder="000.000.000-00"
+                  />
+                  <Input
+                    label="Data de nascimento"
+                    type="date"
+                    value={form.birth_date}
+                    onChange={e => setForm(f => ({ ...f, birth_date: e.target.value }))}
+                  />
+                </div>
+                <Button onClick={saveProfile} loading={saving} fullWidth>
+                  Salvar alterações
                 </Button>
-              )}
+              </Card>
 
-              {isPending && (
-                <p className="text-xs text-[#F5A623] text-center">
-                  Aguardando revisão do time LOCAFLIX. Você será notificado.
-                </p>
-              )}
-            </Card>
+              {/* Sair */}
+              <button
+                onClick={signOut}
+                className="mt-6 w-full flex items-center justify-center gap-2 text-sm text-[#666] hover:text-[#E50914] transition-colors py-2"
+              >
+                <LogOut size={14} /> Sair da conta
+              </button>
+            </section>
           )}
-        </div>
-      )}
-
-      {/* PERFIL TAB */}
-      {tab === 'perfil' && (
-        <div className="max-w-lg">
-          <h2 className="font-display text-xl font-bold text-white mb-4">Perfil</h2>
-          <Card className="p-6 space-y-4">
-            <div className="flex items-center gap-4 mb-2">
-              <div className="w-16 h-16 rounded-full bg-[#E50914] flex items-center justify-center text-2xl font-bold text-white overflow-hidden">
-                {profile?.avatar_url
-                  ? <img src={profile.avatar_url} alt="" className="w-full h-full object-cover" />
-                  : (profile?.name?.[0] ?? 'U')
-                }
-              </div>
-              <div>
-                <p className="font-semibold text-white">{profile?.name}</p>
-                <p className="text-xs text-[#B3B3B3]">{user?.email}</p>
-                <span className="text-xs font-bold bg-[#E50914]/20 text-[#E50914] px-2 py-0.5 rounded mt-1 inline-block">
-                  {profile?.role}
-                </span>
-              </div>
-            </div>
-
-            {editProfile ? (
-              <>
-                <Input label="Nome" value={profileForm.name} onChange={e => setProfileForm(f => ({ ...f, name: e.target.value }))} />
-                <Input label="Telefone" value={profileForm.phone} onChange={e => setProfileForm(f => ({ ...f, phone: e.target.value }))} />
-                <div className="flex gap-3 pt-2">
-                  <Button onClick={saveProfile}>Salvar</Button>
-                  <Button variant="ghost" onClick={() => setEditProfile(false)}>Cancelar</Button>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="grid grid-cols-2 gap-3 text-sm">
-                  <div>
-                    <p className="text-[#666]">CPF</p>
-                    <p className="text-white">{profile?.cpf ? `${profile.cpf.slice(0,3)}.***.***-${profile.cpf.slice(9)}` : '—'}</p>
-                  </div>
-                  <div>
-                    <p className="text-[#666]">Telefone</p>
-                    <p className="text-white">{profile?.phone ?? '—'}</p>
-                  </div>
-                  <div>
-                    <p className="text-[#666]">KYC</p>
-                    <KYCBadge status={profile?.kyc_status ?? 'INCOMPLETO'} />
-                  </div>
-                </div>
-                <Button variant="secondary" size="sm" onClick={() => setEditProfile(true)}>
-                  Editar perfil
-                </Button>
-              </>
-            )}
-          </Card>
-        </div>
+        </>
       )}
     </DashboardLayout>
   )
 }
 
-// ── Sub-components ──────────────────────────────────────────────────────────
+// ── Sub-components ───────────────────────────────────────────
 
-function KYCStatusBanner({ status }: { status: string }) {
-  const cfg: Record<string, { icon: React.ReactNode; bg: string; text: string; title: string; msg: string }> = {
-    APROVADO: {
-      icon: <Check size={16} />,
-      bg: 'bg-[#46D369]/10 border-[#46D369]/30',
-      text: 'text-[#46D369]',
-      title: 'Identidade verificada',
-      msg: 'Seus documentos foram aprovados. Você pode fazer reservas.',
-    },
-    PENDENTE: {
-      icon: <Clock size={16} />,
-      bg: 'bg-[#F5A623]/10 border-[#F5A623]/30',
-      text: 'text-[#F5A623]',
-      title: 'Documentos em análise',
-      msg: 'Aguarde a revisão. Você será notificado quando aprovado.',
-    },
-    REPROVADO: {
-      icon: <X size={16} />,
-      bg: 'bg-[#E50914]/10 border-[#E50914]/30',
-      text: 'text-[#E50914]',
-      title: 'Documentos reprovados',
-      msg: 'Envie novos documentos para concluir a verificação.',
-    },
-    INCOMPLETO: {
-      icon: <AlertCircle size={16} />,
-      bg: 'bg-[#2A2A2A] border-[#333]',
-      text: 'text-[#B3B3B3]',
-      title: 'Verificação pendente',
-      msg: 'Envie seu documento de identidade para liberar reservas na plataforma.',
-    },
+function EmptyState({ icon, text, children }: { icon: React.ReactNode; text: string; children?: React.ReactNode }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-20 text-center gap-4">
+      <div className="text-[#333]">{icon}</div>
+      <p className="text-[#B3B3B3] text-sm">{text}</p>
+      {children}
+    </div>
+  )
+}
+
+function BookingCard({ booking }: { booking: Booking }) {
+  const paid = booking.installments?.filter(i => i.status === 'PAGO').length ?? 0
+  const total = booking.installments?.length ?? 0
+  const next = booking.installments?.find(i => i.status === 'PENDENTE')
+  const daysLeft = next ? daysUntil(next.due_date) : null
+
+  const statusMap: Record<string, { label: string; cls: string }> = {
+    AGUARDANDO_PAGAMENTO: { label: 'Aguardando', cls: 'bg-[#F5A623]/20 text-[#F5A623]' },
+    PARCIAL:              { label: 'Parcial',    cls: 'bg-blue-500/20 text-blue-400' },
+    PAGO:                 { label: 'Pago',       cls: 'bg-[#46D369]/20 text-[#46D369]' },
+    CONCLUIDA:            { label: 'Concluída',  cls: 'bg-[#333] text-[#B3B3B3]' },
+    CANCELADA:            { label: 'Cancelada',  cls: 'bg-[#E50914]/20 text-[#E50914]' },
+  }
+  const s = statusMap[booking.status] ?? statusMap.AGUARDANDO_PAGAMENTO
+
+  return (
+    <Card className="p-4 flex gap-4 items-start">
+      <img
+        src={booking.property?.photos?.[0] ?? ''}
+        alt={booking.property?.name}
+        className="w-16 h-16 rounded-xl object-cover flex-shrink-0 bg-[#2A2A2A]"
+        onError={e => { (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=200' }}
+      />
+      <div className="flex-1 min-w-0">
+        <div className="flex items-start justify-between gap-2 flex-wrap">
+          <div className="min-w-0">
+            <p className="font-semibold text-white text-sm line-clamp-1">{booking.property?.name}</p>
+            <p className="text-xs text-[#B3B3B3] flex items-center gap-1 mt-0.5">
+              <BedDouble size={10} /> {formatShortDate(booking.check_in)} → {formatShortDate(booking.check_out)}
+              <span className="ml-1 text-[#555]">· {booking.nights}n</span>
+            </p>
+          </div>
+          <span className={`text-xs font-bold px-2 py-0.5 rounded flex-shrink-0 ${s.cls}`}>{s.label}</span>
+        </div>
+
+        {total > 0 && (
+          <div className="mt-2">
+            <div className="flex justify-between text-xs text-[#B3B3B3] mb-1">
+              <span>{paid}/{total} parcelas pagas</span>
+              <span className="font-bold text-[#F5A623]">{formatCurrency(booking.total_price)}</span>
+            </div>
+            <div className="h-1.5 bg-[#333] rounded-full overflow-hidden">
+              <div
+                className="h-full bg-[#46D369] rounded-full"
+                style={{ width: `${total > 0 ? (paid / total) * 100 : 0}%` }}
+              />
+            </div>
+            {next && daysLeft !== null && (
+              <p className={`text-xs mt-1 ${daysLeft <= 3 ? 'text-[#E50914]' : 'text-[#B3B3B3]'}`}>
+                <CreditCard size={10} className="inline mr-1" />
+                Próx.: {formatCurrency(next.value)} · vence em {daysLeft}d
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+    </Card>
+  )
+}
+
+function NotificationItem({ n }: { n: Notification }) {
+  return (
+    <div className={`flex gap-3 p-4 rounded-xl border ${n.is_read ? 'bg-transparent border-[#222]' : 'bg-[#1F1F1F] border-[#333]'}`}>
+      <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${n.is_read ? 'bg-[#333]' : 'bg-[#E50914]'}`} />
+      <div>
+        <p className="text-sm font-semibold text-white">{n.title}</p>
+        <p className="text-xs text-[#B3B3B3] mt-0.5">{n.message}</p>
+      </div>
+    </div>
+  )
+}
+
+function KYCBanner({ status }: { status: KYCStatus }) {
+  const cfg = {
+    APROVADO:   { icon: <CheckCircle  size={16} />, bg: 'bg-[#46D369]/10 border-[#46D369]/30', text: 'text-[#46D369]',   title: 'Identidade verificada', msg: 'Você pode fazer reservas normalmente.' },
+    PENDENTE:   { icon: <Clock        size={16} />, bg: 'bg-[#F5A623]/10 border-[#F5A623]/30', text: 'text-[#F5A623]',   title: 'Em análise', msg: 'Aguarde a revisão. Você será notificado.' },
+    REPROVADO:  { icon: <XCircle      size={16} />, bg: 'bg-[#E50914]/10 border-[#E50914]/30', text: 'text-[#E50914]',   title: 'Documento reprovado', msg: 'Envie um novo documento para continuar.' },
+    INCOMPLETO: { icon: <AlertTriangle size={16} />, bg: 'bg-[#2A2A2A] border-[#333]',          text: 'text-[#B3B3B3]',  title: 'Pendente', msg: 'Envie seu documento com foto para liberar reservas.' },
   }
   const c = cfg[status] ?? cfg.INCOMPLETO
   return (
@@ -360,87 +451,21 @@ function KYCStatusBanner({ status }: { status: string }) {
   )
 }
 
-function BookingRow({ booking }: { booking: Booking }) {
-  const paidInstallments = booking.installments?.filter(i => i.status === 'PAGO').length ?? 0
-  const totalInstallments = booking.installments?.length ?? 0
-  const nextPending = booking.installments?.find(i => i.status === 'PENDENTE')
-  const daysLeft = nextPending ? daysUntil(nextPending.due_date) : null
-
-  return (
-    <Card className="p-4 flex gap-4 items-start">
-      <img src={booking.property?.photos?.[0] ?? ''} alt="" className="w-16 h-16 rounded-xl object-cover flex-shrink-0" />
-      <div className="flex-1 min-w-0">
-        <div className="flex items-start justify-between gap-2 flex-wrap">
-          <div className="min-w-0">
-            <p className="font-semibold text-white text-sm line-clamp-1">{booking.property?.name}</p>
-            <p className="text-xs text-[#B3B3B3]">{formatShortDate(booking.check_in)} → {formatShortDate(booking.check_out)}</p>
-          </div>
-          <BookingStatusBadge status={booking.status} />
-        </div>
-        {totalInstallments > 0 && (
-          <div className="mt-2">
-            <div className="flex items-center justify-between text-xs text-[#B3B3B3] mb-1">
-              <span>Pagamento: {paidInstallments}/{totalInstallments} parcelas</span>
-              <span className="font-bold text-[#F5A623]">{formatCurrency(booking.total_price)}</span>
-            </div>
-            <div className="h-1.5 bg-[#333] rounded-full overflow-hidden">
-              <div
-                className="h-full bg-[#46D369] rounded-full transition-all"
-                style={{ width: `${totalInstallments > 0 ? (paidInstallments / totalInstallments) * 100 : 0}%` }}
-              />
-            </div>
-            {nextPending && daysLeft !== null && (
-              <p className={`text-xs mt-1 ${daysLeft <= 3 ? 'text-[#E50914]' : 'text-[#B3B3B3]'}`}>
-                Próx. parcela: {formatCurrency(nextPending.value)} · vence em {daysLeft}d
-              </p>
-            )}
-          </div>
-        )}
-      </div>
-    </Card>
-  )
-}
-
-function BookingStatusBadge({ status }: { status: string }) {
-  const map: Record<string, { label: string; cls: string }> = {
-    AGUARDANDO_PAGAMENTO: { label: 'Aguardando', cls: 'bg-[#F5A623]/20 text-[#F5A623]' },
-    PARCIAL: { label: 'Parcial', cls: 'bg-blue-500/20 text-blue-400' },
-    PAGO: { label: 'Pago', cls: 'bg-[#46D369]/20 text-[#46D369]' },
-    CONCLUIDA: { label: 'Concluída', cls: 'bg-[#333] text-[#B3B3B3]' },
-    CANCELADA: { label: 'Cancelada', cls: 'bg-[#E50914]/20 text-[#E50914]' },
+function KYCStatusBadge({ status }: { status: KYCStatus }) {
+  const map = {
+    APROVADO:   'text-[#46D369]',
+    PENDENTE:   'text-[#F5A623]',
+    REPROVADO:  'text-[#E50914]',
+    INCOMPLETO: 'text-[#666]',
   }
-  const { label, cls } = map[status] ?? map.AGUARDANDO_PAGAMENTO
-  return <span className={`text-xs font-bold px-2 py-0.5 rounded flex-shrink-0 ${cls}`}>{label}</span>
+  return <span className={`text-xs font-medium ${map[status] ?? 'text-[#666]'}`}>{status}</span>
 }
 
-function KYCBadge({ status }: { status: string }) {
-  const map: Record<string, string> = {
-    APROVADO: 'text-[#46D369]',
-    PENDENTE: 'text-[#F5A623]',
-    REPROVADO: 'text-[#E50914]',
-    INCOMPLETO: 'text-[#B3B3B3]',
-  }
-  return <span className={`text-sm font-medium ${map[status] ?? 'text-[#B3B3B3]'}`}>{status}</span>
-}
-
-function NotificationRow({ notification }: { notification: Notification }) {
-  return (
-    <div className={`flex gap-3 p-4 rounded-xl border transition-colors ${notification.is_read ? 'bg-transparent border-[#222]' : 'bg-[#1F1F1F] border-[#333]'}`}>
-      <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${notification.is_read ? 'bg-[#333]' : 'bg-[#E50914]'}`} />
-      <div>
-        <p className="text-sm font-semibold text-white">{notification.title}</p>
-        <p className="text-xs text-[#B3B3B3] mt-0.5">{notification.message}</p>
-      </div>
-    </div>
-  )
-}
-
-// Needed for KYCStatusBanner
+// needed as inline svg since lucide doesn't export Clock separately in all versions
 function Clock({ size }: { size: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="10" />
-      <polyline points="12 6 12 12 16 14" />
+      <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
     </svg>
   )
 }

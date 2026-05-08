@@ -24,7 +24,10 @@ export function DashboardLayout({ children, title, navItems }: DashboardLayoutPr
   const SidebarContent = () => (
     <nav className="flex flex-col gap-1 p-4">
       {navItems.map(item => {
-        const active = location.pathname === item.href || location.search.includes(item.href.split('?')[1] ?? '____')
+        const queryPart = item.href.includes('?') ? item.href.split('?')[1] : null
+      const active = queryPart
+        ? location.search.includes(queryPart)
+        : location.pathname === item.href && !location.search.includes('tab=')
         return (
           <Link
             key={item.href}

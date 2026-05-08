@@ -39,8 +39,8 @@ export function Login({ mode: initialMode = 'login' }: LoginProps) {
         navigate(dest, { replace: true })
       } else {
         await signUp(email, password, name, 'GUEST')
-        toast('success', 'Conta criada!', 'Verifique seu e-mail para confirmar o cadastro.')
-        navigate(APP_ROUTES.GUEST_DASHBOARD, { replace: true })
+        toast('success', 'Conta criada!', 'Envie seu documento para liberar reservas.')
+        navigate(`${APP_ROUTES.GUEST_DASHBOARD}?tab=documentos`, { replace: true })
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Erro desconhecido'
