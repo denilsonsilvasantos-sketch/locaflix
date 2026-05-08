@@ -95,26 +95,30 @@ export function Navbar() {
           <div className="flex items-center gap-3">
             {user ? (
               <>
-                {/* Messages */}
-                <Link
-                  to={APP_ROUTES.MESSAGES}
-                  className="hidden md:flex w-9 h-9 items-center justify-center rounded-lg text-[#B3B3B3] hover:text-white hover:bg-[#2A2A2A] transition-colors"
-                >
-                  <MessageSquare size={18} />
-                </Link>
+                {/* Messages — oculto para admin */}
+                {profile?.role !== 'ADMIN' && (
+                  <Link
+                    to={APP_ROUTES.MESSAGES}
+                    className="hidden md:flex w-9 h-9 items-center justify-center rounded-lg text-[#B3B3B3] hover:text-white hover:bg-[#2A2A2A] transition-colors"
+                  >
+                    <MessageSquare size={18} />
+                  </Link>
+                )}
 
-                {/* Notifications */}
-                <Link
-                  to={dashboardRoute}
-                  className="relative hidden md:flex w-9 h-9 items-center justify-center rounded-lg text-[#B3B3B3] hover:text-white hover:bg-[#2A2A2A] transition-colors"
-                >
-                  <Bell size={18} />
-                  {unreadCount > 0 && (
-                    <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-[#E50914] rounded-full text-[10px] font-bold flex items-center justify-center text-white">
-                      {unreadCount > 9 ? '9+' : unreadCount}
-                    </span>
-                  )}
-                </Link>
+                {/* Notifications — oculto para admin */}
+                {profile?.role !== 'ADMIN' && (
+                  <Link
+                    to={dashboardRoute}
+                    className="relative hidden md:flex w-9 h-9 items-center justify-center rounded-lg text-[#B3B3B3] hover:text-white hover:bg-[#2A2A2A] transition-colors"
+                  >
+                    <Bell size={18} />
+                    {unreadCount > 0 && (
+                      <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-[#E50914] rounded-full text-[10px] font-bold flex items-center justify-center text-white">
+                        {unreadCount > 9 ? '9+' : unreadCount}
+                      </span>
+                    )}
+                  </Link>
+                )}
 
                 {/* User menu */}
                 <div ref={userMenuRef} className="relative hidden md:block">
@@ -143,26 +147,32 @@ export function Navbar() {
                         <div className="px-4 py-3 border-b border-[#333]">
                           <p className="text-sm font-semibold text-white truncate">{profile?.name ?? 'Usuário'}</p>
                           <p className="text-xs text-[#B3B3B3] truncate">{user.email}</p>
-                        </div>
-                        <div className="py-1">
-                          <MenuLink to={APP_ROUTES.GUEST_DASHBOARD} icon={<User size={14} />} label="Minha conta" />
-                          <MenuLink to={APP_ROUTES.MESSAGES} icon={<MessageSquare size={14} />} label="Mensagens" />
-                          <MenuLink to={`${APP_ROUTES.GUEST_DASHBOARD}?tab=favoritos`} icon={<Heart size={14} />} label="Favoritos" />
-                          <MenuLink to={`${APP_ROUTES.GUEST_DASHBOARD}?tab=perfil`} icon={<Settings size={14} />} label="Configurações" />
-                          {(profile?.role === 'OWNER' || profile?.role === 'ADMIN') && (
-                            <>
-                              <div className="mx-4 my-1 h-px bg-[#333]" />
-                              <MenuLink to={APP_ROUTES.OWNER_DASHBOARD} icon={<Home size={14} className="text-[#F5A623]" />} label="Painel Anfitrião" />
-                              <MenuLink to={APP_ROUTES.NEW_PROPERTY} icon={<span className="text-[#F5A623] font-bold">+</span>} label="Cadastrar imóvel" />
-                            </>
-                          )}
                           {profile?.role === 'ADMIN' && (
-                            <>
-                              <div className="mx-4 my-1 h-px bg-[#333]" />
-                              <MenuLink to={APP_ROUTES.ADMIN_DASHBOARD} icon={<Settings size={14} className="text-[#E50914]" />} label="Admin" />
-                            </>
+                            <span className="inline-block mt-1 text-[10px] font-bold text-[#E50914] bg-[#E50914]/10 px-2 py-0.5 rounded">ADMIN</span>
                           )}
                         </div>
+
+                        {/* Menu simplificado para ADMIN */}
+                        {profile?.role === 'ADMIN' ? (
+                          <div className="py-1">
+                            <MenuLink to={APP_ROUTES.ADMIN_DASHBOARD} icon={<Settings size={14} className="text-[#E50914]" />} label="Painel Administrativo" />
+                          </div>
+                        ) : (
+                          <div className="py-1">
+                            <MenuLink to={APP_ROUTES.GUEST_DASHBOARD} icon={<User size={14} />} label="Minha conta" />
+                            <MenuLink to={APP_ROUTES.MESSAGES} icon={<MessageSquare size={14} />} label="Mensagens" />
+                            <MenuLink to={`${APP_ROUTES.GUEST_DASHBOARD}?tab=favoritos`} icon={<Heart size={14} />} label="Favoritos" />
+                            <MenuLink to={`${APP_ROUTES.GUEST_DASHBOARD}?tab=perfil`} icon={<Settings size={14} />} label="Configurações" />
+                            {profile?.role === 'OWNER' && (
+                              <>
+                                <div className="mx-4 my-1 h-px bg-[#333]" />
+                                <MenuLink to={APP_ROUTES.OWNER_DASHBOARD} icon={<Home size={14} className="text-[#F5A623]" />} label="Painel Anfitrião" />
+                                <MenuLink to={APP_ROUTES.NEW_PROPERTY} icon={<span className="text-[#F5A623] font-bold">+</span>} label="Cadastrar imóvel" />
+                              </>
+                            )}
+                          </div>
+                        )}
+
                         <div className="border-t border-[#333] py-1">
                           <button
                             onClick={handleSignOut}
@@ -221,9 +231,15 @@ export function Navbar() {
               <MobileLink to={`${APP_ROUTES.HOME}?tipo=cidade`} label="Cidade" />
               {user ? (
                 <>
-                  <MobileLink to={dashboardRoute} label="Minha conta" />
-                  <MobileLink to={APP_ROUTES.MESSAGES} label="Mensagens" />
-                  <MobileLink to={APP_ROUTES.NEW_PROPERTY} label="+ Anuncie seu imóvel" />
+                  {profile?.role === 'ADMIN' ? (
+                    <MobileLink to={APP_ROUTES.ADMIN_DASHBOARD} label="Painel Administrativo" />
+                  ) : (
+                    <>
+                      <MobileLink to={dashboardRoute} label="Minha conta" />
+                      <MobileLink to={APP_ROUTES.MESSAGES} label="Mensagens" />
+                      <MobileLink to={APP_ROUTES.NEW_PROPERTY} label="+ Anuncie seu imóvel" />
+                    </>
+                  )}
                   <button
                     onClick={handleSignOut}
                     className="text-left text-sm text-[#E50914] py-2 px-3 rounded-lg hover:bg-[#2A2A2A] transition-colors"
