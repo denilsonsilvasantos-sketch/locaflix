@@ -74,10 +74,10 @@ export default function App() {
               </ProtectedRoute>
             } />
 
-            {/* ADMIN dashboard */}
+            {/* ADMIN dashboard — standalone, no Navbar/Footer */}
             <Route path={`${APP_ROUTES.ADMIN_DASHBOARD}/*`} element={
               <ProtectedRoute roles={['ADMIN']}>
-                <AppLayout><AdminDashboard /></AppLayout>
+                <AdminDashboard />
               </ProtectedRoute>
             } />
 
