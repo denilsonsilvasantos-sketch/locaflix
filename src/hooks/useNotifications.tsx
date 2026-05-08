@@ -18,36 +18,51 @@ export function useNotifications() {
     const userId = user.id
     let active = true
 
-    supabase
+    // Fetch initial notifications
+    void supabase
       .from('notifications')
       .select('*')
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(50)
-      .then(({ data }) => {
-        if (active && data) {
-          setNotifications(data as Notification[])
-          setUnreadCount(data.filter(n => !n.is_read).length)
-        }
+      .then(({ data, error }) => {
+        if (!active || error || !data) return
+        setNotifications(data as Notification[])
+        setUnreadCount(data.filter(n => !n.is_read).length)
       })
 
-    const channel = supabase
-      .channel(`notifications:${userId}`)
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${userId}` },
-        payload => {
-          if (!active) return
-          const n = payload.new as Notification
-          setNotifications(prev => [n, ...prev])
-          setUnreadCount(c => c + 1)
-        },
-      )
-      .subscribe()
+    // Realtime — channel name includes timestamp to avoid reuse errors
+    const channelName = `notifications-${userId}-${Date.now()}`
+    let channel: ReturnType<typeof supabase.channel> | null = null
+
+    try {
+      channel = supabase
+        .channel(channelName)
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'notifications',
+            filter: `user_id=eq.${userId}`,
+          },
+          payload => {
+            if (!active) return
+            const n = payload.new as Notification
+            setNotifications(prev => [n, ...prev])
+            setUnreadCount(c => c + 1)
+          },
+        )
+        .subscribe((_status, err) => {
+          if (err) console.warn('[notifications realtime]', err)
+        })
+    } catch (err) {
+      console.warn('[notifications] failed to subscribe:', err)
+    }
 
     return () => {
       active = false
-      supabase.removeChannel(channel)
+      if (channel) supabase.removeChannel(channel).catch(() => {})
     }
   }, [user?.id])
 
