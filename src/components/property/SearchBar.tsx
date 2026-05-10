@@ -1,10 +1,9 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, MapPin, Calendar, Users, ChevronDown, X } from 'lucide-react'
+import { Search, MapPin, Calendar, Users, ChevronDown, X, Check } from 'lucide-react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { supabase } from '../../lib/supabase'
-import { Button } from '../ui/Button'
 import { DateRangePicker } from '../ui/DateRangePicker'
 import { APP_ROUTES, BRASIL_STATES } from '../../constants'
 import { MOCK_PROPERTIES } from '../../constants/mocks'
@@ -50,26 +49,26 @@ function Counter({
   label, sub, value, min = 0, max = 20, onChange,
 }: { label: string; sub: string; value: number; min?: number; max?: number; onChange: (v: number) => void }) {
   return (
-    <div className="flex items-center justify-between py-3 border-b border-[#2A2A2A] last:border-0">
+    <div className="flex items-center justify-between py-3.5 border-b border-[#2A2A2A] last:border-0">
       <div>
         <p className="text-sm font-medium text-white">{label}</p>
         <p className="text-xs text-[#666]">{sub}</p>
       </div>
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-4">
         <button
           type="button"
           onClick={() => onChange(Math.max(min, value - 1))}
           disabled={value <= min}
-          className="w-8 h-8 rounded-full border border-[#444] flex items-center justify-center text-white hover:border-[#888] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+          className="w-9 h-9 rounded-full border border-[#444] flex items-center justify-center text-white text-lg hover:border-[#E50914] hover:text-[#E50914] transition-colors disabled:opacity-25 disabled:cursor-not-allowed"
         >
           −
         </button>
-        <span className="w-4 text-center text-sm font-semibold text-white">{value}</span>
+        <span className="w-5 text-center text-base font-semibold text-white tabular-nums">{value}</span>
         <button
           type="button"
           onClick={() => onChange(Math.min(max, value + 1))}
           disabled={value >= max}
-          className="w-8 h-8 rounded-full border border-[#444] flex items-center justify-center text-white hover:border-[#888] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+          className="w-9 h-9 rounded-full border border-[#444] flex items-center justify-center text-white text-lg hover:border-[#E50914] hover:text-[#E50914] transition-colors disabled:opacity-25 disabled:cursor-not-allowed"
         >
           +
         </button>
@@ -100,6 +99,64 @@ function buildLocationMap(items: { state: string; city: string; neighborhood: st
   return map
 }
 
+// ── Bottom Sheet para mobile ──────────────────────────────────────────────────
+function BottomSheet({
+  open,
+  onClose,
+  title,
+  children,
+}: {
+  open: boolean
+  onClose: () => void
+  title: string
+  children: React.ReactNode
+}) {
+  useEffect(() => {
+    if (open) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = ''
+    }
+    return () => { document.body.style.overflow = '' }
+  }, [open])
+
+  if (!open) return null
+
+  return (
+    <div className="fixed inset-0 z-[100] md:hidden">
+      {/* Backdrop */}
+      <div
+        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+        onClick={onClose}
+      />
+      {/* Sheet */}
+      <div
+        className="absolute bottom-0 left-0 right-0 bg-[#1A1A1A] rounded-t-3xl"
+        style={{ maxHeight: '90vh', overflowY: 'auto' }}
+      >
+        {/* Handle */}
+        <div className="flex justify-center pt-3 pb-1">
+          <div className="w-10 h-1 bg-[#444] rounded-full" />
+        </div>
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-3 border-b border-[#2A2A2A]">
+          <h3 className="text-base font-semibold text-white">{title}</h3>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 rounded-full bg-[#2A2A2A] flex items-center justify-center text-[#B3B3B3] hover:text-white"
+          >
+            <X size={16} />
+          </button>
+        </div>
+        {/* Content */}
+        <div className="px-5 py-4 pb-8">
+          {children}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export function SearchBar({ compact = false, defaultValues }: SearchBarProps) {
   const navigate = useNavigate()
 
@@ -120,7 +177,6 @@ export function SearchBar({ compact = false, defaultValues }: SearchBarProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   useOutsideClick(containerRef, () => setPanel(null))
 
-  // Load available states/cities/neighborhoods from DB (or mocks as fallback)
   useEffect(() => {
     async function load() {
       const { data } = await supabase
@@ -135,28 +191,46 @@ export function SearchBar({ compact = false, defaultValues }: SearchBarProps) {
     load()
   }, [])
 
+  // ── Busca automática ao mudar qualquer filtro ────────────────────────────
+  const doSearch = useCallback((
+    _estado: string, _cidade: string, _bairro: string,
+    _checkIn: string, _checkOut: string, _guests: GuestsState
+  ) => {
+    const params = new URLSearchParams()
+    if (_estado) params.set('estado', _estado)
+    if (_cidade) params.set('cidade', _cidade)
+    if (_bairro) params.set('bairro', _bairro)
+    if (_checkIn) params.set('entrada', _checkIn)
+    if (_checkOut) params.set('saida', _checkOut)
+    const total = _guests.adults + _guests.children
+    if (total > 0) params.set('hospedes', String(total))
+    if (_guests.babies > 0) params.set('bebes', String(_guests.babies))
+    if (_guests.pets > 0) params.set('pets', String(_guests.pets))
+    navigate(`${APP_ROUTES.HOME}?${params.toString()}`)
+  }, [navigate])
+
+  // Watchers — dispara busca ao mudar qualquer valor
+  useEffect(() => {
+    if (estado || cidade || bairro || checkIn || checkOut) {
+      doSearch(estado, cidade, bairro, checkIn, checkOut, guests)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [estado, cidade, bairro, checkIn, checkOut])
+
   function togglePanel(p: Panel) {
     setPanel(prev => (prev === p ? null : p))
   }
 
-  function buildParams() {
-    const params = new URLSearchParams()
-    if (estado) params.set('estado', estado)
-    if (cidade) params.set('cidade', cidade)
-    if (bairro) params.set('bairro', bairro)
-    if (checkIn) params.set('entrada', checkIn)
-    if (checkOut) params.set('saida', checkOut)
-    const totalGuests = guests.adults + guests.children
-    if (totalGuests > 0) params.set('hospedes', String(totalGuests))
-    if (guests.babies > 0) params.set('bebes', String(guests.babies))
-    if (guests.pets > 0) params.set('pets', String(guests.pets))
-    return params
+  function clearDestino(e: React.MouseEvent) {
+    e.stopPropagation()
+    setEstado(''); setCidade(''); setBairro('')
+    doSearch('', '', '', checkIn, checkOut, guests)
   }
 
-  function handleSearch(e?: React.FormEvent) {
-    e?.preventDefault()
-    setPanel(null)
-    navigate(`${APP_ROUTES.HOME}?${buildParams().toString()}`)
+  function clearDatas(e: React.MouseEvent) {
+    e.stopPropagation()
+    setCheckIn(''); setCheckOut('')
+    doSearch(estado, cidade, bairro, '', '', guests)
   }
 
   const dateLabel = (() => {
@@ -178,10 +252,11 @@ export function SearchBar({ compact = false, defaultValues }: SearchBarProps) {
     return parts.join(', ') || null
   })()
 
-  const selectedStateName = estado ? (locationMap[estado]?.name ?? BRASIL_STATES.find(s => s.uf === estado)?.name ?? estado) : null
+  const selectedStateName = estado
+    ? (locationMap[estado]?.name ?? BRASIL_STATES.find(s => s.uf === estado)?.name ?? estado)
+    : null
   const destinoLabel = [selectedStateName, cidade, bairro].filter(Boolean).join(', ') || null
 
-  // Derived lists
   const availableStates = Object.entries(locationMap).sort((a, b) => b[1].count - a[1].count)
   const availableCities = estado && locationMap[estado]
     ? Object.entries(locationMap[estado].cities).sort((a, b) => b[1].count - a[1].count)
@@ -190,227 +265,261 @@ export function SearchBar({ compact = false, defaultValues }: SearchBarProps) {
     ? locationMap[estado].cities[cidade].neighborhoods.sort()
     : []
 
+  // ── Conteúdo do painel Destino (reutilizado em mobile e desktop) ─────────
+  const destinoContent = (
+    <div className="space-y-4">
+      {/* Estado */}
+      <div>
+        <p className="text-xs font-semibold text-[#B3B3B3] uppercase tracking-wide mb-2">Estado</p>
+        {availableStates.length === 0 ? (
+          <p className="text-xs text-[#555]">Carregando...</p>
+        ) : (
+          <div className="relative">
+            <select
+              value={estado}
+              onChange={e => { setEstado(e.target.value); setCidade(''); setBairro('') }}
+              className="w-full bg-[#2A2A2A] border border-[#333] rounded-xl px-4 py-3 text-sm text-white outline-none focus:ring-2 focus:ring-[#E50914] appearance-none cursor-pointer"
+            >
+              <option value="">Selecione um estado</option>
+              {availableStates.map(([uf, data]) => (
+                <option key={uf} value={uf}>
+                  {data.name} ({data.count} {data.count === 1 ? 'imóvel' : 'imóveis'})
+                </option>
+              ))}
+            </select>
+            <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#666] pointer-events-none" />
+          </div>
+        )}
+      </div>
+
+      {/* Cidade */}
+      {estado && availableCities.length > 0 && (
+        <div>
+          <p className="text-xs font-semibold text-[#B3B3B3] uppercase tracking-wide mb-2">Cidade</p>
+          <div className="relative">
+            <select
+              value={cidade}
+              onChange={e => { setCidade(e.target.value); setBairro('') }}
+              className="w-full bg-[#2A2A2A] border border-[#333] rounded-xl px-4 py-3 text-sm text-white outline-none focus:ring-2 focus:ring-[#E50914] appearance-none cursor-pointer"
+            >
+              <option value="">Selecione uma cidade</option>
+              {availableCities.map(([city, data]) => (
+                <option key={city} value={city}>
+                  {city} ({data.count} {data.count === 1 ? 'imóvel' : 'imóveis'})
+                </option>
+              ))}
+            </select>
+            <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#666] pointer-events-none" />
+          </div>
+        </div>
+      )}
+
+      {/* Bairro */}
+      {estado && cidade && availableNeighborhoods.length > 0 && (
+        <div>
+          <p className="text-xs font-semibold text-[#B3B3B3] uppercase tracking-wide mb-2">
+            Bairro <span className="text-[#555] normal-case font-normal">(opcional)</span>
+          </p>
+          <div className="relative">
+            <select
+              value={bairro}
+              onChange={e => setBairro(e.target.value)}
+              className="w-full bg-[#2A2A2A] border border-[#333] rounded-xl px-4 py-3 text-sm text-white outline-none focus:ring-2 focus:ring-[#E50914] appearance-none cursor-pointer"
+            >
+              <option value="">Qualquer bairro</option>
+              {availableNeighborhoods.map(n => (
+                <option key={n} value={n}>{n}</option>
+              ))}
+            </select>
+            <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#666] pointer-events-none" />
+          </div>
+        </div>
+      )}
+
+      <button
+        type="button"
+        onClick={() => setPanel(null)}
+        className="w-full py-3 bg-[#E50914] hover:bg-[#F40612] text-white text-sm font-semibold rounded-xl transition-colors flex items-center justify-center gap-2"
+      >
+        <Check size={16} /> Confirmar destino
+      </button>
+    </div>
+  )
+
+  // ── Conteúdo do painel Hóspedes ──────────────────────────────────────────
+  const hospedesContent = (
+    <div>
+      <Counter label="Adultos" sub="13 anos ou mais" value={guests.adults} min={1}
+        onChange={v => setGuests(g => ({ ...g, adults: v }))} />
+      <Counter label="Crianças" sub="2 a 12 anos" value={guests.children}
+        onChange={v => setGuests(g => ({ ...g, children: v }))} />
+      <Counter label="Bebês" sub="Menos de 2 anos" value={guests.babies}
+        onChange={v => setGuests(g => ({ ...g, babies: v }))} />
+      <Counter label="Pets" sub="Animais de estimação" value={guests.pets}
+        onChange={v => setGuests(g => ({ ...g, pets: v }))} />
+      <button
+        type="button"
+        onClick={() => {
+          setPanel(null)
+          doSearch(estado, cidade, bairro, checkIn, checkOut, guests)
+        }}
+        className="w-full mt-5 py-3 bg-[#E50914] hover:bg-[#F40612] text-white text-sm font-semibold rounded-xl transition-colors flex items-center justify-center gap-2"
+      >
+        <Check size={16} /> Confirmar hóspedes
+      </button>
+    </div>
+  )
+
+  // ── Compact mode ──────────────────────────────────────────────────────────
   if (compact) {
     return (
-      <form onSubmit={handleSearch} className="flex items-center gap-2 bg-[#1F1F1F] border border-[#333] rounded-full px-4 py-2">
+      <button
+        onClick={() => togglePanel('destino')}
+        className="flex items-center gap-2 bg-[#1F1F1F] border border-[#333] rounded-full px-4 py-2 w-full"
+      >
         <Search size={16} className="text-[#666]" />
-        <span className="text-sm text-white flex-1 truncate">
+        <span className="text-sm text-white flex-1 truncate text-left">
           {destinoLabel ?? 'Para onde você vai?'}
         </span>
-        <button type="submit" className="bg-[#E50914] text-white text-xs font-semibold px-3 py-1.5 rounded-full hover:bg-[#F40612] transition-colors flex-shrink-0">
-          Buscar
-        </button>
-      </form>
+      </button>
     )
   }
 
   return (
-    <div ref={containerRef} className="relative w-full">
-      <form
-        onSubmit={handleSearch}
-        className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-2 flex flex-col md:flex-row gap-2"
-      >
-        {/* ── Destino ── */}
-        <button
-          type="button"
-          onClick={() => togglePanel('destino')}
-          className={`flex items-center gap-3 flex-1 bg-[#1F1F1F]/80 rounded-xl px-4 py-3 text-left transition-all ${panel === 'destino' ? 'ring-2 ring-[#E50914]' : 'hover:bg-[#2A2A2A]/80'}`}
-        >
-          <MapPin size={18} className="text-[#E50914] flex-shrink-0" />
-          <div className="flex-1 min-w-0">
-            <p className="text-[10px] font-semibold text-[#B3B3B3] uppercase tracking-wide">Destino</p>
-            <p className="text-sm truncate mt-0.5 font-medium" style={{ color: destinoLabel ? 'white' : '#666' }}>
-              {destinoLabel ?? 'Estado, cidade ou bairro'}
-            </p>
-          </div>
-          {destinoLabel && (
-            <button
-              type="button"
-              onClick={e => { e.stopPropagation(); setEstado(''); setCidade(''); setBairro('') }}
-              className="text-[#555] hover:text-white transition-colors flex-shrink-0"
-            >
-              <X size={14} />
-            </button>
-          )}
-        </button>
+    <>
+      <div ref={containerRef} className="relative w-full">
+        {/* ── Barra principal ─────────────────────────────────────────────── */}
+        <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-2 flex flex-col md:flex-row gap-2">
 
-        {/* ── Datas ── */}
-        <button
-          type="button"
-          onClick={() => togglePanel('datas')}
-          className={`flex items-center gap-3 md:w-52 bg-[#1F1F1F]/80 rounded-xl px-4 py-3 text-left transition-all ${panel === 'datas' ? 'ring-2 ring-[#E50914]' : 'hover:bg-[#2A2A2A]/80'}`}
-        >
-          <Calendar size={18} className="text-[#E50914] flex-shrink-0" />
-          <div className="flex-1 min-w-0">
-            <p className="text-[10px] font-semibold text-[#B3B3B3] uppercase tracking-wide">Datas</p>
-            <p className="text-sm truncate mt-0.5 font-medium" style={{ color: dateLabel ? 'white' : '#666' }}>
-              {dateLabel ?? 'Check-in → Check-out'}
-            </p>
-          </div>
-          {dateLabel && (
-            <button
-              type="button"
-              onClick={e => { e.stopPropagation(); setCheckIn(''); setCheckOut('') }}
-              className="text-[#555] hover:text-white transition-colors flex-shrink-0"
-            >
-              <X size={14} />
-            </button>
-          )}
-        </button>
-
-        {/* ── Hóspedes ── */}
-        <button
-          type="button"
-          onClick={() => togglePanel('hospedes')}
-          className={`flex items-center gap-3 md:w-44 bg-[#1F1F1F]/80 rounded-xl px-4 py-3 text-left transition-all ${panel === 'hospedes' ? 'ring-2 ring-[#E50914]' : 'hover:bg-[#2A2A2A]/80'}`}
-        >
-          <Users size={18} className="text-[#E50914] flex-shrink-0" />
-          <div className="flex-1 min-w-0">
-            <p className="text-[10px] font-semibold text-[#B3B3B3] uppercase tracking-wide">Hóspedes</p>
-            <p className="text-sm truncate mt-0.5 font-medium" style={{ color: guestsLabel ? 'white' : '#666' }}>
-              {guestsLabel ?? 'Adicionar hóspedes'}
-            </p>
-          </div>
-          <ChevronDown size={14} className={`text-[#666] flex-shrink-0 transition-transform ${panel === 'hospedes' ? 'rotate-180' : ''}`} />
-        </button>
-
-        {/* ── Search button ── */}
-        <Button type="submit" size="lg" className="rounded-xl px-8 flex-shrink-0">
-          <Search size={18} />
-          Buscar
-        </Button>
-      </form>
-
-      {/* ── Destino panel ── */}
-      {panel === 'destino' && (
-        <div className="absolute top-full left-0 mt-2 z-50 w-full md:w-96 bg-[#1A1A1A] border border-[#333] rounded-2xl shadow-2xl p-5">
-
-          {/* Estado */}
-          <p className="text-xs font-semibold text-[#B3B3B3] uppercase tracking-wide mb-2">Estado</p>
-          {availableStates.length === 0 ? (
-            <p className="text-xs text-[#555] mb-4">Carregando...</p>
-          ) : (
-            <div className="relative mb-4">
-              <select
-                value={estado}
-                onChange={e => { setEstado(e.target.value); setCidade(''); setBairro('') }}
-                className="w-full bg-[#2A2A2A] border border-[#333] rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:ring-2 focus:ring-[#E50914] appearance-none cursor-pointer"
-              >
-                <option value="">Selecione um estado</option>
-                {availableStates.map(([uf, data]) => (
-                  <option key={uf} value={uf}>
-                    {data.name} ({data.count} {data.count === 1 ? 'imóvel' : 'imóveis'})
-                  </option>
-                ))}
-              </select>
-              <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#666] pointer-events-none" />
-            </div>
-          )}
-
-          {/* Cidade */}
-          {estado && availableCities.length > 0 && (
-            <>
-              <p className="text-xs font-semibold text-[#B3B3B3] uppercase tracking-wide mb-2">Cidade</p>
-              <div className="relative mb-4">
-                <select
-                  value={cidade}
-                  onChange={e => { setCidade(e.target.value); setBairro('') }}
-                  autoFocus
-                  className="w-full bg-[#2A2A2A] border border-[#333] rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:ring-2 focus:ring-[#E50914] appearance-none cursor-pointer"
-                >
-                  <option value="">Selecione uma cidade</option>
-                  {availableCities.map(([city, data]) => (
-                    <option key={city} value={city}>
-                      {city} ({data.count} {data.count === 1 ? 'imóvel' : 'imóveis'})
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#666] pointer-events-none" />
-              </div>
-            </>
-          )}
-
-          {/* Bairro */}
-          {estado && cidade && availableNeighborhoods.length > 0 && (
-            <>
-              <p className="text-xs font-semibold text-[#B3B3B3] uppercase tracking-wide mb-2">
-                Bairro <span className="text-[#555] normal-case font-normal">(opcional)</span>
+          {/* Destino */}
+          <button
+            type="button"
+            onClick={() => togglePanel('destino')}
+            className={`flex items-center gap-3 flex-1 bg-[#1F1F1F]/80 rounded-xl px-4 py-3 text-left transition-all ${panel === 'destino' ? 'ring-2 ring-[#E50914]' : 'hover:bg-[#2A2A2A]/80'}`}
+          >
+            <MapPin size={18} className="text-[#E50914] flex-shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-[10px] font-semibold text-[#B3B3B3] uppercase tracking-wide">Destino</p>
+              <p className="text-sm truncate mt-0.5 font-medium" style={{ color: destinoLabel ? 'white' : '#666' }}>
+                {destinoLabel ?? 'Estado, cidade ou bairro'}
               </p>
-              <div className="relative mb-4">
-                <select
-                  value={bairro}
-                  onChange={e => setBairro(e.target.value)}
-                  className="w-full bg-[#2A2A2A] border border-[#333] rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:ring-2 focus:ring-[#E50914] appearance-none cursor-pointer"
-                >
-                  <option value="">Qualquer bairro</option>
-                  {availableNeighborhoods.map(n => (
-                    <option key={n} value={n}>{n}</option>
-                  ))}
-                </select>
-                <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#666] pointer-events-none" />
-              </div>
-            </>
-          )}
+            </div>
+            {destinoLabel && (
+              <button type="button" onClick={clearDestino} className="text-[#555] hover:text-white transition-colors flex-shrink-0">
+                <X size={14} />
+              </button>
+            )}
+          </button>
 
+          {/* Datas */}
           <button
             type="button"
-            onClick={() => setPanel(null)}
-            className="w-full mt-1 py-2 bg-[#E50914] hover:bg-[#F40612] text-white text-sm font-semibold rounded-xl transition-colors"
+            onClick={() => togglePanel('datas')}
+            className={`flex items-center gap-3 md:w-52 bg-[#1F1F1F]/80 rounded-xl px-4 py-3 text-left transition-all ${panel === 'datas' ? 'ring-2 ring-[#E50914]' : 'hover:bg-[#2A2A2A]/80'}`}
           >
-            Confirmar
+            <Calendar size={18} className="text-[#E50914] flex-shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-[10px] font-semibold text-[#B3B3B3] uppercase tracking-wide">Datas</p>
+              <p className="text-sm truncate mt-0.5 font-medium" style={{ color: dateLabel ? 'white' : '#666' }}>
+                {dateLabel ?? 'Check-in → Check-out'}
+              </p>
+            </div>
+            {dateLabel && (
+              <button type="button" onClick={clearDatas} className="text-[#555] hover:text-white transition-colors flex-shrink-0">
+                <X size={14} />
+              </button>
+            )}
           </button>
-        </div>
-      )}
 
-      {/* ── Datas panel ── */}
-      {panel === 'datas' && (
-        <div className="absolute top-full left-0 mt-2 z-50 w-full md:max-w-2xl">
-          <DateRangePicker
-            from={checkIn}
-            to={checkOut}
-            onChange={(f, t) => { setCheckIn(f); setCheckOut(t) }}
-            onClose={() => setPanel(null)}
-          />
-        </div>
-      )}
-
-      {/* ── Hóspedes panel ── */}
-      {panel === 'hospedes' && (
-        <div className="absolute top-full right-0 mt-2 z-50 w-80 bg-[#1A1A1A] border border-[#333] rounded-2xl shadow-2xl p-5">
-          <Counter
-            label="Adultos"
-            sub="13 anos ou mais"
-            value={guests.adults}
-            min={1}
-            onChange={v => setGuests(g => ({ ...g, adults: v }))}
-          />
-          <Counter
-            label="Crianças"
-            sub="2 a 12 anos"
-            value={guests.children}
-            onChange={v => setGuests(g => ({ ...g, children: v }))}
-          />
-          <Counter
-            label="Bebês"
-            sub="Menos de 2 anos"
-            value={guests.babies}
-            onChange={v => setGuests(g => ({ ...g, babies: v }))}
-          />
-          <Counter
-            label="Pets"
-            sub="Animais de estimação"
-            value={guests.pets}
-            onChange={v => setGuests(g => ({ ...g, pets: v }))}
-          />
+          {/* Hóspedes */}
           <button
             type="button"
-            onClick={() => setPanel(null)}
-            className="w-full mt-4 py-2 bg-[#E50914] hover:bg-[#F40612] text-white text-sm font-semibold rounded-xl transition-colors"
+            onClick={() => togglePanel('hospedes')}
+            className={`flex items-center gap-3 md:w-44 bg-[#1F1F1F]/80 rounded-xl px-4 py-3 text-left transition-all ${panel === 'hospedes' ? 'ring-2 ring-[#E50914]' : 'hover:bg-[#2A2A2A]/80'}`}
           >
-            Confirmar
+            <Users size={18} className="text-[#E50914] flex-shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-[10px] font-semibold text-[#B3B3B3] uppercase tracking-wide">Hóspedes</p>
+              <p className="text-sm truncate mt-0.5 font-medium" style={{ color: guestsLabel ? 'white' : '#666' }}>
+                {guestsLabel ?? 'Adicionar hóspedes'}
+              </p>
+            </div>
+            <ChevronDown size={14} className={`text-[#666] flex-shrink-0 transition-transform ${panel === 'hospedes' ? 'rotate-180' : ''}`} />
+          </button>
+
+          {/* Botão buscar — visível só no desktop como atalho */}
+          <button
+            type="button"
+            onClick={() => doSearch(estado, cidade, bairro, checkIn, checkOut, guests)}
+            className="hidden md:flex items-center gap-2 bg-[#E50914] hover:bg-[#F40612] text-white font-semibold px-6 rounded-xl transition-colors flex-shrink-0"
+          >
+            <Search size={18} />
+            Buscar
           </button>
         </div>
-      )}
-    </div>
+
+        {/* ── Dropdowns desktop (md+) ──────────────────────────────────────── */}
+
+        {/* Destino — desktop */}
+        {panel === 'destino' && (
+          <div className="hidden md:block absolute top-full left-0 mt-2 z-50 w-96 bg-[#1A1A1A] border border-[#333] rounded-2xl shadow-2xl p-5">
+            {destinoContent}
+          </div>
+        )}
+
+        {/* Datas — desktop */}
+        {panel === 'datas' && (
+          <div className="hidden md:block absolute top-full left-0 mt-2 z-50 w-full max-w-2xl">
+            <DateRangePicker
+              from={checkIn}
+              to={checkOut}
+              onChange={(f, t) => { setCheckIn(f); setCheckOut(t) }}
+              onClose={() => setPanel(null)}
+            />
+          </div>
+        )}
+
+        {/* Hóspedes — desktop */}
+        {panel === 'hospedes' && (
+          <div className="hidden md:block absolute top-full right-0 mt-2 z-50 w-80 bg-[#1A1A1A] border border-[#333] rounded-2xl shadow-2xl p-5">
+            {hospedesContent}
+          </div>
+        )}
+      </div>
+
+      {/* ── Bottom Sheets mobile (< md) ──────────────────────────────────────── */}
+
+      {/* Destino */}
+      <BottomSheet
+        open={panel === 'destino'}
+        onClose={() => setPanel(null)}
+        title="Para onde você vai?"
+      >
+        {destinoContent}
+      </BottomSheet>
+
+      {/* Datas */}
+      <BottomSheet
+        open={panel === 'datas'}
+        onClose={() => setPanel(null)}
+        title="Escolha as datas"
+      >
+        <DateRangePicker
+          from={checkIn}
+          to={checkOut}
+          onChange={(f, t) => { setCheckIn(f); setCheckOut(t) }}
+          onClose={() => setPanel(null)}
+        />
+      </BottomSheet>
+
+      {/* Hóspedes */}
+      <BottomSheet
+        open={panel === 'hospedes'}
+        onClose={() => setPanel(null)}
+        title="Hóspedes"
+      >
+        {hospedesContent}
+      </BottomSheet>
+    </>
   )
 }
