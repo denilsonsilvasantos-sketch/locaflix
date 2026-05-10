@@ -200,6 +200,22 @@ async function asaasRequest(method: string, path: string, body?: unknown) {
   return data
 }
 
+// ---- GET /auth/callback — Supabase email confirmation ----
+app.get('/auth/callback', async (req: Request, res: Response) => {
+  const code = req.query.code as string | undefined
+
+  if (code) {
+    const { createClient } = await import('@supabase/supabase-js')
+    const supabase = createClient(
+      process.env.SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    )
+    await supabase.auth.exchangeCodeForSession(code)
+  }
+
+  res.redirect('/')
+})
+
 // ---- Static files — serve dist/ when the built index.html exists ----
 const distDir = path.join(__dirname, '..')
 const distIndex = path.join(distDir, 'index.html')
