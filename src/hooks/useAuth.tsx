@@ -93,7 +93,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { name, role } },
+      options: {
+        data: { name, role },
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
+      },
     })
     if (error) throw error
 

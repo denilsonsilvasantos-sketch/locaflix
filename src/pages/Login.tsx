@@ -37,7 +37,7 @@ const EMPTY_FORM: RegisterForm = {
 }
 
 export function Login({ mode: initialMode = 'login' }: LoginProps) {
-  const [mode, setMode] = useState(initialMode)
+  const [mode, setMode] = useState<'login' | 'register' | 'verify'>(initialMode)
   const [step, setStep] = useState<1 | 2>(1)
 
   // login fields
@@ -124,8 +124,8 @@ export function Login({ mode: initialMode = 'login' }: LoginProps) {
         city: form.city || undefined,
         state: form.state || undefined,
       })
-      toast('success', 'Conta criada!', 'Envie seu documento para liberar reservas.')
-      navigate(`${APP_ROUTES.GUEST_DASHBOARD}?tab=documentos`, { replace: true })
+      toast('success', 'Conta criada!', 'Verifique seu e-mail para ativar sua conta.')
+      setMode('verify')
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Erro desconhecido'
       toast('error', 'Erro', translateAuthError(msg))
@@ -143,7 +143,7 @@ export function Login({ mode: initialMode = 'login' }: LoginProps) {
     }
   }
 
-  function switchMode(m: 'login' | 'register') {
+  function switchMode(m: 'login' | 'register' | 'verify') {
     setMode(m)
     setStep(1)
     setForm(EMPTY_FORM)
@@ -343,6 +343,28 @@ export function Login({ mode: initialMode = 'login' }: LoginProps) {
               </p>
             </>
           )}
+          {/* ── VERIFICAR EMAIL ─────────────────── */}
+          {mode === 'verify' && (
+            <div className="text-center py-4">
+              <div className="text-5xl mb-4">📬</div>
+              <h1 className="font-display text-2xl font-bold text-white mb-2">Verifique seu e-mail</h1>
+              <p className="text-[#B3B3B3] text-sm mb-6">
+                Enviamos um link de confirmação para{' '}
+                <span className="text-white font-medium">{form.email}</span>.
+                <br />Clique no link para ativar sua conta.
+              </p>
+              <p className="text-xs text-[#555] mb-4">
+                Não recebeu? Verifique a caixa de spam.
+              </p>
+              <button
+                onClick={() => switchMode('login')}
+                className="text-sm text-[#B3B3B3] hover:text-white transition-colors underline"
+              >
+                Voltar para o login
+              </button>
+            </div>
+          )}
+
         </div>
       </motion.div>
     </div>

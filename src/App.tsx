@@ -18,6 +18,7 @@ import { NewProperty } from './pages/NewProperty'
 import { MessagesPage } from './pages/MessagesPage'
 import { CancellationPolicy } from './pages/CancellationPolicy'
 import { BecomeOwner } from './pages/BecomeOwner'
+import { AuthCallback } from './pages/AuthCallback'
 
 function AppLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -35,6 +36,9 @@ export default function App() {
       <AuthProvider>
         <ToastProvider>
           <Routes>
+            {/* Auth callback — Supabase email confirmation */}
+            <Route path="/auth/callback" element={<AuthCallback />} />
+
             {/* Public */}
             <Route path={APP_ROUTES.HOME} element={<AppLayout><Home /></AppLayout>} />
             <Route path={APP_ROUTES.LOGIN} element={<Login />} />
