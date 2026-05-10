@@ -7,9 +7,21 @@ export function AuthCallback() {
   const navigate = useNavigate()
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      navigate(session ? APP_ROUTES.HOME : APP_ROUTES.LOGIN, { replace: true })
+    // Supabase pode retornar sessão via hash (#access_token=...) ou via code
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session) {
+        navigate(APP_ROUTES.HOME, { replace: true })
+      }
     })
+
+    // Fallback: verifica sessão existente
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        navigate(APP_ROUTES.HOME, { replace: true })
+      }
+    })
+
+    return () => subscription.unsubscribe()
   }, [navigate])
 
   return (
