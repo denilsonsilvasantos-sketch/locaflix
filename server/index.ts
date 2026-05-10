@@ -69,6 +69,19 @@ app.post('/api/payments/create-pix', requireAuth, async (req: Request, res: Resp
     // Get Pix QR code
     const pixRes = await asaasRequest('GET', `/payments/${paymentRes.id}/pixQrCode`)
 
+    // Salva asaas_payment_id na parcela do Supabase
+    const { installment_id } = req.body
+    if (installment_id) {
+      const { createClient } = await import('@supabase/supabase-js')
+      const supabase = createClient(
+        process.env.SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      )
+      await supabase.from('installments')
+        .update({ asaas_payment_id: paymentRes.id })
+        .eq('id', installment_id)
+    }
+
     res.json({
       payment_id: paymentRes.id,
       status: paymentRes.status,

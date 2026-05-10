@@ -3,12 +3,13 @@ import { useParams, useSearchParams, useNavigate, Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Check, ChevronRight, FileText, CreditCard, User, AlertTriangle, ShieldCheck } from 'lucide-react'
 import { supabase } from '../lib/supabase'
-import type { Property, CheckoutFormData, InstallmentPreview } from '../types'
+import type { Property, CheckoutFormData, InstallmentPreview, PixPaymentResponse } from '../types'
 import { CANCELLATION_POLICIES, APP_ROUTES } from '../constants'
 import { MOCK_PROPERTIES } from '../constants/mocks'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
+import { PixModal } from '../components/ui/PixModal'
 import { useAuth } from '../hooks/useAuth'
 import { useToast } from '../hooks/useToast'
 import {
@@ -39,6 +40,9 @@ export function Checkout() {
   const [ipAddress, setIpAddress] = useState('0.0.0.0')
   const [installmentCount, setInstallmentCount] = useState(1)
   const [installmentPreviews, setInstallmentPreviews] = useState<InstallmentPreview[]>([])
+  const [pixData, setPixData] = useState<PixPaymentResponse | null>(null)
+  const [pixModalOpen, setPixModalOpen] = useState(false)
+  const [checkingPayment, setCheckingPayment] = useState(false)
 
   const checkIn = searchParams.get('entrada') ?? ''
   const checkOut = searchParams.get('saida') ?? ''
@@ -151,7 +155,6 @@ export function Checkout() {
   async function confirmBooking() {
     if (!property || !user) return
 
-    // Block mock properties from being submitted to Supabase
     const isMock = MOCK_PROPERTIES.some(p => p.id === property.id)
     if (isMock) {
       toast('info', 'Imóvel de demonstração', 'Este imóvel é apenas demonstrativo. Cadastre-se como anfitrião para publicar imóveis reais.')
@@ -185,7 +188,7 @@ export function Checkout() {
       if (error || !booking) throw new Error(error?.message ?? 'Erro ao criar reserva')
 
       const previews = calculateInstallments(total_price, installmentCount, checkIn)
-      await supabase.from('installments').insert(
+      const { data: installments } = await supabase.from('installments').insert(
         previews.map(p => ({
           booking_id: booking.id,
           number: p.number,
@@ -194,7 +197,7 @@ export function Checkout() {
           type: p.type,
           status: 'PENDENTE',
         }))
-      )
+      ).select()
 
       const contractContent = generateContractContent({
         booking: { ...booking, property },
@@ -213,13 +216,71 @@ export function Checkout() {
         accepted_at: new Date().toISOString(),
       })
 
-      toast('success', 'Reserva criada!', `Reserva ${booking.booking_number ?? ''} confirmada. Acompanhe o pagamento.`)
+      // Generate Pix for the first installment
+      const firstInstallment = installments?.[0]
+      const session = await supabase.auth.getSession()
+      const token = session.data.session?.access_token ?? ''
+
+      const pixRes = await fetch('/api/payments/create-pix', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          customer: {
+            name: form.name,
+            cpf: form.cpf,
+            email: user.email,
+            phone: form.phone,
+          },
+          value: firstInstallment?.value ?? previews[0].value,
+          dueDate: firstInstallment?.due_date ?? previews[0].due_date,
+          description: `Locaflix - ${property.name} - Parcela 1`,
+          externalReference: `installment:${firstInstallment?.id}`,
+          installment_id: firstInstallment?.id,
+        }),
+      })
+
+      if (!pixRes.ok) {
+        const err = await pixRes.json()
+        throw new Error(err.error ?? 'Erro ao gerar Pix')
+      }
+
+      const pix: PixPaymentResponse = await pixRes.json()
+      setPixData(pix)
       setPaymentModalOpen(false)
-      navigate(APP_ROUTES.GUEST_DASHBOARD + '?tab=reservas', { replace: true })
+      setPixModalOpen(true)
     } catch (err: unknown) {
       toast('error', 'Erro', err instanceof Error ? err.message : 'Erro ao processar reserva.')
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function handleCheckPayment() {
+    if (!pixData) return
+    setCheckingPayment(true)
+    try {
+      const session = await supabase.auth.getSession()
+      const token = session.data.session?.access_token ?? ''
+
+      const res = await fetch(`/api/payments/${pixData.payment_id}`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      })
+      const payment = await res.json()
+
+      if (payment.status === 'CONFIRMED' || payment.status === 'RECEIVED') {
+        toast('success', 'Pagamento confirmado!', 'Sua reserva está confirmada.')
+        setPixModalOpen(false)
+        navigate(APP_ROUTES.GUEST_DASHBOARD + '?tab=reservas', { replace: true })
+      } else {
+        toast('warning', 'Pagamento pendente', 'Ainda não identificamos o pagamento. Tente novamente em alguns instantes.')
+      }
+    } catch (err: unknown) {
+      toast('error', 'Erro', err instanceof Error ? err.message : 'Erro ao verificar pagamento.')
+    } finally {
+      setCheckingPayment(false)
     }
   }
 
@@ -537,6 +598,15 @@ export function Checkout() {
           </div>
         </div>
       </Modal>
+
+      {/* Pix payment modal */}
+      <PixModal
+        open={pixModalOpen}
+        onClose={() => setPixModalOpen(false)}
+        pix={pixData}
+        onConfirm={handleCheckPayment}
+        loading={checkingPayment}
+      />
     </div>
   )
 }

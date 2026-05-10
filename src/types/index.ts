@@ -326,6 +326,16 @@ export interface AuthContextValue {
   refreshProfile: () => Promise<void>
 }
 
+// ---- Pix Payment ----
+export interface PixPaymentResponse {
+  payment_id: string
+  status: string
+  pix_key: string
+  pix_qr_code: string
+  due_date: string
+  value: number
+}
+
 // ---- Toast ----
 export type ToastType = 'success' | 'error' | 'warning' | 'info'
 export interface Toast {
