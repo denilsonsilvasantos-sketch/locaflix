@@ -222,28 +222,24 @@ export function Home() {
         </section>
       )}
 
-      {/* Search bar — fora do overflow-hidden para os painéis aparecerem */}
-      {!isSearching && heroProperties.length > 0 && (
-        <div className="relative z-20 -mt-16 px-4 sm:px-6 lg:px-8 pb-4">
-          <div className="max-w-5xl mx-auto">
-            <SearchBar />
-          </div>
-        </div>
-      )}
-
-      {/* Search hero when searching */}
-      {isSearching && (
-        <div className="pt-24 pb-8 px-4 sm:px-6 lg:px-8 max-w-5xl mx-auto">
-          <SearchBar defaultValues={{
-          estado: searchParams.get('estado') ?? undefined,
-          cidade: searchParams.get('cidade') ?? undefined,
-          bairro: searchParams.get('bairro') ?? undefined,
-          checkIn: filters.check_in,
-          checkOut: filters.check_out,
-          adults: filters.guests,
-        }} />
-        </div>
-      )}
+      {/* SearchBar único — sempre montado, nunca desmonta */}
+      <div className={`relative z-20 px-4 sm:px-6 lg:px-8 ${
+        isSearching
+          ? 'pt-24 pb-8 max-w-5xl mx-auto'
+          : heroProperties.length > 0 ? '-mt-16 pb-4 max-w-5xl mx-auto' : 'pt-8 pb-4 max-w-5xl mx-auto'
+      }`}>
+        <SearchBar
+          key="main-searchbar"
+          defaultValues={{
+            estado: searchParams.get('estado') ?? undefined,
+            cidade: searchParams.get('cidade') ?? undefined,
+            bairro: searchParams.get('bairro') ?? undefined,
+            checkIn: searchParams.get('entrada') ?? undefined,
+            checkOut: searchParams.get('saida') ?? undefined,
+            adults: searchParams.get('hospedes') ? Number(searchParams.get('hospedes')) : undefined,
+          }}
+        />
+      </div>
 
       {/* Main content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-12">
