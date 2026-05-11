@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, MapPin, Calendar, Users, ChevronDown, X, Check } from 'lucide-react'
+import { Search, MapPin, Calendar, Users, ChevronDown, ChevronLeft, ChevronRight, X, Check } from 'lucide-react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { supabase } from '../../lib/supabase'
@@ -31,6 +31,7 @@ interface SearchBarProps {
 }
 
 type Panel = 'destino' | 'datas' | 'hospedes' | null
+type DestinoStep = 'estado' | 'cidade' | 'bairro'
 
 interface CityData { count: number; neighborhoods: string[] }
 interface StateData { count: number; name: string; cities: Record<string, CityData> }
@@ -99,24 +100,14 @@ function buildLocationMap(items: { state: string; city: string; neighborhood: st
   return map
 }
 
-// ── Bottom Sheet para mobile ──────────────────────────────────────────────────
+// ── Bottom Sheet (mobile only) ────────────────────────────────────────────────
 function BottomSheet({
-  open,
-  onClose,
-  title,
-  children,
+  open, onClose, title, children,
 }: {
-  open: boolean
-  onClose: () => void
-  title: string
-  children: React.ReactNode
+  open: boolean; onClose: () => void; title: string; children: React.ReactNode
 }) {
   useEffect(() => {
-    if (open) {
-      document.body.style.overflow = 'hidden'
-    } else {
-      document.body.style.overflow = ''
-    }
+    document.body.style.overflow = open ? 'hidden' : ''
     return () => { document.body.style.overflow = '' }
   }, [open])
 
@@ -124,34 +115,18 @@ function BottomSheet({
 
   return (
     <div className="fixed inset-0 z-[100] md:hidden">
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
-        onClick={onClose}
-      />
-      {/* Sheet */}
-      <div
-        className="absolute bottom-0 left-0 right-0 bg-[#1A1A1A] rounded-t-3xl"
-        style={{ maxHeight: '90vh', overflowY: 'auto' }}
-      >
-        {/* Handle */}
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute bottom-0 left-0 right-0 bg-[#1A1A1A] rounded-t-3xl" style={{ maxHeight: '90vh', overflowY: 'auto' }}>
         <div className="flex justify-center pt-3 pb-1">
           <div className="w-10 h-1 bg-[#444] rounded-full" />
         </div>
-        {/* Header */}
         <div className="flex items-center justify-between px-5 py-3 border-b border-[#2A2A2A]">
           <h3 className="text-base font-semibold text-white">{title}</h3>
-          <button
-            onClick={onClose}
-            className="w-8 h-8 rounded-full bg-[#2A2A2A] flex items-center justify-center text-[#B3B3B3] hover:text-white"
-          >
+          <button onClick={onClose} className="w-8 h-8 rounded-full bg-[#2A2A2A] flex items-center justify-center text-[#B3B3B3] hover:text-white">
             <X size={16} />
           </button>
         </div>
-        {/* Content */}
-        <div className="px-5 py-4 pb-8">
-          {children}
-        </div>
+        <div className="px-5 py-4 pb-8">{children}</div>
       </div>
     </div>
   )
@@ -172,6 +147,7 @@ export function SearchBar({ compact = false, defaultValues }: SearchBarProps) {
     pets: defaultValues?.pets ?? 0,
   })
   const [panel, setPanel] = useState<Panel>(null)
+  const [destinoStep, setDestinoStep] = useState<DestinoStep>('estado')
   const [locationMap, setLocationMap] = useState<Record<string, StateData>>({})
 
   const containerRef = useRef<HTMLDivElement>(null)
@@ -179,10 +155,7 @@ export function SearchBar({ compact = false, defaultValues }: SearchBarProps) {
 
   useEffect(() => {
     async function load() {
-      const { data } = await supabase
-        .from('properties')
-        .select('state, city, neighborhood')
-        .eq('status', 'ATIVO')
+      const { data } = await supabase.from('properties').select('state, city, neighborhood').eq('status', 'ATIVO')
       const source = (data && data.length > 0)
         ? data as { state: string; city: string; neighborhood: string | null }[]
         : MOCK_PROPERTIES.map(p => ({ state: p.state, city: p.city, neighborhood: p.neighborhood ?? null }))
@@ -191,10 +164,9 @@ export function SearchBar({ compact = false, defaultValues }: SearchBarProps) {
     load()
   }, [])
 
-  // ── Busca automática ao mudar qualquer filtro ────────────────────────────
   const doSearch = useCallback((
     _estado: string, _cidade: string, _bairro: string,
-    _checkIn: string, _checkOut: string, _guests: GuestsState
+    _checkIn: string, _checkOut: string, _guests: GuestsState,
   ) => {
     const params = new URLSearchParams()
     if (_estado) params.set('estado', _estado)
@@ -209,15 +181,16 @@ export function SearchBar({ compact = false, defaultValues }: SearchBarProps) {
     navigate(`${APP_ROUTES.HOME}?${params.toString()}`)
   }, [navigate])
 
-  // Watchers — dispara busca ao mudar qualquer valor
+  // Auto-search when location or dates change
   useEffect(() => {
     if (estado || cidade || bairro || checkIn || checkOut) {
       doSearch(estado, cidade, bairro, checkIn, checkOut, guests)
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [estado, cidade, bairro, checkIn, checkOut])
 
   function togglePanel(p: Panel) {
+    if (p === 'destino') setDestinoStep('estado')
     setPanel(prev => (prev === p ? null : p))
   }
 
@@ -233,10 +206,36 @@ export function SearchBar({ compact = false, defaultValues }: SearchBarProps) {
     doSearch(estado, cidade, bairro, '', '', guests)
   }
 
+  // Mobile destino step handlers — use custom lists, no native <select>
+  function pickEstado(uf: string) {
+    setEstado(uf); setCidade(''); setBairro('')
+    const hasCities = Object.keys(locationMap[uf]?.cities ?? {}).length > 0
+    if (hasCities) {
+      setDestinoStep('cidade')
+    } else {
+      setPanel(null)
+    }
+  }
+
+  function pickCidade(city: string) {
+    setCidade(city); setBairro('')
+    const hasNeighborhoods = (locationMap[estado]?.cities[city]?.neighborhoods ?? []).length > 0
+    if (hasNeighborhoods) {
+      setDestinoStep('bairro')
+    } else {
+      setPanel(null)
+    }
+  }
+
+  function pickBairro(b: string) {
+    setBairro(b)
+    setPanel(null)
+  }
+
   const dateLabel = (() => {
     if (checkIn && checkOut) {
       const from = format(new Date(checkIn + 'T00:00:00'), 'dd MMM', { locale: ptBR })
-      const to = format(new Date(checkOut + 'T00:00:00'), 'dd MMM', { locale: ptBR })
+      const to   = format(new Date(checkOut + 'T00:00:00'), 'dd MMM', { locale: ptBR })
       return `${from} → ${to}`
     }
     if (checkIn) return format(new Date(checkIn + 'T00:00:00'), 'dd MMM', { locale: ptBR })
@@ -257,34 +256,22 @@ export function SearchBar({ compact = false, defaultValues }: SearchBarProps) {
     : null
   const destinoLabel = [selectedStateName, cidade, bairro].filter(Boolean).join(', ') || null
 
-  const availableStates = Object.entries(locationMap).sort((a, b) => b[1].count - a[1].count)
-  const availableCities = estado && locationMap[estado]
-    ? Object.entries(locationMap[estado].cities).sort((a, b) => b[1].count - a[1].count)
-    : []
-  const availableNeighborhoods = estado && cidade && locationMap[estado]?.cities[cidade]
-    ? locationMap[estado].cities[cidade].neighborhoods.sort()
-    : []
+  const availableStates       = Object.entries(locationMap).sort((a, b) => b[1].count - a[1].count)
+  const availableCities       = estado && locationMap[estado] ? Object.entries(locationMap[estado].cities).sort((a, b) => b[1].count - a[1].count) : []
+  const availableNeighborhoods = estado && cidade && locationMap[estado]?.cities[cidade] ? locationMap[estado].cities[cidade].neighborhoods.sort() : []
 
-  // ── Conteúdo do painel Destino (reutilizado em mobile e desktop) ─────────
-  const destinoContent = (
+  // ── Desktop: destino content (native selects — fine with mouse) ───────────
+  const destinoDesktop = (
     <div className="space-y-4">
-      {/* Estado */}
       <div>
         <p className="text-xs font-semibold text-[#B3B3B3] uppercase tracking-wide mb-2">Estado</p>
-        {availableStates.length === 0 ? (
-          <p className="text-xs text-[#555]">Carregando...</p>
-        ) : (
+        {availableStates.length === 0 ? <p className="text-xs text-[#555]">Carregando...</p> : (
           <div className="relative">
-            <select
-              value={estado}
-              onChange={e => { setEstado(e.target.value); setCidade(''); setBairro('') }}
-              className="w-full bg-[#2A2A2A] border border-[#333] rounded-xl px-4 py-3 text-sm text-white outline-none focus:ring-2 focus:ring-[#E50914] appearance-none cursor-pointer"
-            >
+            <select value={estado} onChange={e => { setEstado(e.target.value); setCidade(''); setBairro('') }}
+              className="w-full bg-[#2A2A2A] border border-[#333] rounded-xl px-4 py-3 text-sm text-white outline-none focus:ring-2 focus:ring-[#E50914] appearance-none cursor-pointer">
               <option value="">Selecione um estado</option>
               {availableStates.map(([uf, data]) => (
-                <option key={uf} value={uf}>
-                  {data.name} ({data.count} {data.count === 1 ? 'imóvel' : 'imóveis'})
-                </option>
+                <option key={uf} value={uf}>{data.name} ({data.count} {data.count === 1 ? 'imóvel' : 'imóveis'})</option>
               ))}
             </select>
             <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#666] pointer-events-none" />
@@ -292,21 +279,15 @@ export function SearchBar({ compact = false, defaultValues }: SearchBarProps) {
         )}
       </div>
 
-      {/* Cidade */}
       {estado && availableCities.length > 0 && (
         <div>
           <p className="text-xs font-semibold text-[#B3B3B3] uppercase tracking-wide mb-2">Cidade</p>
           <div className="relative">
-            <select
-              value={cidade}
-              onChange={e => { setCidade(e.target.value); setBairro('') }}
-              className="w-full bg-[#2A2A2A] border border-[#333] rounded-xl px-4 py-3 text-sm text-white outline-none focus:ring-2 focus:ring-[#E50914] appearance-none cursor-pointer"
-            >
+            <select value={cidade} onChange={e => { setCidade(e.target.value); setBairro('') }}
+              className="w-full bg-[#2A2A2A] border border-[#333] rounded-xl px-4 py-3 text-sm text-white outline-none focus:ring-2 focus:ring-[#E50914] appearance-none cursor-pointer">
               <option value="">Selecione uma cidade</option>
               {availableCities.map(([city, data]) => (
-                <option key={city} value={city}>
-                  {city} ({data.count} {data.count === 1 ? 'imóvel' : 'imóveis'})
-                </option>
+                <option key={city} value={city}>{city} ({data.count} {data.count === 1 ? 'imóvel' : 'imóveis'})</option>
               ))}
             </select>
             <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#666] pointer-events-none" />
@@ -314,57 +295,147 @@ export function SearchBar({ compact = false, defaultValues }: SearchBarProps) {
         </div>
       )}
 
-      {/* Bairro */}
       {estado && cidade && availableNeighborhoods.length > 0 && (
         <div>
           <p className="text-xs font-semibold text-[#B3B3B3] uppercase tracking-wide mb-2">
             Bairro <span className="text-[#555] normal-case font-normal">(opcional)</span>
           </p>
           <div className="relative">
-            <select
-              value={bairro}
-              onChange={e => setBairro(e.target.value)}
-              className="w-full bg-[#2A2A2A] border border-[#333] rounded-xl px-4 py-3 text-sm text-white outline-none focus:ring-2 focus:ring-[#E50914] appearance-none cursor-pointer"
-            >
+            <select value={bairro} onChange={e => setBairro(e.target.value)}
+              className="w-full bg-[#2A2A2A] border border-[#333] rounded-xl px-4 py-3 text-sm text-white outline-none focus:ring-2 focus:ring-[#E50914] appearance-none cursor-pointer">
               <option value="">Qualquer bairro</option>
-              {availableNeighborhoods.map(n => (
-                <option key={n} value={n}>{n}</option>
-              ))}
+              {availableNeighborhoods.map(n => <option key={n} value={n}>{n}</option>)}
             </select>
             <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#666] pointer-events-none" />
           </div>
         </div>
       )}
 
-      <button
-        type="button"
-        onClick={() => setPanel(null)}
-        className="w-full py-3 bg-[#E50914] hover:bg-[#F40612] text-white text-sm font-semibold rounded-xl transition-colors flex items-center justify-center gap-2"
-      >
+      <button type="button" onClick={() => setPanel(null)}
+        className="w-full py-3 bg-[#E50914] hover:bg-[#F40612] text-white text-sm font-semibold rounded-xl transition-colors flex items-center justify-center gap-2">
         <Check size={16} /> Confirmar destino
       </button>
     </div>
   )
 
-  // ── Conteúdo do painel Hóspedes ──────────────────────────────────────────
+  // ── Mobile: destino content (custom lists — no native picker) ─────────────
+  const destinoMobile = (
+    <div>
+      {/* Breadcrumb */}
+      <div className="flex items-center gap-2 mb-4 text-xs text-[#666]">
+        <button
+          type="button"
+          onClick={() => setDestinoStep('estado')}
+          className={destinoStep === 'estado' ? 'text-white font-semibold' : 'hover:text-[#B3B3B3]'}
+        >
+          Estado
+        </button>
+        {destinoStep !== 'estado' && (
+          <>
+            <ChevronRight size={12} />
+            <button
+              type="button"
+              onClick={() => setDestinoStep('cidade')}
+              className={destinoStep === 'cidade' ? 'text-white font-semibold' : 'hover:text-[#B3B3B3]'}
+            >
+              {selectedStateName ?? 'Cidade'}
+            </button>
+          </>
+        )}
+        {destinoStep === 'bairro' && (
+          <>
+            <ChevronRight size={12} />
+            <span className="text-white font-semibold">{cidade}</span>
+          </>
+        )}
+      </div>
+
+      {/* Step: Estado */}
+      {destinoStep === 'estado' && (
+        <div className="space-y-1">
+          {availableStates.length === 0 && <p className="text-sm text-[#555] py-4 text-center">Carregando...</p>}
+          {availableStates.map(([uf, data]) => (
+            <button
+              key={uf}
+              type="button"
+              onClick={() => pickEstado(uf)}
+              className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-left transition-colors ${estado === uf ? 'bg-[#E50914]/20 text-[#E50914]' : 'hover:bg-[#2A2A2A] text-white'}`}
+            >
+              <span className="text-sm font-medium">{data.name}</span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-[#666]">{data.count} {data.count === 1 ? 'imóvel' : 'imóveis'}</span>
+                {estado === uf ? <Check size={14} className="text-[#E50914]" /> : <ChevronRight size={14} className="text-[#444]" />}
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Step: Cidade */}
+      {destinoStep === 'cidade' && (
+        <div className="space-y-1">
+          <button type="button" onClick={() => setDestinoStep('estado')}
+            className="flex items-center gap-2 text-xs text-[#666] hover:text-white mb-3 transition-colors">
+            <ChevronLeft size={14} /> Voltar para estados
+          </button>
+          {availableCities.map(([city, data]) => (
+            <button
+              key={city}
+              type="button"
+              onClick={() => pickCidade(city)}
+              className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-left transition-colors ${cidade === city ? 'bg-[#E50914]/20 text-[#E50914]' : 'hover:bg-[#2A2A2A] text-white'}`}
+            >
+              <span className="text-sm font-medium">{city}</span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-[#666]">{data.count} {data.count === 1 ? 'imóvel' : 'imóveis'}</span>
+                {cidade === city ? <Check size={14} className="text-[#E50914]" /> : <ChevronRight size={14} className="text-[#444]" />}
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Step: Bairro */}
+      {destinoStep === 'bairro' && (
+        <div className="space-y-1">
+          <button type="button" onClick={() => setDestinoStep('cidade')}
+            className="flex items-center gap-2 text-xs text-[#666] hover:text-white mb-3 transition-colors">
+            <ChevronLeft size={14} /> Voltar para cidades
+          </button>
+          <button
+            type="button"
+            onClick={() => pickBairro('')}
+            className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-left transition-colors ${!bairro ? 'bg-[#E50914]/20 text-[#E50914]' : 'hover:bg-[#2A2A2A] text-white'}`}
+          >
+            <span className="text-sm font-medium">Qualquer bairro</span>
+            {!bairro && <Check size={14} className="text-[#E50914]" />}
+          </button>
+          {availableNeighborhoods.map(n => (
+            <button
+              key={n}
+              type="button"
+              onClick={() => pickBairro(n)}
+              className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-left transition-colors ${bairro === n ? 'bg-[#E50914]/20 text-[#E50914]' : 'hover:bg-[#2A2A2A] text-white'}`}
+            >
+              <span className="text-sm font-medium">{n}</span>
+              {bairro === n && <Check size={14} className="text-[#E50914]" />}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+
+  // ── Hóspedes content (shared) ─────────────────────────────────────────────
   const hospedesContent = (
     <div>
-      <Counter label="Adultos" sub="13 anos ou mais" value={guests.adults} min={1}
-        onChange={v => setGuests(g => ({ ...g, adults: v }))} />
-      <Counter label="Crianças" sub="2 a 12 anos" value={guests.children}
-        onChange={v => setGuests(g => ({ ...g, children: v }))} />
-      <Counter label="Bebês" sub="Menos de 2 anos" value={guests.babies}
-        onChange={v => setGuests(g => ({ ...g, babies: v }))} />
-      <Counter label="Pets" sub="Animais de estimação" value={guests.pets}
-        onChange={v => setGuests(g => ({ ...g, pets: v }))} />
-      <button
-        type="button"
-        onClick={() => {
-          setPanel(null)
-          doSearch(estado, cidade, bairro, checkIn, checkOut, guests)
-        }}
-        className="w-full mt-5 py-3 bg-[#E50914] hover:bg-[#F40612] text-white text-sm font-semibold rounded-xl transition-colors flex items-center justify-center gap-2"
-      >
+      <Counter label="Adultos"  sub="13 anos ou mais"      value={guests.adults}   min={1} onChange={v => setGuests(g => ({ ...g, adults: v }))} />
+      <Counter label="Crianças" sub="2 a 12 anos"          value={guests.children}         onChange={v => setGuests(g => ({ ...g, children: v }))} />
+      <Counter label="Bebês"    sub="Menos de 2 anos"      value={guests.babies}           onChange={v => setGuests(g => ({ ...g, babies: v }))} />
+      <Counter label="Pets"     sub="Animais de estimação" value={guests.pets}             onChange={v => setGuests(g => ({ ...g, pets: v }))} />
+      <button type="button"
+        onClick={() => { setPanel(null); doSearch(estado, cidade, bairro, checkIn, checkOut, guests) }}
+        className="w-full mt-5 py-3 bg-[#E50914] hover:bg-[#F40612] text-white text-sm font-semibold rounded-xl transition-colors flex items-center justify-center gap-2">
         <Check size={16} /> Confirmar hóspedes
       </button>
     </div>
@@ -373,10 +444,8 @@ export function SearchBar({ compact = false, defaultValues }: SearchBarProps) {
   // ── Compact mode ──────────────────────────────────────────────────────────
   if (compact) {
     return (
-      <button
-        onClick={() => togglePanel('destino')}
-        className="flex items-center gap-2 bg-[#1F1F1F] border border-[#333] rounded-full px-4 py-2 w-full"
-      >
+      <button onClick={() => togglePanel('destino')}
+        className="flex items-center gap-2 bg-[#1F1F1F] border border-[#333] rounded-full px-4 py-2 w-full">
         <Search size={16} className="text-[#666]" />
         <span className="text-sm text-white flex-1 truncate text-left">
           {destinoLabel ?? 'Para onde você vai?'}
@@ -388,15 +457,12 @@ export function SearchBar({ compact = false, defaultValues }: SearchBarProps) {
   return (
     <>
       <div ref={containerRef} className="relative w-full">
-        {/* ── Barra principal ─────────────────────────────────────────────── */}
+        {/* ── Barra principal ────────────────────────────────────────────── */}
         <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-2 flex flex-col md:flex-row gap-2">
 
           {/* Destino */}
-          <button
-            type="button"
-            onClick={() => togglePanel('destino')}
-            className={`flex items-center gap-3 flex-1 bg-[#1F1F1F]/80 rounded-xl px-4 py-3 text-left transition-all ${panel === 'destino' ? 'ring-2 ring-[#E50914]' : 'hover:bg-[#2A2A2A]/80'}`}
-          >
+          <button type="button" onClick={() => togglePanel('destino')}
+            className={`flex items-center gap-3 flex-1 bg-[#1F1F1F]/80 rounded-xl px-4 py-3 text-left transition-all ${panel === 'destino' ? 'ring-2 ring-[#E50914]' : 'hover:bg-[#2A2A2A]/80'}`}>
             <MapPin size={18} className="text-[#E50914] flex-shrink-0" />
             <div className="flex-1 min-w-0">
               <p className="text-[10px] font-semibold text-[#B3B3B3] uppercase tracking-wide">Destino</p>
@@ -412,11 +478,8 @@ export function SearchBar({ compact = false, defaultValues }: SearchBarProps) {
           </button>
 
           {/* Datas */}
-          <button
-            type="button"
-            onClick={() => togglePanel('datas')}
-            className={`flex items-center gap-3 md:w-52 bg-[#1F1F1F]/80 rounded-xl px-4 py-3 text-left transition-all ${panel === 'datas' ? 'ring-2 ring-[#E50914]' : 'hover:bg-[#2A2A2A]/80'}`}
-          >
+          <button type="button" onClick={() => togglePanel('datas')}
+            className={`flex items-center gap-3 md:w-52 bg-[#1F1F1F]/80 rounded-xl px-4 py-3 text-left transition-all ${panel === 'datas' ? 'ring-2 ring-[#E50914]' : 'hover:bg-[#2A2A2A]/80'}`}>
             <Calendar size={18} className="text-[#E50914] flex-shrink-0" />
             <div className="flex-1 min-w-0">
               <p className="text-[10px] font-semibold text-[#B3B3B3] uppercase tracking-wide">Datas</p>
@@ -432,11 +495,8 @@ export function SearchBar({ compact = false, defaultValues }: SearchBarProps) {
           </button>
 
           {/* Hóspedes */}
-          <button
-            type="button"
-            onClick={() => togglePanel('hospedes')}
-            className={`flex items-center gap-3 md:w-44 bg-[#1F1F1F]/80 rounded-xl px-4 py-3 text-left transition-all ${panel === 'hospedes' ? 'ring-2 ring-[#E50914]' : 'hover:bg-[#2A2A2A]/80'}`}
-          >
+          <button type="button" onClick={() => togglePanel('hospedes')}
+            className={`flex items-center gap-3 md:w-44 bg-[#1F1F1F]/80 rounded-xl px-4 py-3 text-left transition-all ${panel === 'hospedes' ? 'ring-2 ring-[#E50914]' : 'hover:bg-[#2A2A2A]/80'}`}>
             <Users size={18} className="text-[#E50914] flex-shrink-0" />
             <div className="flex-1 min-w-0">
               <p className="text-[10px] font-semibold text-[#B3B3B3] uppercase tracking-wide">Hóspedes</p>
@@ -447,39 +507,26 @@ export function SearchBar({ compact = false, defaultValues }: SearchBarProps) {
             <ChevronDown size={14} className={`text-[#666] flex-shrink-0 transition-transform ${panel === 'hospedes' ? 'rotate-180' : ''}`} />
           </button>
 
-          {/* Botão buscar — visível só no desktop como atalho */}
-          <button
-            type="button"
-            onClick={() => doSearch(estado, cidade, bairro, checkIn, checkOut, guests)}
-            className="hidden md:flex items-center gap-2 bg-[#E50914] hover:bg-[#F40612] text-white font-semibold px-6 rounded-xl transition-colors flex-shrink-0"
-          >
-            <Search size={18} />
-            Buscar
+          {/* Buscar (desktop) */}
+          <button type="button" onClick={() => doSearch(estado, cidade, bairro, checkIn, checkOut, guests)}
+            className="hidden md:flex items-center gap-2 bg-[#E50914] hover:bg-[#F40612] text-white font-semibold px-6 rounded-xl transition-colors flex-shrink-0">
+            <Search size={18} /> Buscar
           </button>
         </div>
 
-        {/* ── Dropdowns desktop (md+) ──────────────────────────────────────── */}
-
-        {/* Destino — desktop */}
+        {/* ── Desktop dropdowns ──────────────────────────────────────────── */}
         {panel === 'destino' && (
           <div className="hidden md:block absolute top-full left-0 mt-2 z-50 w-96 bg-[#1A1A1A] border border-[#333] rounded-2xl shadow-2xl p-5">
-            {destinoContent}
+            {destinoDesktop}
           </div>
         )}
-
-        {/* Datas — desktop */}
         {panel === 'datas' && (
           <div className="hidden md:block absolute top-full left-0 mt-2 z-50 w-full max-w-2xl">
-            <DateRangePicker
-              from={checkIn}
-              to={checkOut}
+            <DateRangePicker from={checkIn} to={checkOut}
               onChange={(f, t) => { setCheckIn(f); setCheckOut(t) }}
-              onClose={() => setPanel(null)}
-            />
+              onClose={() => setPanel(null)} />
           </div>
         )}
-
-        {/* Hóspedes — desktop */}
         {panel === 'hospedes' && (
           <div className="hidden md:block absolute top-full right-0 mt-2 z-50 w-80 bg-[#1A1A1A] border border-[#333] rounded-2xl shadow-2xl p-5">
             {hospedesContent}
@@ -487,37 +534,18 @@ export function SearchBar({ compact = false, defaultValues }: SearchBarProps) {
         )}
       </div>
 
-      {/* ── Bottom Sheets mobile (< md) ──────────────────────────────────────── */}
-
-      {/* Destino */}
-      <BottomSheet
-        open={panel === 'destino'}
-        onClose={() => setPanel(null)}
-        title="Para onde você vai?"
-      >
-        {destinoContent}
+      {/* ── Mobile bottom sheets ────────────────────────────────────────────── */}
+      <BottomSheet open={panel === 'destino'} onClose={() => setPanel(null)} title="Para onde você vai?">
+        {destinoMobile}
       </BottomSheet>
 
-      {/* Datas */}
-      <BottomSheet
-        open={panel === 'datas'}
-        onClose={() => setPanel(null)}
-        title="Escolha as datas"
-      >
-        <DateRangePicker
-          from={checkIn}
-          to={checkOut}
+      <BottomSheet open={panel === 'datas'} onClose={() => setPanel(null)} title="Escolha as datas">
+        <DateRangePicker from={checkIn} to={checkOut}
           onChange={(f, t) => { setCheckIn(f); setCheckOut(t) }}
-          onClose={() => setPanel(null)}
-        />
+          onClose={() => setPanel(null)} />
       </BottomSheet>
 
-      {/* Hóspedes */}
-      <BottomSheet
-        open={panel === 'hospedes'}
-        onClose={() => setPanel(null)}
-        title="Hóspedes"
-      >
+      <BottomSheet open={panel === 'hospedes'} onClose={() => setPanel(null)} title="Hóspedes">
         {hospedesContent}
       </BottomSheet>
     </>
