@@ -181,13 +181,13 @@ export function SearchBar({ compact = false, defaultValues }: SearchBarProps) {
     navigate(`${APP_ROUTES.HOME}?${params.toString()}`)
   }, [navigate])
 
-  // Auto-search when location or dates change
+  // Auto-search only on date changes — location searches on explicit confirm/selection
   useEffect(() => {
-    if (estado || cidade || bairro || checkIn || checkOut) {
+    if (checkIn || checkOut) {
       doSearch(estado, cidade, bairro, checkIn, checkOut, guests)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [estado, cidade, bairro, checkIn, checkOut])
+  }, [checkIn, checkOut])
 
   function togglePanel(p: Panel) {
     if (p === 'destino') setDestinoStep('estado')
@@ -224,12 +224,14 @@ export function SearchBar({ compact = false, defaultValues }: SearchBarProps) {
       setDestinoStep('bairro')
     } else {
       setPanel(null)
+      doSearch(estado, city, '', checkIn, checkOut, guests)
     }
   }
 
   function pickBairro(b: string) {
     setBairro(b)
     setPanel(null)
+    doSearch(estado, cidade, b, checkIn, checkOut, guests)
   }
 
   const dateLabel = (() => {
@@ -311,7 +313,7 @@ export function SearchBar({ compact = false, defaultValues }: SearchBarProps) {
         </div>
       )}
 
-      <button type="button" onClick={() => setPanel(null)}
+      <button type="button" onClick={() => { setPanel(null); doSearch(estado, cidade, bairro, checkIn, checkOut, guests) }}
         className="w-full py-3 bg-[#E50914] hover:bg-[#F40612] text-white text-sm font-semibold rounded-xl transition-colors flex items-center justify-center gap-2">
         <Check size={16} /> Confirmar destino
       </button>

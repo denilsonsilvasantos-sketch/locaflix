@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Eye, EyeOff, Mail, Lock, User, Globe, MapPin, Phone, CreditCard, ChevronRight, ChevronLeft } from 'lucide-react'
+import { Eye, EyeOff, Mail, Lock, User, Globe, MapPin, Phone, CreditCard, ChevronRight, ChevronLeft, CalendarDays } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { useToast } from '../hooks/useToast'
 import { Button } from '../components/ui/Button'
@@ -34,6 +34,63 @@ const EMPTY_FORM: RegisterForm = {
   name: '', email: '', password: '',
   phone: '', cpf: '', birth_date: '',
   cep: '', address: '', number: '', complement: '', neighborhood: '', city: '', state: '',
+}
+
+function DateInput({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+  const hiddenRef = useRef<HTMLInputElement>(null)
+
+  function handleText(e: React.ChangeEvent<HTMLInputElement>) {
+    let v = e.target.value.replace(/\D/g, '').slice(0, 8)
+    if (v.length > 4) v = v.slice(0, 2) + '/' + v.slice(2, 4) + '/' + v.slice(4)
+    else if (v.length > 2) v = v.slice(0, 2) + '/' + v.slice(2)
+    const parts = v.split('/')
+    if (parts.length === 3 && parts[2].length === 4) {
+      onChange(`${parts[2]}-${parts[1]}-${parts[0]}`)
+    } else {
+      onChange(v)
+    }
+  }
+
+  const display = (() => {
+    if (!value) return ''
+    if (value.includes('-') && value.length === 10) {
+      const [y, m, d] = value.split('-')
+      return `${d}/${m}/${y}`
+    }
+    return value
+  })()
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label className="text-sm font-medium text-[#B3B3B3]">{label}</label>
+      <div className="relative">
+        <input
+          type="text"
+          inputMode="numeric"
+          placeholder="DD/MM/AAAA"
+          value={display}
+          onChange={handleText}
+          maxLength={10}
+          className="w-full bg-[#2A2A2A] border border-[#333] rounded-lg text-white placeholder-[#666] pl-3 pr-10 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#E50914] focus:border-transparent"
+        />
+        <button
+          type="button"
+          onClick={() => hiddenRef.current?.showPicker?.()}
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-[#B3B3B3] hover:text-[#E50914] transition-colors"
+        >
+          <CalendarDays size={16} />
+        </button>
+        <input
+          ref={hiddenRef}
+          type="date"
+          value={value.includes('-') ? value : ''}
+          onChange={e => onChange(e.target.value)}
+          className="absolute inset-0 opacity-0 pointer-events-none"
+          tabIndex={-1}
+        />
+      </div>
+    </div>
+  )
 }
 
 export function Login({ mode: initialMode = 'login' }: LoginProps) {
@@ -287,7 +344,7 @@ export function Login({ mode: initialMode = 'login' }: LoginProps) {
                       <Input label="CPF" {...f('cpf')} placeholder="000.000.000-00"
                         leftIcon={<CreditCard size={16} />} />
                     </div>
-                    <Input label="Data de nascimento" type="date" {...f('birth_date')} />
+                    <DateInput label="Data de nascimento" value={form.birth_date} onChange={v => setForm(p => ({ ...p, birth_date: v }))} />
 
                     <div className="border-t border-[#333] pt-3 mt-1">
                       <p className="text-xs font-semibold text-[#666] uppercase tracking-wide mb-2">Endereço</p>
