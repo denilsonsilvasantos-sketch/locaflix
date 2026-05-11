@@ -204,7 +204,13 @@ export function DateRangePicker({ from, to, onChange, onClose }: DateRangePicker
             <p className="text-sm font-semibold text-white capitalize">
               {format(leftMonth, 'MMMM yyyy', { locale: ptBR })}
             </p>
-            <div className="w-7" />
+            <button
+              type="button"
+              onClick={() => setLeftMonth(m => addMonths(m, 1))}
+              className="w-7 h-7 rounded-full bg-[#2A2A2A] flex items-center justify-center text-[#B3B3B3] hover:text-white transition-colors sm:hidden"
+            >
+              <ChevronRight size={14} />
+            </button>
           </div>
           {renderGrid(leftMonth)}
         </div>

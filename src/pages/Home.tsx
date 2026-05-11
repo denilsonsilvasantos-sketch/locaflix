@@ -43,7 +43,7 @@ export function Home() {
     const checkIn = searchParams.get('entrada')
     const checkOut = searchParams.get('saida')
     const tipo = searchParams.get('tipo')
-    const locationStr = [cidade, bairro, estado].filter(Boolean).join(' ') || local || undefined
+    const locationStr = [cidade, bairro].filter(Boolean).join(' ') || local || undefined
     if (estado || cidade || bairro || local || guests || checkIn || checkOut || tipo) {
       setFilters({
         state: estado ?? undefined,
@@ -77,7 +77,8 @@ export function Home() {
   }
 
   const filteredProperties = properties.filter(p => {
-    if (filters.city && !`${p.city} ${p.state} ${p.neighborhood ?? ''}`.toLowerCase().includes(filters.city.toLowerCase())) return false
+    if (filters.state && p.state !== filters.state) return false
+    if (filters.city && !`${p.city} ${p.neighborhood ?? ''}`.toLowerCase().includes(filters.city.toLowerCase())) return false
     if (filters.type && p.type !== filters.type) return false
     if (filters.guests && p.max_guests < filters.guests) return false
     if (filters.min_price && p.price_per_night < filters.min_price) return false

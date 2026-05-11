@@ -215,8 +215,10 @@ export function SearchBar({ compact = false, defaultValues }: SearchBarProps) {
     const hasCities = Object.keys(locationMap[uf]?.cities ?? {}).length > 0
     if (hasCities) {
       setDestinoStep('cidade')
+      doSearch(uf, '', '', checkIn, checkOut, guests)
     } else {
       setPanel(null)
+      doSearch(uf, '', '', checkIn, checkOut, guests)
     }
   }
 
@@ -382,6 +384,14 @@ export function SearchBar({ compact = false, defaultValues }: SearchBarProps) {
           <button type="button" onClick={() => setDestinoStep('estado')}
             className="flex items-center gap-2 text-xs text-[#666] hover:text-white mb-3 transition-colors">
             <ChevronLeft size={14} /> Voltar para estados
+          </button>
+          <button
+            type="button"
+            onClick={() => { setPanel(null) }}
+            className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-left transition-colors mb-1 ${!cidade ? 'bg-[#E50914]/20 text-[#E50914]' : 'hover:bg-[#2A2A2A] text-[#B3B3B3]'}`}
+          >
+            <span className="text-sm font-medium">Todo o {selectedStateName ?? estado}</span>
+            {!cidade && <Check size={14} className="text-[#E50914]" />}
           </button>
           {availableCities.map(([city, data]) => (
             <button
