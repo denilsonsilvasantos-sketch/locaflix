@@ -151,7 +151,10 @@ export function SearchBar({ compact = false, defaultValues }: SearchBarProps) {
   const [locationMap, setLocationMap] = useState<Record<string, StateData>>({})
 
   const containerRef = useRef<HTMLDivElement>(null)
-  useOutsideClick(containerRef, () => setPanel(null))
+  // Mobile usa backdrop próprio do BottomSheet — useOutsideClick só fecha no desktop
+  useOutsideClick(containerRef, () => {
+    if (window.innerWidth >= 768) setPanel(null)
+  })
 
   useEffect(() => {
     async function load() {

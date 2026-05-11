@@ -7,21 +7,19 @@ export function AuthCallback() {
   const navigate = useNavigate()
 
   useEffect(() => {
-    // Supabase pode retornar sessão via hash (#access_token=...) ou via code
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_IN' && session) {
-        navigate(APP_ROUTES.HOME, { replace: true })
-      }
-    })
+    const code = new URLSearchParams(window.location.search).get('code')
 
-    // Fallback: verifica sessão existente
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        navigate(APP_ROUTES.HOME, { replace: true })
-      }
-    })
-
-    return () => subscription.unsubscribe()
+    if (code) {
+      // PKCE: troca o code pelo session diretamente no browser (code_verifier está no localStorage)
+      supabase.auth.exchangeCodeForSession(code).then(({ data: { session } }) => {
+        navigate(session ? APP_ROUTES.HOME : APP_ROUTES.LOGIN, { replace: true })
+      })
+    } else {
+      // Sem code — verifica sessão já existente (ex: hash #access_token)
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        navigate(session ? APP_ROUTES.HOME : APP_ROUTES.LOGIN, { replace: true })
+      })
+    }
   }, [navigate])
 
   return (
