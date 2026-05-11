@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { Link, useNavigate, useLocation } from 'react-router-dom'
+import { Link, useNavigate, useLocation, useSearchParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Eye, EyeOff, Mail, Lock, User, Globe, MapPin, Phone, CreditCard, ChevronRight, ChevronLeft, CalendarDays } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
@@ -110,7 +110,11 @@ export function Login({ mode: initialMode = 'login' }: LoginProps) {
   const { toast } = useToast()
   const navigate = useNavigate()
   const location = useLocation()
+  const [searchParams] = useSearchParams()
   const from = (location.state as { from?: { pathname: string } })?.from?.pathname ?? APP_ROUTES.HOME
+
+  // Erro vindo do AuthCallback (ex: link aberto em outro browser)
+  const linkError = searchParams.get('error')
 
   function f(field: keyof RegisterForm) {
     return {
@@ -230,7 +234,14 @@ export function Login({ mode: initialMode = 'login' }: LoginProps) {
           {mode === 'login' && (
             <>
               <h1 className="font-display text-3xl font-bold text-white mb-1">Entrar</h1>
-              <p className="text-[#B3B3B3] text-sm mb-8">Bem-vindo de volta ao LOCAFLIX</p>
+              <p className="text-[#B3B3B3] text-sm mb-4">Bem-vindo de volta ao LOCAFLIX</p>
+
+              {linkError === 'link_expirado' && (
+                <div className="bg-[#F5A623]/10 border border-[#F5A623]/40 rounded-xl px-4 py-3 mb-4 text-sm text-[#F5A623]">
+                  O link de confirmação expirou ou foi aberto em outro navegador/dispositivo.
+                  Faça um novo cadastro ou tente entrar diretamente.
+                </div>
+              )}
 
               <button
                 onClick={handleGoogle}

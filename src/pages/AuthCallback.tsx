@@ -11,8 +11,14 @@ export function AuthCallback() {
 
     if (code) {
       // PKCE: troca o code pelo session diretamente no browser (code_verifier está no localStorage)
-      supabase.auth.exchangeCodeForSession(code).then(({ data: { session } }) => {
-        navigate(session ? APP_ROUTES.HOME : APP_ROUTES.LOGIN, { replace: true })
+      supabase.auth.exchangeCodeForSession(code).then(({ data: { session }, error }) => {
+        if (error) {
+          console.error('[AuthCallback] exchangeCodeForSession error:', error.message)
+          // code_verifier ausente = link aberto em browser/dispositivo diferente do cadastro
+          navigate(`${APP_ROUTES.LOGIN}?error=link_expirado`, { replace: true })
+        } else {
+          navigate(session ? APP_ROUTES.HOME : APP_ROUTES.LOGIN, { replace: true })
+        }
       })
     } else {
       // Sem code — verifica sessão já existente (ex: hash #access_token)
