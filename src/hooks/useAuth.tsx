@@ -100,14 +100,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     })
     if (error) throw error
 
-    // Save full profile immediately after auth creation
+    // Fire-and-forget: session may not exist until email is confirmed (PKCE).
+    // fetchProfile() will recreate the row on first sign-in if this fails.
     if (data.user) {
-      await supabase.from('users').upsert({
+      supabase.from('users').upsert({
         id: data.user.id,
         email,
         name,
         role,
         ...extra,
+      }).then(({ error: e }) => {
+        if (e) console.warn('[signUp] profile upsert:', e.message)
       })
     }
   }

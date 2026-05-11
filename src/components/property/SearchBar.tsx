@@ -215,7 +215,7 @@ export function SearchBar({ compact = false, defaultValues }: SearchBarProps) {
     const hasCities = Object.keys(locationMap[uf]?.cities ?? {}).length > 0
     if (hasCities) {
       setDestinoStep('cidade')
-      doSearch(uf, '', '', checkIn, checkOut, guests)
+      // Don't search yet — let user pick a city or tap "Todo o [Estado]"
     } else {
       setPanel(null)
       doSearch(uf, '', '', checkIn, checkOut, guests)
@@ -387,11 +387,11 @@ export function SearchBar({ compact = false, defaultValues }: SearchBarProps) {
           </button>
           <button
             type="button"
-            onClick={() => { setPanel(null) }}
-            className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-left transition-colors mb-1 ${!cidade ? 'bg-[#E50914]/20 text-[#E50914]' : 'hover:bg-[#2A2A2A] text-[#B3B3B3]'}`}
+            onClick={() => { setPanel(null); doSearch(estado, '', '', checkIn, checkOut, guests) }}
+            className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-left transition-colors mb-1 hover:bg-[#2A2A2A] text-[#B3B3B3] border border-[#333] rounded-xl"
           >
-            <span className="text-sm font-medium">Todo o {selectedStateName ?? estado}</span>
-            {!cidade && <Check size={14} className="text-[#E50914]" />}
+            <span className="text-sm font-medium">Buscar em todo {selectedStateName ?? estado}</span>
+            <Search size={14} className="text-[#666]" />
           </button>
           {availableCities.map(([city, data]) => (
             <button
