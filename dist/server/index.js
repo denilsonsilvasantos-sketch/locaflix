@@ -163,17 +163,8 @@ async function asaasRequest(method, path2, body) {
   if (!res.ok) throw new Error(data.errors?.[0]?.description ?? `Asaas error ${res.status}`);
   return data;
 }
-app.get("/auth/callback", async (req, res) => {
-  const code = req.query.code;
-  if (code) {
-    const { createClient } = await import("@supabase/supabase-js");
-    const supabase = createClient(
-      process.env.SUPABASE_URL,
-      process.env.SUPABASE_SERVICE_ROLE_KEY
-    );
-    await supabase.auth.exchangeCodeForSession(code);
-  }
-  res.redirect("/");
+app.get("/auth/callback", (_req, res) => {
+  res.sendFile(distIndex);
 });
 const distDir = path.join(__dirname, "..");
 const distIndex = path.join(distDir, "index.html");
