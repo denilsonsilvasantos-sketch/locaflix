@@ -43,7 +43,7 @@ export function DateRangePicker({ from, to, onChange, onClose }: DateRangePicker
 
   const nights =
     draftFrom && draftTo
-      ? Math.round((draftTo.getTime() - draftFrom.getTime()) / 86400000)
+      ? Math.floor((draftTo.getTime() - draftFrom.getTime()) / 86400000)
       : null
 
   function handleDay(date: Date) {

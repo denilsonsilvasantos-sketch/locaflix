@@ -49,7 +49,7 @@ export function Checkout() {
   const guestsParam = Number(searchParams.get('hospedes') ?? 2)
 
   const nights = checkIn && checkOut
-    ? Math.max(0, Math.floor((new Date(checkOut).getTime() - new Date(checkIn).getTime()) / 86400000))
+    ? Math.max(0, Math.floor((new Date(checkOut + 'T00:00:00').getTime() - new Date(checkIn + 'T00:00:00').getTime()) / 86400000))
     : 0
 
   const [form, setForm] = useState<CheckoutFormData>({

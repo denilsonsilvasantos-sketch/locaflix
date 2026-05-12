@@ -23,7 +23,9 @@ export function validateCPF(cpf: string): boolean {
 export function validateBirthDate(birthDate: string, minAge = 18): boolean {
   try {
     const date = parseISO(birthDate)
-    const age = differenceInYears(new Date(), date)
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const age = differenceInYears(today, date)
     return age >= minAge
   } catch {
     return false

@@ -20,8 +20,8 @@ export function generateContractContent(params: ContractParams): string {
   const ownerCPFMasked = owner.cpf ? maskCPF(owner.cpf) : '***.***.***-**'
   const propertyCode = `IMOVEL-${booking.property_id.substring(0, 8).toUpperCase()}`
 
-  const checkIn = format(new Date(booking.check_in + 'T12:00:00'), "dd/MM/yyyy")
-  const checkOut = format(new Date(booking.check_out + 'T12:00:00'), "dd/MM/yyyy")
+  const checkIn = format(new Date(booking.check_in + 'T00:00:00'), "dd/MM/yyyy")
+  const checkOut = format(new Date(booking.check_out + 'T00:00:00'), "dd/MM/yyyy")
 
   return `CONTRATO DE INTERMEDIAÇÃO DE LOCAÇÃO POR TEMPORADA
 

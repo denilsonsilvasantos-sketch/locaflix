@@ -24,7 +24,7 @@ export function PropertyCard({ property, onFavoriteToggle, isFavorited = false, 
   const hasDates = Boolean(checkIn && checkOut)
 
   const nights = hasDates
-    ? Math.round((new Date(checkOut! + 'T00:00:00').getTime() - new Date(checkIn! + 'T00:00:00').getTime()) / 86400000)
+    ? Math.floor((new Date(checkOut! + 'T00:00:00').getTime() - new Date(checkIn! + 'T00:00:00').getTime()) / 86400000)
     : 0
 
   const total = hasDates && nights > 0

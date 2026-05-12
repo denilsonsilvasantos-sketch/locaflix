@@ -54,9 +54,9 @@ export function PropertyDetails() {
 
   function calcNights() {
     if (!checkIn || !checkOut) return 0
-    const d1 = new Date(checkIn).getTime()
-    const d2 = new Date(checkOut).getTime()
-    return Math.max(0, Math.floor((d2 - d1) / (1000 * 60 * 60 * 24)))
+    const d1 = new Date(checkIn + 'T00:00:00').getTime()
+    const d2 = new Date(checkOut + 'T00:00:00').getTime()
+    return Math.max(0, Math.floor((d2 - d1) / 86400000))
   }
 
   function handleReserve() {
@@ -258,7 +258,7 @@ export function PropertyDetails() {
                   <p className="text-xs text-[#B3B3B3]">Anfitrião</p>
                   <p className="font-semibold text-white">{property.owner.name?.split(' ')[0]}</p>
                   <p className="text-xs text-[#666] mt-0.5">
-                    Membro desde {new Date(property.owner.created_at ?? property.created_at).getFullYear()}
+                    Membro desde {(() => { const y = new Date(property.owner.created_at ?? property.created_at ?? '').getFullYear(); return isNaN(y) ? '—' : y })()}
                   </p>
                 </div>
               </section>
