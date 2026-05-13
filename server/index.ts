@@ -43,6 +43,11 @@ app.post('/api/payments/create-pix', requireAuth, async (req: Request, res: Resp
   try {
     const { customer, value, dueDate, description, externalReference } = req.body
 
+    if (!ASAAS_API_KEY) {
+      res.status(503).json({ error: 'Integração Asaas não configurada. Defina ASAAS_API_KEY no servidor.' })
+      return
+    }
+
     if (!customer || !value || !dueDate) {
       res.status(400).json({ error: 'customer, value and dueDate are required' })
       return

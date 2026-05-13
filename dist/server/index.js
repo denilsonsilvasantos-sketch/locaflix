@@ -25,6 +25,10 @@ app.get("/api/client-ip", (req, res) => {
 app.post("/api/payments/create-pix", requireAuth, async (req, res) => {
   try {
     const { customer, value, dueDate, description, externalReference } = req.body;
+    if (!ASAAS_API_KEY) {
+      res.status(503).json({ error: "Integra\xE7\xE3o Asaas n\xE3o configurada. Defina ASAAS_API_KEY no servidor." });
+      return;
+    }
     if (!customer || !value || !dueDate) {
       res.status(400).json({ error: "customer, value and dueDate are required" });
       return;

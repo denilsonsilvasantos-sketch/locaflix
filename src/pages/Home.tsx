@@ -80,7 +80,7 @@ export function Home() {
     if (filters.state && p.state !== filters.state) return false
     if (filters.city && !`${p.city} ${p.neighborhood ?? ''}`.toLowerCase().includes(filters.city.toLowerCase())) return false
     if (filters.type && p.type !== filters.type) return false
-    if (filters.guests && p.max_guests < filters.guests) return false
+    if (filters.guests && filters.guests > 1 && (p.max_guests ?? Infinity) < filters.guests) return false
     if (filters.min_price && p.price_per_night < filters.min_price) return false
     if (filters.max_price && p.price_per_night > filters.max_price) return false
     if (filters.amenities?.length) {
@@ -224,9 +224,9 @@ export function Home() {
       )}
 
       {/* SearchBar único — sempre montado, nunca desmonta */}
-      <div className={`relative z-20 px-4 sm:px-6 lg:px-8 ${
+      <div id="search-bar" className={`relative z-20 px-4 sm:px-6 lg:px-8 ${
         isSearching
-          ? 'pt-24 pb-8 max-w-5xl mx-auto'
+          ? 'pt-20 sm:pt-24 pb-6 max-w-5xl mx-auto'
           : heroProperties.length > 0 ? '-mt-16 pb-4 max-w-5xl mx-auto' : 'pt-8 pb-4 max-w-5xl mx-auto'
       }`}>
         <SearchBar
@@ -246,17 +246,17 @@ export function Home() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-12">
 
         {/* Filter bar */}
-        <div className="flex items-center justify-between py-6 gap-4 flex-wrap">
+        <div className="flex items-center justify-between py-4 sm:py-6 gap-3 flex-wrap">
           {isSearching ? (
-            <div className="flex items-center gap-3">
-              <h2 className="font-display text-xl font-bold text-white">
-                {filteredProperties.length} imóveis encontrados
+            <div className="flex items-center gap-2 flex-wrap">
+              <h2 className="font-display text-base sm:text-xl font-bold text-white">
+                {filteredProperties.length} {filteredProperties.length === 1 ? 'imóvel encontrado' : 'imóveis encontrados'}
               </h2>
               <button
                 onClick={() => { setFilters({}); navigate(APP_ROUTES.HOME) }}
                 className="flex items-center gap-1.5 text-xs text-[#B3B3B3] hover:text-white bg-[#2A2A2A] px-2.5 py-1.5 rounded-lg transition-colors"
               >
-                <X size={12} /> Limpar filtros
+                <X size={12} /> Limpar
               </button>
             </div>
           ) : (
@@ -264,7 +264,7 @@ export function Home() {
           )}
           <button
             onClick={() => setFiltersOpen(v => !v)}
-            className="flex items-center gap-2 text-sm text-[#B3B3B3] hover:text-white bg-[#1F1F1F] border border-[#333] px-4 py-2 rounded-lg transition-colors"
+            className="flex items-center gap-2 text-sm text-[#B3B3B3] hover:text-white bg-[#1F1F1F] border border-[#333] px-3 sm:px-4 py-2 rounded-lg transition-colors ml-auto"
           >
             <SlidersHorizontal size={15} />
             Filtros

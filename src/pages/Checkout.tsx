@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useParams, useSearchParams, useNavigate, Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Check, ChevronRight, FileText, CreditCard, User, AlertTriangle, ShieldCheck } from 'lucide-react'
+import { Check, ChevronRight, FileText, CreditCard, User, AlertTriangle, ShieldCheck, Calendar } from 'lucide-react'
 import { supabase } from '../lib/supabase'
-import type { Property, CheckoutFormData, InstallmentPreview, PixPaymentResponse } from '../types'
+import type { Property, CheckoutFormData, InstallmentPreview, PixPaymentResponse, CancellationPolicy } from '../types'
 import { CANCELLATION_POLICIES, APP_ROUTES } from '../constants'
 import { MOCK_PROPERTIES } from '../constants/mocks'
 import { Button } from '../components/ui/Button'
@@ -17,6 +17,42 @@ import {
   calculatePlatformFee, formatDate,
 } from '../lib/utils'
 import { generateContractContent } from '../lib/contractTemplate'
+import { format, subDays } from 'date-fns'
+import { ptBR } from 'date-fns/locale'
+
+interface PolicyDeadline {
+  label: string
+  date: Date
+  refundPercent: number
+  color: string
+}
+
+function calcPolicyDeadlines(policy: CancellationPolicy | undefined, checkIn: string): PolicyDeadline[] {
+  if (!checkIn || !policy) return []
+  const ci = new Date(checkIn + 'T12:00:00')
+  const fmt = (d: Date) => d
+  switch (policy) {
+    case 'FLEXIVEL':
+      return [
+        { label: 'Reembolso total', date: fmt(subDays(ci, 1)), refundPercent: 100, color: '#46D369' },
+        { label: 'Sem reembolso', date: fmt(ci), refundPercent: 0, color: '#E50914' },
+      ]
+    case 'MODERADO':
+      return [
+        { label: 'Reembolso total', date: fmt(subDays(ci, 5)), refundPercent: 100, color: '#46D369' },
+        { label: 'Reembolso de 50%', date: fmt(subDays(ci, 2)), refundPercent: 50, color: '#F5A623' },
+        { label: 'Sem reembolso', date: fmt(ci), refundPercent: 0, color: '#E50914' },
+      ]
+    case 'FIRME':
+      return [
+        { label: 'Reembolso total', date: fmt(subDays(ci, 14)), refundPercent: 100, color: '#46D369' },
+        { label: 'Reembolso de 50%', date: fmt(subDays(ci, 7)), refundPercent: 50, color: '#F5A623' },
+        { label: 'Sem reembolso', date: fmt(ci), refundPercent: 0, color: '#E50914' },
+      ]
+    default:
+      return []
+  }
+}
 
 const STEPS = [
   { id: 1, label: 'Política', icon: <AlertTriangle size={14} /> },
@@ -244,7 +280,12 @@ export function Checkout() {
 
       if (!pixRes.ok) {
         const err = await pixRes.json()
-        throw new Error(err.error ?? 'Erro ao gerar Pix')
+        const msg = err.error ?? 'Erro ao gerar Pix'
+        // Booking was created — navigate to dashboard so user can see it
+        toast('warning', 'Reserva criada, mas Pix falhou', `${msg}. Acesse "Minhas reservas" para tentar novamente.`)
+        setPaymentModalOpen(false)
+        navigate(APP_ROUTES.GUEST_DASHBOARD + '?tab=reservas', { replace: true })
+        return
       }
 
       const pix: PixPaymentResponse = await pixRes.json()
@@ -252,7 +293,8 @@ export function Checkout() {
       setPaymentModalOpen(false)
       setPixModalOpen(true)
     } catch (err: unknown) {
-      toast('error', 'Erro', err instanceof Error ? err.message : 'Erro ao processar reserva.')
+      const msg = err instanceof Error ? err.message : 'Erro ao processar reserva.'
+      toast('error', 'Erro', msg)
     } finally {
       setSaving(false)
     }
@@ -360,14 +402,53 @@ export function Checkout() {
                     <h2 className="font-display text-xl font-bold text-white mb-4">Política de cancelamento</h2>
                     {(() => {
                       const pol = CANCELLATION_POLICIES.find(p => p.value === property.cancellation_policy)
-                      return pol ? (
-                        <div className="bg-[#2A2A2A] rounded-xl p-4 mb-4">
-                          <p className="font-semibold text-white mb-1">{pol.label}</p>
-                          <p className="text-sm text-[#B3B3B3]">{pol.description}</p>
-                        </div>
-                      ) : null
+                      const deadlines = calcPolicyDeadlines(property.cancellation_policy, checkIn)
+                      return (
+                        <>
+                          <div className="bg-[#2A2A2A] rounded-xl p-4 mb-4">
+                            <div className="flex items-center gap-2 mb-2">
+                              <span className="text-white font-semibold">{pol?.label ?? 'Política padrão'}</span>
+                              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                                property.cancellation_policy === 'FLEXIVEL' ? 'bg-[#46D369]/20 text-[#46D369]'
+                                : property.cancellation_policy === 'MODERADO' ? 'bg-[#F5A623]/20 text-[#F5A623]'
+                                : 'bg-[#E50914]/20 text-[#E50914]'
+                              }`}>
+                                {property.cancellation_policy ?? 'PADRÃO'}
+                              </span>
+                            </div>
+                            <p className="text-sm text-[#B3B3B3]">{pol?.description ?? 'Consulte o anfitrião para condições de cancelamento.'}</p>
+                          </div>
+
+                          {deadlines.length > 0 && checkIn && (
+                            <div className="mb-5">
+                              <p className="text-xs font-semibold text-[#B3B3B3] uppercase tracking-wide mb-3 flex items-center gap-2">
+                                <Calendar size={13} /> Prazos para o seu check-in ({format(new Date(checkIn + 'T00:00:00'), "dd 'de' MMMM", { locale: ptBR })})
+                              </p>
+                              <div className="space-y-2">
+                                {deadlines.map((d, i) => (
+                                  <div key={i} className="flex items-center justify-between bg-[#0A0A0A] border border-[#2A2A2A] rounded-xl px-4 py-3">
+                                    <div className="flex items-center gap-3">
+                                      <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: d.color }} />
+                                      <div>
+                                        <p className="text-xs font-semibold" style={{ color: d.color }}>{d.label}</p>
+                                        <p className="text-xs text-[#666]">
+                                          {d.refundPercent > 0
+                                            ? `Cancele até ${format(d.date, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}`
+                                            : `A partir de ${format(d.date, "dd/MM/yyyy", { locale: ptBR })}`
+                                          }
+                                        </p>
+                                      </div>
+                                    </div>
+                                    <span className="text-sm font-bold text-white">{d.refundPercent}%</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      )
                     })()}
-                    <div className="space-y-2 text-sm text-[#B3B3B3] mb-6">
+                    <div className="space-y-2 text-sm text-[#B3B3B3] mb-6 bg-[#1A1A1A] rounded-xl p-4">
                       <p>• A LOCAFLIX atua como intermediadora na relação locador-locatário.</p>
                       <p>• Taxa de serviço de 5% cobrada do hóspede.</p>
                       <p>• Parcelamento livre via Pix. Última parcela até 7 dias antes do check-in.</p>

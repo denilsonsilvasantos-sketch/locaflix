@@ -107,6 +107,9 @@ function BottomSheet({
   open: boolean; onClose: () => void; title: string; children: React.ReactNode
 }) {
   useEffect(() => {
+    // Only lock body scroll on actual mobile — md:hidden (768px) is CSS-only,
+    // the useEffect runs on all viewports and would break desktop scroll.
+    if (window.innerWidth >= 768) return
     document.body.style.overflow = open ? 'hidden' : ''
     return () => { document.body.style.overflow = '' }
   }, [open])
@@ -178,7 +181,7 @@ export function SearchBar({ compact = false, defaultValues }: SearchBarProps) {
     if (_checkIn) params.set('entrada', _checkIn)
     if (_checkOut) params.set('saida', _checkOut)
     const total = _guests.adults + _guests.children
-    if (total > 0) params.set('hospedes', String(total))
+    if (total > 1) params.set('hospedes', String(total))
     if (_guests.babies > 0) params.set('bebes', String(_guests.babies))
     if (_guests.pets > 0) params.set('pets', String(_guests.pets))
     navigate(`${APP_ROUTES.HOME}?${params.toString()}`)
@@ -522,10 +525,10 @@ export function SearchBar({ compact = false, defaultValues }: SearchBarProps) {
             <ChevronDown size={14} className={`text-[#666] flex-shrink-0 transition-transform ${panel === 'hospedes' ? 'rotate-180' : ''}`} />
           </button>
 
-          {/* Buscar (desktop) */}
-          <button type="button" onClick={() => doSearch(estado, cidade, bairro, checkIn, checkOut, guests)}
-            className="hidden md:flex items-center gap-2 bg-[#E50914] hover:bg-[#F40612] text-white font-semibold px-6 rounded-xl transition-colors flex-shrink-0">
-            <Search size={18} /> Buscar
+          {/* Buscar — icon only on mobile, full label on desktop */}
+          <button type="button" onClick={() => { setPanel(null); doSearch(estado, cidade, bairro, checkIn, checkOut, guests) }}
+            className="flex items-center gap-2 bg-[#E50914] hover:bg-[#F40612] text-white font-semibold px-4 md:px-6 rounded-xl transition-colors flex-shrink-0 min-w-[48px] justify-center">
+            <Search size={18} /> <span className="hidden md:inline">Buscar</span>
           </button>
         </div>
 
