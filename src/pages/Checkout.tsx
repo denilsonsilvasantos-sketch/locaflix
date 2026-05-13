@@ -190,14 +190,6 @@ export function Checkout() {
 
   async function confirmBooking() {
     if (!property || !user) return
-
-    const isMock = MOCK_PROPERTIES.some(p => p.id === property.id)
-    if (isMock) {
-      toast('info', 'Imóvel de demonstração', 'Este imóvel é apenas demonstrativo. Cadastre-se como anfitrião para publicar imóveis reais.')
-      setPaymentModalOpen(false)
-      return
-    }
-
     setSaving(true)
     try {
       const subtotal = property.price_per_night * nights
@@ -351,12 +343,12 @@ export function Checkout() {
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         <h1 className="font-display text-2xl font-bold text-white mb-6">Finalizar reserva</h1>
 
-        {/* Mock warning */}
+        {/* Mock warning — sandbox test mode, flow is real */}
         {isMock && (
-          <div className="flex items-start gap-3 bg-[#F5A623]/10 border border-[#F5A623]/30 rounded-xl px-4 py-3 mb-6">
-            <AlertTriangle size={16} className="text-[#F5A623] flex-shrink-0 mt-0.5" />
-            <p className="text-sm text-[#F5A623]">
-              Este é um imóvel de demonstração. A reserva não será processada com dados reais.
+          <div className="flex items-start gap-3 bg-[#46D369]/10 border border-[#46D369]/30 rounded-xl px-4 py-3 mb-6">
+            <AlertTriangle size={16} className="text-[#46D369] flex-shrink-0 mt-0.5" />
+            <p className="text-sm text-[#46D369]">
+              Imóvel de demonstração em <strong>modo sandbox</strong>. O fluxo completo de pagamento será testado com dados do Asaas sandbox.
             </p>
           </div>
         )}
