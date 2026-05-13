@@ -191,61 +191,70 @@ export function Checkout() {
   async function confirmBooking() {
     if (!property || !user) return
     setSaving(true)
+
+    const isMock = MOCK_PROPERTIES.some(p => p.id === property.id)
+
     try {
       const subtotal = property.price_per_night * nights
       const platform_fee = calculatePlatformFee(subtotal)
       const total_price = subtotal + platform_fee
-
-      const { data: booking, error } = await supabase.from('bookings').insert({
-        property_id: property.id,
-        guest_id: user.id,
-        owner_id: property.owner_id,
-        check_in: checkIn,
-        check_out: checkOut,
-        nights,
-        total_guests: guestsParam,
-        subtotal,
-        platform_fee,
-        insurance_amount: 0,
-        discount_amount: 0,
-        total_price,
-        insurance_plan: 'NENHUM',
-        status: 'AGUARDANDO_PAGAMENTO',
-      }).select().single()
-
-      if (error || !booking) throw new Error(error?.message ?? 'Erro ao criar reserva')
-
       const previews = calculateInstallments(total_price, installmentCount, checkIn)
-      const { data: installments } = await supabase.from('installments').insert(
-        previews.map(p => ({
+
+      let firstInstallmentId: string | undefined
+
+      if (!isMock) {
+        // Real property: persist booking, installments and contract in DB
+        const { data: booking, error } = await supabase.from('bookings').insert({
+          property_id: property.id,
+          guest_id: user.id,
+          owner_id: property.owner_id,
+          check_in: checkIn,
+          check_out: checkOut,
+          nights,
+          total_guests: guestsParam,
+          subtotal,
+          platform_fee,
+          insurance_amount: 0,
+          discount_amount: 0,
+          total_price,
+          insurance_plan: 'NENHUM',
+          status: 'AGUARDANDO_PAGAMENTO',
+        }).select().single()
+
+        if (error || !booking) throw new Error(error?.message ?? 'Erro ao criar reserva')
+
+        const { data: installments } = await supabase.from('installments').insert(
+          previews.map(p => ({
+            booking_id: booking.id,
+            number: p.number,
+            value: p.value,
+            due_date: p.due_date,
+            type: p.type,
+            status: 'PENDENTE',
+          }))
+        ).select()
+
+        const contractContent = generateContractContent({
+          booking: { ...booking, property },
+          guest: profile!,
+          owner: property.owner as any ?? { name: 'Anfitrião', cpf: '' },
+          ipAddress,
+          userAgent: navigator.userAgent,
+        })
+        await supabase.from('contracts').insert({
           booking_id: booking.id,
-          number: p.number,
-          value: p.value,
-          due_date: p.due_date,
-          type: p.type,
-          status: 'PENDENTE',
-        }))
-      ).select()
+          guest_id: user.id,
+          owner_id: property.owner_id,
+          content: contractContent,
+          ip_address: ipAddress,
+          user_agent: navigator.userAgent,
+          accepted_at: new Date().toISOString(),
+        })
 
-      const contractContent = generateContractContent({
-        booking: { ...booking, property },
-        guest: profile!,
-        owner: property.owner as any ?? { name: 'Anfitrião', cpf: '' },
-        ipAddress,
-        userAgent: navigator.userAgent,
-      })
-      await supabase.from('contracts').insert({
-        booking_id: booking.id,
-        guest_id: user.id,
-        owner_id: property.owner_id,
-        content: contractContent,
-        ip_address: ipAddress,
-        user_agent: navigator.userAgent,
-        accepted_at: new Date().toISOString(),
-      })
+        firstInstallmentId = installments?.[0]?.id
+      }
+      // Mock properties skip DB writes — Pix is still called to test Asaas sandbox
 
-      // Generate Pix for the first installment
-      const firstInstallment = installments?.[0]
       const session = await supabase.auth.getSession()
       const token = session.data.session?.access_token ?? ''
 
@@ -262,11 +271,11 @@ export function Checkout() {
             email: user.email,
             phone: form.phone,
           },
-          value: firstInstallment?.value ?? previews[0].value,
-          dueDate: firstInstallment?.due_date ?? previews[0].due_date,
-          description: `Locaflix - ${property.name} - Parcela 1`,
-          externalReference: `installment:${firstInstallment?.id}`,
-          installment_id: firstInstallment?.id,
+          value: previews[0].value,
+          dueDate: previews[0].due_date,
+          description: `Locaflix - ${property.name} - Parcela 1${isMock ? ' [SANDBOX TEST]' : ''}`,
+          externalReference: firstInstallmentId ? `installment:${firstInstallmentId}` : `sandbox:${Date.now()}`,
+          installment_id: firstInstallmentId,
         }),
       })
 
