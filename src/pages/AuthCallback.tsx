@@ -8,11 +8,53 @@ async function ensureProfile(userId: string, meta: Record<string, unknown>) {
   if (!data) {
     await supabase.from('users').upsert({
       id: userId,
-      email: meta.email as string ?? '',
-      name: (meta.full_name ?? meta.name ?? '') as string,
+      email: (meta.email as string) ?? '',
+      name: ((meta.full_name ?? meta.name ?? '') as string),
       role: 'GUEST',
-      avatar_url: meta.avatar_url as string ?? null,
+      avatar_url: (meta.avatar_url as string) ?? null,
     })
+  }
+}
+
+async function resolveSession(navigate: ReturnType<typeof useNavigate>) {
+  const params = new URLSearchParams(window.location.search)
+  const code = params.get('code')
+  const urlError = params.get('error')
+  const errorDesc = params.get('error_description')
+
+  // Supabase returned an explicit OAuth error
+  if (urlError) {
+    console.error('[AuthCallback] OAuth error:', urlError, errorDesc)
+    navigate(`${APP_ROUTES.LOGIN}?error=link_expirado`, { replace: true })
+    return
+  }
+
+  // PKCE code flow (email magic link or OAuth with PKCE)
+  if (code) {
+    const { data: { session }, error } = await supabase.auth.exchangeCodeForSession(code)
+    if (!error && session) {
+      await ensureProfile(session.user.id, session.user.user_metadata ?? {})
+      navigate(APP_ROUTES.HOME, { replace: true })
+      return
+    }
+    // PKCE exchange failed — fall through to getSession() as a fallback
+    // (OAuth implicit flow may have already set the session)
+    console.warn('[AuthCallback] exchangeCodeForSession failed:', error?.message)
+  }
+
+  // Fallback: check if Supabase already set a session (implicit OAuth or hash token)
+  const { data: { session } } = await supabase.auth.getSession()
+  if (session) {
+    await ensureProfile(session.user.id, session.user.user_metadata ?? {})
+    navigate(APP_ROUTES.HOME, { replace: true })
+    return
+  }
+
+  // No session at all — if we had a code that failed, show expired-link error
+  if (code) {
+    navigate(`${APP_ROUTES.LOGIN}?error=link_expirado`, { replace: true })
+  } else {
+    navigate(APP_ROUTES.LOGIN, { replace: true })
   }
 }
 
@@ -20,26 +62,7 @@ export function AuthCallback() {
   const navigate = useNavigate()
 
   useEffect(() => {
-    const code = new URLSearchParams(window.location.search).get('code')
-
-    if (code) {
-      supabase.auth.exchangeCodeForSession(code).then(async ({ data: { session }, error }) => {
-        if (error) {
-          console.error('[AuthCallback] exchangeCodeForSession error:', error.message)
-          navigate(`${APP_ROUTES.LOGIN}?error=link_expirado`, { replace: true })
-        } else if (session) {
-          // For Google OAuth: ensure a users row exists on first login
-          await ensureProfile(session.user.id, session.user.user_metadata ?? {})
-          navigate(APP_ROUTES.HOME, { replace: true })
-        } else {
-          navigate(APP_ROUTES.LOGIN, { replace: true })
-        }
-      })
-    } else {
-      supabase.auth.getSession().then(({ data: { session } }) => {
-        navigate(session ? APP_ROUTES.HOME : APP_ROUTES.LOGIN, { replace: true })
-      })
-    }
+    resolveSession(navigate)
   }, [navigate])
 
   return (
