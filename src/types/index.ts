@@ -186,6 +186,28 @@ export interface Notification {
   updated_at: string
 }
 
+// ---- Property Room ----
+export interface PropertyRoom {
+  id: string
+  property_id: string
+  name: string
+  description: string | null
+  display_order: number
+  created_at: string
+}
+
+// ---- Property Photo ----
+export interface PropertyPhoto {
+  id: string
+  property_id: string
+  room_id: string | null
+  url: string
+  caption: string | null
+  display_order: number
+  created_at: string
+  room?: PropertyRoom | null
+}
+
 // ---- Favorite ----
 export interface Favorite {
   id: string

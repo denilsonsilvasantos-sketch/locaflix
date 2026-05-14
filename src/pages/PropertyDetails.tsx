@@ -1,11 +1,11 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Star, MapPin, Users, BedDouble, Bath, ChevronLeft, ChevronRight, Heart, Share2, Check, Calendar } from 'lucide-react'
+import { Star, MapPin, Users, BedDouble, Bath, ChevronLeft, ChevronRight, Heart, Share2, Check, Calendar, X, Grid2x2 } from 'lucide-react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { supabase } from '../lib/supabase'
-import type { Property, Review } from '../types'
+import type { Property, PropertyPhoto, Review } from '../types'
 import { MOCK_PROPERTIES } from '../constants/mocks'
 import { APP_ROUTES } from '../constants'
 import { formatCurrency, calculateMaxInstallments } from '../lib/utils'
@@ -13,6 +13,14 @@ import { Button } from '../components/ui/Button'
 import { DateRangePicker } from '../components/ui/DateRangePicker'
 import { useAuth } from '../hooks/useAuth'
 import { useToast } from '../hooks/useToast'
+
+interface RoomGroup {
+  id: string | null
+  name: string
+  photos: (PropertyPhoto & { roomName: string })[]
+}
+
+type FlatPhoto = PropertyPhoto & { roomName: string }
 
 export function PropertyDetails() {
   const { id } = useParams<{ id: string }>()
@@ -23,8 +31,11 @@ export function PropertyDetails() {
 
   const [property, setProperty] = useState<Property | null>(null)
   const [reviews, setReviews] = useState<Review[]>([])
+  const [roomGroups, setRoomGroups] = useState<RoomGroup[]>([])
   const [loading, setLoading] = useState(true)
   const [imgIdx, setImgIdx] = useState(0)
+  const [lightboxOpen, setLightboxOpen] = useState(false)
+  const [lightboxIdx, setLightboxIdx] = useState(0)
   const [checkIn, setCheckIn] = useState(() => searchParams.get('entrada') ?? '')
   const [checkOut, setCheckOut] = useState(() => searchParams.get('saida') ?? '')
   const [guests, setGuests] = useState(() => Number(searchParams.get('hospedes') ?? 2))
@@ -35,7 +46,7 @@ export function PropertyDetails() {
   useEffect(() => {
     if (!id) return
     loadProperty(id)
-  }, [id])
+  }, [id, loadProperty])
 
   useEffect(() => {
     if (!id || !user) return
@@ -48,8 +59,8 @@ export function PropertyDetails() {
       .then(({ data }) => setIsFavorited(!!data))
   }, [id, user?.id])
 
-  async function loadProperty(propertyId: string) {
-    const [propRes, revRes] = await Promise.all([
+  const loadProperty = useCallback(async (propertyId: string) => {
+    const [propRes, revRes, photoRes] = await Promise.all([
       supabase
         .from('properties')
         .select('*, owner:users(id, name, avatar_url, created_at)')
@@ -62,6 +73,11 @@ export function PropertyDetails() {
         .eq('visible', true)
         .order('created_at', { ascending: false })
         .limit(20),
+      supabase
+        .from('property_photos')
+        .select('*, room:property_rooms(id, name, display_order)')
+        .eq('property_id', propertyId)
+        .order('display_order', { ascending: true }),
     ])
 
     if (propRes.data) {
@@ -71,8 +87,23 @@ export function PropertyDetails() {
       setProperty(mock ?? null)
     }
     setReviews((revRes.data ?? []) as Review[])
+
+    // Group photos by room
+    const photosData = (photoRes.data ?? []) as (PropertyPhoto & { room: { id: string; name: string; display_order: number } | null })[]
+    const groups: RoomGroup[] = []
+    for (const photo of photosData) {
+      const roomId = photo.room_id ?? null
+      const roomName = photo.room?.name ?? 'Geral'
+      let group = groups.find(g => g.id === roomId)
+      if (!group) {
+        group = { id: roomId, name: roomName, photos: [] }
+        groups.push(group)
+      }
+      group.photos.push({ ...photo, roomName })
+    }
+    setRoomGroups(groups)
     setLoading(false)
-  }
+  }, [])
 
   function calcNights() {
     if (!checkIn || !checkOut) return 0
@@ -144,58 +175,198 @@ export function PropertyDetails() {
     )
   }
 
-  const photos = property.photos.length > 0
-    ? property.photos
-    : ['https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=1200']
+  // Build flat photo list: prefer property_photos, fallback to legacy photos[]
+  const allPhotos: FlatPhoto[] = roomGroups.length > 0
+    ? roomGroups.flatMap(g => g.photos)
+    : property.photos.map((url, i) => ({
+        id: String(i),
+        property_id: property.id,
+        room_id: null,
+        url,
+        caption: null,
+        display_order: i,
+        created_at: '',
+        roomName: 'Fotos',
+      }))
+
+  const fallbackUrl = 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=1200'
+  const displayPhotos = allPhotos.length > 0 ? allPhotos : [{ id: '0', property_id: property.id, room_id: null, url: fallbackUrl, caption: null, display_order: 0, created_at: '', roomName: '' }]
+
+  function openLightbox(idx: number) {
+    setLightboxIdx(idx)
+    setLightboxOpen(true)
+  }
+
+  function lightboxPrev() {
+    setLightboxIdx(i => (i - 1 + displayPhotos.length) % displayPhotos.length)
+  }
+
+  function lightboxNext() {
+    setLightboxIdx(i => (i + 1) % displayPhotos.length)
+  }
 
   return (
     <div className="min-h-screen bg-[#141414] pt-24">
-      {/* Gallery */}
-      <div className="relative h-[50vh] sm:h-[60vh] bg-[#0A0A0A] overflow-hidden group">
-        <img
-          src={photos[imgIdx]}
-          alt={property.name}
-          className="w-full h-full object-cover"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#141414] to-transparent" />
+      {/* ── Lightbox ── */}
+      {lightboxOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-black/95 flex flex-col"
+          onKeyDown={e => {
+            if (e.key === 'Escape') setLightboxOpen(false)
+            if (e.key === 'ArrowLeft') lightboxPrev()
+            if (e.key === 'ArrowRight') lightboxNext()
+          }}
+          tabIndex={0}
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between px-5 py-4 shrink-0">
+            <span className="text-white/60 text-sm">{lightboxIdx + 1} / {displayPhotos.length}</span>
+            {displayPhotos[lightboxIdx]?.roomName && (
+              <span className="text-white/80 text-sm font-medium">{displayPhotos[lightboxIdx].roomName}</span>
+            )}
+            <button
+              onClick={() => setLightboxOpen(false)}
+              className="w-9 h-9 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
+            >
+              <X size={18} />
+            </button>
+          </div>
 
-        {/* Photo nav */}
-        {photos.length > 1 && (
+          {/* Main photo */}
+          <div className="flex-1 flex items-center justify-center relative min-h-0 px-12">
+            <button
+              onClick={lightboxPrev}
+              className="absolute left-3 w-10 h-10 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
+            >
+              <ChevronLeft size={22} />
+            </button>
+            <img
+              src={displayPhotos[lightboxIdx]?.url}
+              alt=""
+              className="max-h-full max-w-full object-contain rounded-lg"
+            />
+            <button
+              onClick={lightboxNext}
+              className="absolute right-3 w-10 h-10 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
+            >
+              <ChevronRight size={22} />
+            </button>
+          </div>
+
+          {/* Caption */}
+          {displayPhotos[lightboxIdx]?.caption && (
+            <div className="text-center px-6 py-3 shrink-0">
+              <p className="text-white/80 text-sm">{displayPhotos[lightboxIdx].caption}</p>
+            </div>
+          )}
+
+          {/* Thumbnail strip */}
+          <div className="shrink-0 px-4 pb-4 pt-2 overflow-x-auto">
+            <div className="flex gap-2 w-max mx-auto">
+              {displayPhotos.map((p, i) => (
+                <button
+                  key={p.id + i}
+                  onClick={() => setLightboxIdx(i)}
+                  className={`w-14 h-14 rounded-lg overflow-hidden border-2 shrink-0 transition-all ${i === lightboxIdx ? 'border-white' : 'border-transparent opacity-50 hover:opacity-80'}`}
+                >
+                  <img src={p.url} alt="" className="w-full h-full object-cover" />
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Gallery ── */}
+      {/* Mobile: single hero with carousel */}
+      <div className="sm:hidden relative h-[55vw] max-h-72 bg-[#0A0A0A] overflow-hidden group">
+        <img
+          src={displayPhotos[imgIdx]?.url ?? fallbackUrl}
+          alt={property.name}
+          className="w-full h-full object-cover cursor-pointer"
+          onClick={() => openLightbox(imgIdx)}
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#141414] to-transparent pointer-events-none" />
+        {displayPhotos.length > 1 && (
           <>
             <button
-              onClick={() => setImgIdx(i => (i - 1 + photos.length) % photos.length)}
-              className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-black/60 rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity"
+              onClick={() => setImgIdx(i => (i - 1 + displayPhotos.length) % displayPhotos.length)}
+              className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 bg-black/60 rounded-full flex items-center justify-center text-white"
             >
-              <ChevronLeft size={20} />
+              <ChevronLeft size={18} />
             </button>
             <button
-              onClick={() => setImgIdx(i => (i + 1) % photos.length)}
-              className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-black/60 rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity"
+              onClick={() => setImgIdx(i => (i + 1) % displayPhotos.length)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 bg-black/60 rounded-full flex items-center justify-center text-white"
             >
-              <ChevronRight size={20} />
+              <ChevronRight size={18} />
             </button>
-            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5">
-              {photos.map((_, i) => (
-                <button
-                  key={i}
-                  onClick={() => setImgIdx(i)}
-                  className={`h-1.5 rounded-full transition-all ${i === imgIdx ? 'w-6 bg-white' : 'w-1.5 bg-white/40'}`}
-                />
-              ))}
+            <div className="absolute bottom-3 right-3 bg-black/60 text-white text-xs px-2 py-1 rounded-md">
+              {imgIdx + 1} / {displayPhotos.length}
             </div>
           </>
         )}
+      </div>
 
-        {/* Thumbnails strip */}
-        {photos.length > 1 && (
-          <div className="absolute bottom-4 right-4 flex gap-2">
-            {photos.slice(0, 5).map((src, i) => (
-              <button
-                key={i}
-                onClick={() => setImgIdx(i)}
-                className={`w-12 h-12 rounded-lg overflow-hidden border-2 transition-all ${i === imgIdx ? 'border-white' : 'border-transparent opacity-60'}`}
+      {/* Desktop: Airbnb-style grid */}
+      <div className="hidden sm:block max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4">
+        {displayPhotos.length === 1 ? (
+          <div className="relative h-[460px] rounded-2xl overflow-hidden cursor-pointer" onClick={() => openLightbox(0)}>
+            <img src={displayPhotos[0].url} alt={property.name} className="w-full h-full object-cover" />
+          </div>
+        ) : (
+          <div className="relative">
+            <div className={`grid gap-2 h-[460px] rounded-2xl overflow-hidden ${displayPhotos.length >= 5 ? 'grid-cols-4 grid-rows-2' : displayPhotos.length >= 3 ? 'grid-cols-3 grid-rows-2' : 'grid-cols-2'}`}>
+              {/* Large photo */}
+              <div
+                className={`relative cursor-pointer overflow-hidden ${displayPhotos.length >= 3 ? 'col-span-2 row-span-2' : 'col-span-1'}`}
+                onClick={() => openLightbox(0)}
               >
-                <img src={src} alt="" className="w-full h-full object-cover" />
+                <img src={displayPhotos[0].url} alt="" className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" />
+              </div>
+              {/* Smaller photos */}
+              {displayPhotos.slice(1, 5).map((photo, i) => (
+                <div
+                  key={photo.id + i}
+                  className="relative cursor-pointer overflow-hidden"
+                  onClick={() => openLightbox(i + 1)}
+                >
+                  <img src={photo.url} alt="" className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" />
+                  {/* Caption overlay */}
+                  {photo.caption && (
+                    <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 to-transparent px-3 py-2">
+                      <p className="text-white text-xs truncate">{photo.caption}</p>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+            {/* "Ver todas" button */}
+            {displayPhotos.length > 5 && (
+              <button
+                onClick={() => openLightbox(0)}
+                className="absolute bottom-4 right-4 flex items-center gap-2 bg-white text-black text-sm font-semibold px-4 py-2 rounded-xl hover:bg-white/90 transition-colors shadow-lg"
+              >
+                <Grid2x2 size={15} />
+                Ver todas as {displayPhotos.length} fotos
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Room tabs (if multiple rooms) */}
+        {roomGroups.length > 1 && (
+          <div className="flex gap-2 mt-3 overflow-x-auto pb-1">
+            {roomGroups.map(g => (
+              <button
+                key={g.id ?? 'geral'}
+                onClick={() => {
+                  const idx = allPhotos.findIndex(p => p.roomName === g.name)
+                  if (idx >= 0) openLightbox(idx)
+                }}
+                className="shrink-0 px-3 py-1.5 text-xs font-medium border border-[#333] rounded-full text-[#B3B3B3] hover:border-[#555] hover:text-white transition-colors"
+              >
+                {g.name} <span className="text-[#555]">({g.photos.length})</span>
               </button>
             ))}
           </div>

@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Upload, X, Plus } from 'lucide-react'
+import { X, Plus, Upload, Trash2, Image, Link } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { useToast } from '../hooks/useToast'
@@ -9,13 +9,33 @@ import { Input, Select, Textarea } from '../components/ui/Input'
 import { APP_ROUTES, AMENITIES_LIST, PROPERTY_TYPES, CANCELLATION_POLICIES, BRASIL_STATES } from '../constants'
 import type { PropertyType, CancellationPolicy } from '../types'
 
+const MAX_ROOMS = 10
+const MAX_PHOTOS_PER_ROOM = 20
+
+interface PhotoDraft {
+  id: string
+  url: string
+  caption: string
+  uploading: boolean
+}
+
+interface RoomDraft {
+  id: string
+  name: string
+  description: string
+  photos: PhotoDraft[]
+}
+
+function uid() {
+  return Math.random().toString(36).slice(2)
+}
+
 export function NewProperty() {
   const navigate = useNavigate()
   const { user } = useAuth()
   const { toast } = useToast()
   const [saving, setSaving] = useState(false)
-  const [photoUrls, setPhotoUrls] = useState<string[]>([])
-  const [photoInput, setPhotoInput] = useState('')
+  const [rooms, setRooms] = useState<RoomDraft[]>([])
 
   const [form, setForm] = useState({
     name: '',
@@ -68,10 +88,72 @@ export function NewProperty() {
     } catch { /* ignore */ }
   }
 
-  function addPhotoUrl() {
-    if (!photoInput.trim()) return
-    setPhotoUrls(p => [...p, photoInput.trim()])
-    setPhotoInput('')
+  function addRoom() {
+    if (rooms.length >= MAX_ROOMS) {
+      toast('warning', 'Limite atingido', `Máximo de ${MAX_ROOMS} cômodos por imóvel.`)
+      return
+    }
+    setRooms(r => [...r, { id: uid(), name: '', description: '', photos: [] }])
+  }
+
+  function removeRoom(roomId: string) {
+    setRooms(r => r.filter(rm => rm.id !== roomId))
+  }
+
+  function updateRoom(roomId: string, patch: Partial<Pick<RoomDraft, 'name' | 'description'>>) {
+    setRooms(r => r.map(rm => rm.id === roomId ? { ...rm, ...patch } : rm))
+  }
+
+  function addPhotoToRoom(roomId: string, url: string, caption: string) {
+    setRooms(r => r.map(rm => {
+      if (rm.id !== roomId || rm.photos.length >= MAX_PHOTOS_PER_ROOM) return rm
+      return { ...rm, photos: [...rm.photos, { id: uid(), url, caption, uploading: false }] }
+    }))
+  }
+
+  function removePhoto(roomId: string, photoId: string) {
+    setRooms(r => r.map(rm =>
+      rm.id === roomId ? { ...rm, photos: rm.photos.filter(p => p.id !== photoId) } : rm
+    ))
+  }
+
+  async function uploadFile(roomId: string, file: File, caption: string) {
+    const room = rooms.find(rm => rm.id === roomId)
+    if (!room || room.photos.length >= MAX_PHOTOS_PER_ROOM) return
+    if (!file.type.startsWith('image/')) {
+      toast('error', 'Arquivo inválido', 'Selecione uma imagem (JPG, PNG, WebP).')
+      return
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast('error', 'Arquivo muito grande', 'Máximo 10 MB por foto.')
+      return
+    }
+
+    const photoId = uid()
+    setRooms(r => r.map(rm =>
+      rm.id === roomId
+        ? { ...rm, photos: [...rm.photos, { id: photoId, url: '', caption, uploading: true }] }
+        : rm
+    ))
+
+    const ext = file.name.split('.').pop() ?? 'jpg'
+    const path = `${user!.id}/${Date.now()}-${uid()}.${ext}`
+    const { error } = await supabase.storage.from('property-photos').upload(path, file)
+
+    if (error) {
+      setRooms(r => r.map(rm =>
+        rm.id === roomId ? { ...rm, photos: rm.photos.filter(p => p.id !== photoId) } : rm
+      ))
+      toast('error', 'Erro no upload', error.message)
+      return
+    }
+
+    const { data } = supabase.storage.from('property-photos').getPublicUrl(path)
+    setRooms(r => r.map(rm =>
+      rm.id === roomId
+        ? { ...rm, photos: rm.photos.map(p => p.id === photoId ? { ...p, url: data.publicUrl, uploading: false } : p) }
+        : rm
+    ))
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -82,7 +164,8 @@ export function NewProperty() {
       return
     }
     setSaving(true)
-    const { error } = await supabase.from('properties').insert({
+
+    const { data: prop, error: propErr } = await supabase.from('properties').insert({
       owner_id: user.id,
       name: form.name,
       description: form.description || null,
@@ -101,11 +184,49 @@ export function NewProperty() {
       bathrooms: Number(form.bathrooms),
       max_guests: Number(form.max_guests),
       amenities: form.amenities,
-      photos: photoUrls,
+      photos: [],
       cancellation_policy: form.cancellation_policy,
-    })
+    }).select('id').single()
+
+    if (propErr || !prop) {
+      setSaving(false)
+      toast('error', 'Erro ao cadastrar', propErr?.message ?? 'Tente novamente.')
+      return
+    }
+
+    const propertyId = prop.id
+    const validRooms = rooms.filter(rm => rm.name.trim())
+
+    for (let i = 0; i < validRooms.length; i++) {
+      const room = validRooms[i]
+      const { data: roomRow, error: roomErr } = await supabase
+        .from('property_rooms')
+        .insert({
+          property_id: propertyId,
+          name: room.name.trim(),
+          description: room.description.trim() || null,
+          display_order: i,
+        })
+        .select('id')
+        .single()
+
+      if (roomErr || !roomRow) continue
+
+      const validPhotos = room.photos.filter(p => p.url && !p.uploading)
+      if (validPhotos.length === 0) continue
+
+      await supabase.from('property_photos').insert(
+        validPhotos.map((p, j) => ({
+          property_id: propertyId,
+          room_id: roomRow.id,
+          url: p.url,
+          caption: p.caption.trim() || null,
+          display_order: j,
+        }))
+      )
+    }
+
     setSaving(false)
-    if (error) { toast('error', 'Erro ao cadastrar', error.message); return }
     toast('success', 'Imóvel cadastrado!', 'Aguardando aprovação da equipe LOCAFLIX.')
     navigate(APP_ROUTES.OWNER_DASHBOARD)
   }
@@ -152,7 +273,7 @@ export function NewProperty() {
               <Input
                 label="CEP"
                 value={form.cep}
-                onChange={e => { upd('cep', e.target.value); if (e.target.value.replace(/\D/g,'').length === 8) handleCEP(e.target.value) }}
+                onChange={e => { upd('cep', e.target.value); if (e.target.value.replace(/\D/g, '').length === 8) handleCEP(e.target.value) }}
                 placeholder="00000-000"
               />
               <Input label="Número" value={form.number} onChange={e => upd('number', e.target.value)} />
@@ -227,44 +348,50 @@ export function NewProperty() {
             </div>
           </section>
 
-          {/* Fotos */}
-          <section className="bg-[#1F1F1F] border border-[#333] rounded-2xl p-6">
-            <h2 className="font-display text-lg font-bold text-white mb-4">Fotos</h2>
-            <div className="flex gap-2 mb-4">
-              <input
-                type="url"
-                value={photoInput}
-                onChange={e => setPhotoInput(e.target.value)}
-                placeholder="URL da foto (https://...)"
-                className="flex-1 bg-[#2A2A2A] border border-[#333] rounded-lg px-3 py-2.5 text-sm text-white placeholder-[#666] outline-none focus:ring-2 focus:ring-[#E50914]"
-                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addPhotoUrl() } }}
-              />
-              <Button type="button" variant="secondary" onClick={addPhotoUrl} className="flex-shrink-0">
-                <Plus size={16} />
-              </Button>
+          {/* Fotos por cômodo */}
+          <section className="bg-[#1F1F1F] border border-[#333] rounded-2xl p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="font-display text-lg font-bold text-white">Fotos por cômodo</h2>
+                <p className="text-xs text-[#666] mt-0.5">Organize as fotos por ambiente: sala, quarto, cozinha…</p>
+              </div>
+              <span className="text-xs text-[#555]">{rooms.length}/{MAX_ROOMS}</span>
             </div>
-            {photoUrls.length > 0 && (
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {photoUrls.map((url, i) => (
-                  <div key={i} className="relative group aspect-video rounded-xl overflow-hidden bg-[#2A2A2A]">
-                    <img src={url} alt="" className="w-full h-full object-cover" onError={e => { (e.target as HTMLImageElement).style.display='none' }} />
-                    <button
-                      type="button"
-                      onClick={() => setPhotoUrls(p => p.filter((_, j) => j !== i))}
-                      className="absolute top-1.5 right-1.5 w-6 h-6 bg-black/60 rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
-                      <X size={12} />
-                    </button>
-                  </div>
-                ))}
+
+            {rooms.length === 0 && (
+              <div className="border-2 border-dashed border-[#333] rounded-xl p-8 text-center">
+                <Image size={32} className="mx-auto mb-2 text-[#444]" />
+                <p className="text-sm text-[#666]">Nenhum cômodo adicionado</p>
+                <p className="text-xs text-[#444] mt-1">Adicione cômodos para organizar suas fotos por ambiente</p>
               </div>
             )}
-            {photoUrls.length === 0 && (
-              <div className="border-2 border-dashed border-[#333] rounded-xl p-8 text-center text-[#666]">
-                <Upload size={32} className="mx-auto mb-2" />
-                <p className="text-sm">Adicione URLs de fotos do imóvel</p>
-              </div>
-            )}
+
+            <div className="space-y-4">
+              {rooms.map((room, idx) => (
+                <RoomCard
+                  key={room.id}
+                  room={room}
+                  index={idx}
+                  onNameChange={v => updateRoom(room.id, { name: v })}
+                  onDescChange={v => updateRoom(room.id, { description: v })}
+                  onRemoveRoom={() => removeRoom(room.id)}
+                  onAddPhotoUrl={(url, cap) => addPhotoToRoom(room.id, url, cap)}
+                  onUploadFile={(file, cap) => uploadFile(room.id, file, cap)}
+                  onRemovePhoto={photoId => removePhoto(room.id, photoId)}
+                />
+              ))}
+            </div>
+
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={addRoom}
+              disabled={rooms.length >= MAX_ROOMS}
+              className="w-full"
+            >
+              <Plus size={16} />
+              Adicionar cômodo
+            </Button>
           </section>
 
           <div className="flex gap-4 pt-2">
@@ -276,6 +403,187 @@ export function NewProperty() {
             </Button>
           </div>
         </form>
+      </div>
+    </div>
+  )
+}
+
+// ── RoomCard ──────────────────────────────────────────────────
+
+interface RoomCardProps {
+  room: RoomDraft
+  index: number
+  onNameChange: (v: string) => void
+  onDescChange: (v: string) => void
+  onRemoveRoom: () => void
+  onAddPhotoUrl: (url: string, caption: string) => void
+  onUploadFile: (file: File, caption: string) => void
+  onRemovePhoto: (photoId: string) => void
+}
+
+function RoomCard({
+  room, index, onNameChange, onDescChange, onRemoveRoom,
+  onAddPhotoUrl, onUploadFile, onRemovePhoto,
+}: RoomCardProps) {
+  const [mode, setMode] = useState<'url' | 'upload'>('url')
+  const [photoUrl, setPhotoUrl] = useState('')
+  const [caption, setCaption] = useState('')
+  const fileRef = useRef<HTMLInputElement>(null)
+
+  function handleAddUrl() {
+    const url = photoUrl.trim()
+    if (!url) return
+    onAddPhotoUrl(url, caption.trim())
+    setPhotoUrl('')
+    setCaption('')
+  }
+
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (file) {
+      onUploadFile(file, caption.trim())
+      setCaption('')
+      e.target.value = ''
+    }
+  }
+
+  const canAddMore = room.photos.length < MAX_PHOTOS_PER_ROOM
+
+  return (
+    <div className="border border-[#2A2A2A] rounded-xl overflow-hidden">
+      {/* Room header */}
+      <div className="bg-[#252525] px-4 py-3 flex items-center gap-3">
+        <span className="text-xs font-bold text-[#555] w-5 text-center shrink-0">{index + 1}</span>
+        <input
+          value={room.name}
+          onChange={e => onNameChange(e.target.value)}
+          placeholder="Nome do cômodo (ex: Sala de Estar)"
+          className="flex-1 bg-transparent text-sm text-white placeholder-[#555] outline-none"
+        />
+        <span className="text-xs text-[#444] shrink-0">{room.photos.length}/{MAX_PHOTOS_PER_ROOM}</span>
+        <button
+          type="button"
+          onClick={onRemoveRoom}
+          className="text-[#555] hover:text-[#E50914] transition-colors shrink-0"
+        >
+          <Trash2 size={15} />
+        </button>
+      </div>
+
+      <div className="p-4 space-y-3">
+        {/* Description */}
+        <input
+          value={room.description}
+          onChange={e => onDescChange(e.target.value)}
+          placeholder="Descrição opcional"
+          className="w-full bg-[#1A1A1A] border border-[#2A2A2A] rounded-lg px-3 py-2 text-xs text-[#B3B3B3] placeholder-[#444] outline-none focus:border-[#444] transition-colors"
+        />
+
+        {/* Photo grid */}
+        {room.photos.length > 0 && (
+          <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+            {room.photos.map(photo => (
+              <div key={photo.id} className="relative group aspect-square rounded-lg overflow-hidden bg-[#2A2A2A]">
+                {photo.uploading ? (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <div className="w-5 h-5 border-2 border-[#E50914] border-t-transparent rounded-full animate-spin" />
+                  </div>
+                ) : (
+                  <img
+                    src={photo.url}
+                    alt=""
+                    className="w-full h-full object-cover"
+                    onError={e => { (e.target as HTMLImageElement).style.opacity = '0.3' }}
+                  />
+                )}
+                {photo.caption && (
+                  <div className="absolute bottom-0 inset-x-0 bg-black/70 px-1.5 py-0.5">
+                    <p className="text-[9px] text-white truncate">{photo.caption}</p>
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={() => onRemovePhoto(photo.id)}
+                  className="absolute top-1 right-1 w-5 h-5 bg-black/70 rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <X size={10} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Add photo form */}
+        {canAddMore && (
+          <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-lg p-3 space-y-2">
+            {/* Mode toggle */}
+            <div className="flex gap-1">
+              <button
+                type="button"
+                onClick={() => setMode('url')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                  mode === 'url' ? 'bg-[#333] text-white' : 'text-[#666] hover:text-[#B3B3B3]'
+                }`}
+              >
+                <Link size={11} />
+                URL
+              </button>
+              <button
+                type="button"
+                onClick={() => setMode('upload')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                  mode === 'upload' ? 'bg-[#333] text-white' : 'text-[#666] hover:text-[#B3B3B3]'
+                }`}
+              >
+                <Upload size={11} />
+                Upload
+              </button>
+            </div>
+
+            {/* Caption (shared between modes) */}
+            <input
+              value={caption}
+              onChange={e => setCaption(e.target.value)}
+              placeholder="Legenda opcional (ex: Vista da janela)"
+              className="w-full bg-[#0A0A0A] border border-[#333] rounded-lg px-3 py-2 text-xs text-white placeholder-[#555] outline-none focus:border-[#444] transition-colors"
+            />
+
+            {mode === 'url' ? (
+              <div className="flex gap-2">
+                <input
+                  type="url"
+                  value={photoUrl}
+                  onChange={e => setPhotoUrl(e.target.value)}
+                  placeholder="https://..."
+                  className="flex-1 bg-[#0A0A0A] border border-[#333] rounded-lg px-3 py-2 text-xs text-white placeholder-[#555] outline-none focus:border-[#444] transition-colors"
+                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddUrl() } }}
+                />
+                <button
+                  type="button"
+                  onClick={handleAddUrl}
+                  disabled={!photoUrl.trim()}
+                  className="shrink-0 flex items-center gap-1 px-3 py-2 bg-[#333] hover:bg-[#444] disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs rounded-lg transition-colors"
+                >
+                  <Plus size={13} />
+                  Adicionar
+                </button>
+              </div>
+            ) : (
+              <>
+                <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
+                <button
+                  type="button"
+                  onClick={() => fileRef.current?.click()}
+                  className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-[#333] hover:bg-[#444] text-white text-xs rounded-lg transition-colors"
+                >
+                  <Upload size={13} />
+                  Selecionar arquivo
+                </button>
+                <p className="text-[10px] text-[#444] text-center">JPG, PNG, WebP · máx. 10 MB</p>
+              </>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )
