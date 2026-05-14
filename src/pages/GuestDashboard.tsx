@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   Calendar, Heart, Bell, ShieldCheck, User,
   AlertTriangle, CheckCircle, XCircle,
-  BedDouble, MapPin, CreditCard, LogOut,
+  BedDouble, MapPin, CreditCard, LogOut, Clock,
+  RefreshCw, Layers,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import type { Booking, Favorite, Installment, Notification, KYCStatus, Property } from '../types'
@@ -38,6 +39,7 @@ export function GuestDashboard() {
   const [bookings, setBookings] = useState<Booking[]>([])
   const [favorites, setFavorites] = useState<Favorite[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   // Perfil form
   const [saving, setSaving] = useState(false)
@@ -59,47 +61,48 @@ export function GuestDashboard() {
     }
   }, [profile?.id])
 
-  useEffect(() => {
-    if (user?.id) loadData()
-  }, [user?.id])
-
-  async function loadData() {
+  const loadData = useCallback(async () => {
+    if (!user?.id) return
     setLoading(true)
+    setLoadError(null)
     try {
       const [bkRes, favRes] = await Promise.all([
         supabase
           .from('bookings')
           .select('*')
-          .eq('guest_id', user!.id)
+          .eq('guest_id', user.id)
           .order('created_at', { ascending: false })
-          .limit(20),
+          .limit(50),
         supabase
           .from('favorites')
           .select('*')
-          .eq('user_id', user!.id)
-          .limit(20),
+          .eq('user_id', user.id)
+          .limit(50),
       ])
 
-      if (bkRes.error) console.error('bookings error:', bkRes.error)
-      if (favRes.error) console.error('favorites error:', favRes.error)
+      if (bkRes.error) {
+        setLoadError('Não foi possível carregar suas reservas. Tente novamente.')
+        return
+      }
 
       const rawBookings = (bkRes.data ?? []) as (Booking & { property_id: string })[]
-      const rawFavs = (favRes.data ?? []) as (Favorite & { property_id: string })[]
+      const rawFavs = ((favRes.data ?? []) as (Favorite & { property_id: string })[])
 
-      // Fetch installments separately
+      // Fetch installments for all bookings in one query
       const instMap: Record<string, Installment[]> = {}
       if (rawBookings.length > 0) {
         const { data: insts } = await supabase
           .from('installments')
           .select('*')
           .in('booking_id', rawBookings.map(b => b.id))
+          .order('number', { ascending: true })
         for (const inst of insts ?? []) {
           if (!instMap[inst.booking_id]) instMap[inst.booking_id] = []
           instMap[inst.booking_id].push(inst as Installment)
         }
       }
 
-      // Fetch properties separately to avoid FK/RLS join issues
+      // Fetch properties — properties in non-ATIVO status may be missing here (RLS), that's OK
       const bookingPropIds = [...new Set(rawBookings.map(b => b.property_id).filter(Boolean))]
       const favPropIds = [...new Set(rawFavs.map(f => f.property_id).filter(Boolean))]
       const allIds = [...new Set([...bookingPropIds, ...favPropIds])]
@@ -118,13 +121,22 @@ export function GuestDashboard() {
         property: (propsMap[b.property_id] ?? null) as Property,
         installments: instMap[b.id] ?? [],
       })) as Booking[])
-      setFavorites(rawFavs.map(f => ({ ...f, property: (propsMap[f.property_id] ?? null) as Property })) as Favorite[])
-    } catch {
-      // tables may not exist yet, render empty state
+      setFavorites(rawFavs.map(f => ({
+        ...f,
+        property: (propsMap[f.property_id] ?? null) as Property,
+      })) as Favorite[])
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Erro ao carregar dados.'
+      setLoadError(msg)
     } finally {
       setLoading(false)
     }
-  }
+  }, [user?.id])
+
+  // Load on mount and reload whenever the user arrives at the reservas tab
+  useEffect(() => {
+    loadData()
+  }, [loadData, tab])
 
   async function saveProfile() {
     if (!user) return
@@ -231,8 +243,28 @@ export function GuestDashboard() {
           {/* ── RESERVAS ─────────────────────────── */}
           {tab === 'reservas' && (
             <section>
-              <h2 className="font-display text-xl font-bold text-white mb-5">Minhas Reservas</h2>
-              {bookings.length === 0 ? (
+              <div className="flex items-center justify-between mb-5">
+                <h2 className="font-display text-xl font-bold text-white">Minhas Reservas</h2>
+                <button
+                  onClick={loadData}
+                  className="flex items-center gap-1.5 text-xs text-[#B3B3B3] hover:text-white transition-colors"
+                >
+                  <RefreshCw size={13} />
+                  Atualizar
+                </button>
+              </div>
+
+              {loadError ? (
+                <div className="flex items-start gap-3 bg-[#E50914]/10 border border-[#E50914]/30 rounded-xl px-4 py-4 mb-4">
+                  <AlertTriangle size={16} className="text-[#E50914] flex-shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <p className="text-sm text-[#E50914] font-medium">{loadError}</p>
+                    <button onClick={loadData} className="text-xs text-[#E50914] underline mt-1">
+                      Tentar novamente
+                    </button>
+                  </div>
+                </div>
+              ) : bookings.length === 0 ? (
                 <EmptyState icon={<Calendar size={40} />} text="Você ainda não tem reservas.">
                   <Link to={APP_ROUTES.HOME}><Button>Explorar imóveis</Button></Link>
                 </EmptyState>
@@ -439,65 +471,105 @@ function EmptyState({ icon, text, children }: { icon: React.ReactNode; text: str
   )
 }
 
-function BookingCard({ booking }: { booking: Booking }) {
-  const paid = booking.installments?.filter(i => i.status === 'PAGO').length ?? 0
-  const total = booking.installments?.length ?? 0
-  const next = booking.installments?.find(i => i.status === 'PENDENTE')
-  const daysLeft = next ? daysUntil(next.due_date) : null
+type StatusInfo = { label: string; icon: React.ReactNode; cls: string; barColor: string }
 
-  const isUsed = booking.status !== 'CANCELADA' && new Date(booking.check_out + 'T23:59:59') < new Date()
+function deriveStatus(booking: Booking): StatusInfo {
+  const insts = booking.installments ?? []
+  const total = insts.length
+  const paid = insts.filter(i => i.status === 'PAGO').length
+  const hasOverdue = insts.some(i => i.status === 'ATRASADO')
+  const now = new Date()
+  const checkOut = new Date(booking.check_out + 'T23:59:59')
 
-  const statusMap: Record<string, { label: string; cls: string }> = {
-    AGUARDANDO_PAGAMENTO: { label: 'Aguardando pagamento', cls: 'bg-[#F5A623]/20 text-[#F5A623]' },
-    PARCIAL:              { label: 'Parcelada — em dia',   cls: 'bg-blue-500/20 text-blue-400' },
-    PAGO:                 { label: 'Paga',                 cls: 'bg-[#46D369]/20 text-[#46D369]' },
-    CONCLUIDA:            { label: 'Utilizada',            cls: 'bg-[#333] text-[#B3B3B3]' },
-    CANCELADA:            { label: 'Cancelada',            cls: 'bg-[#E50914]/20 text-[#E50914]' },
+  if (booking.status === 'CANCELADA') {
+    return { label: 'Cancelada', icon: <XCircle size={11} />, cls: 'bg-[#E50914]/20 text-[#E50914] border-[#E50914]/30', barColor: '#E50914' }
   }
-  const s = isUsed
-    ? { label: 'Utilizada', cls: 'bg-[#333] text-[#B3B3B3]' }
-    : (statusMap[booking.status] ?? statusMap.AGUARDANDO_PAGAMENTO)
+  if (now > checkOut) {
+    return { label: 'Reserva utilizada', icon: <CheckCircle size={11} />, cls: 'bg-[#2A2A2A] text-[#888] border-[#333]', barColor: '#555' }
+  }
+  if (total === 0 || paid === 0) {
+    return { label: 'Aguardando pagamento', icon: <Clock size={11} />, cls: 'bg-[#F5A623]/20 text-[#F5A623] border-[#F5A623]/30', barColor: '#F5A623' }
+  }
+  if (paid === total) {
+    return { label: 'Reserva quitada', icon: <CheckCircle size={11} />, cls: 'bg-[#46D369]/20 text-[#46D369] border-[#46D369]/30', barColor: '#46D369' }
+  }
+  if (hasOverdue) {
+    return { label: 'Pagamento atrasado', icon: <AlertTriangle size={11} />, cls: 'bg-[#E50914]/20 text-[#E50914] border-[#E50914]/30', barColor: '#E50914' }
+  }
+  return { label: 'Reserva parcelada', icon: <Layers size={11} />, cls: 'bg-blue-500/20 text-blue-400 border-blue-500/30', barColor: '#3B82F6' }
+}
+
+function BookingCard({ booking }: { booking: Booking }) {
+  const insts = booking.installments ?? []
+  const total = insts.length
+  const paid = insts.filter(i => i.status === 'PAGO').length
+  const next = insts.find(i => i.status === 'PENDENTE' || i.status === 'ATRASADO')
+  const daysLeft = next ? daysUntil(next.due_date) : null
+  const isOverdue = next?.status === 'ATRASADO'
+
+  const s = deriveStatus(booking)
 
   return (
-    <Card className="p-4 flex gap-4 items-start">
-      <img
-        src={booking.property?.photos?.[0] ?? ''}
-        alt={booking.property?.name}
-        className="w-16 h-16 rounded-xl object-cover flex-shrink-0 bg-[#2A2A2A]"
-        onError={e => { (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=200' }}
-      />
-      <div className="flex-1 min-w-0">
-        <div className="flex items-start justify-between gap-2 flex-wrap">
-          <div className="min-w-0">
-            <p className="font-semibold text-white text-sm line-clamp-1">{booking.property?.name ?? 'Imóvel'}</p>
-            <p className="text-xs text-[#B3B3B3] flex items-center gap-1 mt-0.5">
-              <BedDouble size={10} /> {formatShortDate(booking.check_in)} → {formatShortDate(booking.check_out)}
-              <span className="ml-1 text-[#555]">· {booking.nights}n</span>
-            </p>
-          </div>
-          <span className={`text-xs font-bold px-2 py-0.5 rounded flex-shrink-0 ${s.cls}`}>{s.label}</span>
-        </div>
-
-        {total > 0 && (
-          <div className="mt-2">
-            <div className="flex justify-between text-xs text-[#B3B3B3] mb-1">
-              <span>{paid}/{total} parcelas pagas</span>
-              <span className="font-bold text-[#F5A623]">{formatCurrency(booking.total_price)}</span>
-            </div>
-            <div className="h-1.5 bg-[#333] rounded-full overflow-hidden">
-              <div
-                className="h-full bg-[#46D369] rounded-full"
-                style={{ width: `${total > 0 ? (paid / total) * 100 : 0}%` }}
-              />
-            </div>
-            {next && daysLeft !== null && (
-              <p className={`text-xs mt-1 ${daysLeft <= 3 ? 'text-[#E50914]' : 'text-[#B3B3B3]'}`}>
-                <CreditCard size={10} className="inline mr-1" />
-                Próx.: {formatCurrency(next.value)} · vence em {daysLeft}d
+    <Card className="p-4">
+      <div className="flex gap-4 items-start">
+        <img
+          src={booking.property?.photos?.[0] ?? ''}
+          alt={booking.property?.name}
+          className="w-16 h-16 rounded-xl object-cover flex-shrink-0 bg-[#2A2A2A]"
+          onError={e => { (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=200' }}
+        />
+        <div className="flex-1 min-w-0">
+          {/* Header row */}
+          <div className="flex items-start justify-between gap-2 flex-wrap">
+            <div className="min-w-0">
+              <p className="font-semibold text-white text-sm line-clamp-1">
+                {booking.property?.name ?? 'Imóvel'}
               </p>
-            )}
+              <p className="text-xs text-[#B3B3B3] flex items-center gap-1 mt-0.5">
+                <BedDouble size={10} />
+                {formatShortDate(booking.check_in)} → {formatShortDate(booking.check_out)}
+                <span className="ml-1 text-[#555]">· {booking.nights}n</span>
+              </p>
+            </div>
+            {/* Status badge */}
+            <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full border flex-shrink-0 ${s.cls}`}>
+              {s.icon}
+              {s.label}
+            </span>
           </div>
-        )}
+
+          {/* Installment progress */}
+          {total > 0 && (
+            <div className="mt-3">
+              <div className="flex justify-between text-xs mb-1.5">
+                <span className="text-[#B3B3B3]">{paid}/{total} parcela{total !== 1 ? 's' : ''} paga{paid !== 1 ? 's' : ''}</span>
+                <span className="font-bold text-[#F5A623]">{formatCurrency(booking.total_price)}</span>
+              </div>
+              <div className="h-1.5 bg-[#2A2A2A] rounded-full overflow-hidden">
+                <div
+                  className="h-full rounded-full transition-all"
+                  style={{
+                    width: `${total > 0 ? (paid / total) * 100 : 0}%`,
+                    backgroundColor: s.barColor,
+                  }}
+                />
+              </div>
+              {next && daysLeft !== null && (
+                <p className={`text-xs mt-1.5 flex items-center gap-1 ${isOverdue ? 'text-[#E50914]' : daysLeft <= 3 ? 'text-[#F5A623]' : 'text-[#B3B3B3]'}`}>
+                  <CreditCard size={10} className="flex-shrink-0" />
+                  {isOverdue
+                    ? `Parcela atrasada: ${formatCurrency(next.value)} (venceu há ${Math.abs(daysLeft)}d)`
+                    : `Próxima: ${formatCurrency(next.value)} · vence em ${daysLeft}d`}
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Booking number */}
+          {booking.booking_number && (
+            <p className="text-[10px] text-[#555] mt-2">#{booking.booking_number}</p>
+          )}
+        </div>
       </div>
     </Card>
   )
@@ -544,11 +616,3 @@ function KYCStatusBadge({ status }: { status: KYCStatus }) {
   return <span className={`text-xs font-medium ${map[status] ?? 'text-[#666]'}`}>{status}</span>
 }
 
-// needed as inline svg since lucide doesn't export Clock separately in all versions
-function Clock({ size }: { size: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
-    </svg>
-  )
-}
