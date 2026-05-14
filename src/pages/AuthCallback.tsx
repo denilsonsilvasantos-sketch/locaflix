@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import type { Session } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 import { APP_ROUTES } from '../constants'
 
@@ -16,53 +17,55 @@ async function ensureProfile(userId: string, meta: Record<string, unknown>) {
   }
 }
 
-async function resolveSession(navigate: ReturnType<typeof useNavigate>) {
-  const params = new URLSearchParams(window.location.search)
-  const code = params.get('code')
-  const urlError = params.get('error')
-  const errorDesc = params.get('error_description')
-
-  // Supabase returned an explicit OAuth error
-  if (urlError) {
-    console.error('[AuthCallback] OAuth error:', urlError, errorDesc)
-    navigate(`${APP_ROUTES.LOGIN}?error=link_expirado`, { replace: true })
-    return
-  }
-
-  // PKCE code flow (email magic link or OAuth with PKCE)
-  if (code) {
-    const { data: { session }, error } = await supabase.auth.exchangeCodeForSession(code)
-    if (!error && session) {
-      await ensureProfile(session.user.id, session.user.user_metadata ?? {})
-      navigate(APP_ROUTES.HOME, { replace: true })
-      return
-    }
-    // PKCE exchange failed — fall through to getSession() as a fallback
-    // (OAuth implicit flow may have already set the session)
-    console.warn('[AuthCallback] exchangeCodeForSession failed:', error?.message)
-  }
-
-  // Fallback: check if Supabase already set a session (implicit OAuth or hash token)
-  const { data: { session } } = await supabase.auth.getSession()
-  if (session) {
-    await ensureProfile(session.user.id, session.user.user_metadata ?? {})
-    navigate(APP_ROUTES.HOME, { replace: true })
-    return
-  }
-
-  // No session at all — if we had a code that failed, show expired-link error
-  if (code) {
-    navigate(`${APP_ROUTES.LOGIN}?error=link_expirado`, { replace: true })
-  } else {
-    navigate(APP_ROUTES.LOGIN, { replace: true })
-  }
-}
-
 export function AuthCallback() {
   const navigate = useNavigate()
 
   useEffect(() => {
-    resolveSession(navigate)
+    const params = new URLSearchParams(window.location.search)
+    const hasCode = !!params.get('code')
+    const urlError = params.get('error')
+
+    // Supabase returned an explicit OAuth error (provider not configured, etc.)
+    if (urlError) {
+      navigate(`${APP_ROUTES.LOGIN}?error=link_expirado`, { replace: true })
+      return
+    }
+
+    let resolved = false
+
+    async function finish(session: Session | null) {
+      if (resolved) return
+      resolved = true
+      if (session) {
+        await ensureProfile(session.user.id, session.user.user_metadata ?? {})
+        navigate(APP_ROUTES.HOME, { replace: true })
+      } else if (hasCode) {
+        // Had a code but no session → truly expired/invalid link
+        navigate(`${APP_ROUTES.LOGIN}?error=link_expirado`, { replace: true })
+      } else {
+        navigate(APP_ROUTES.LOGIN, { replace: true })
+      }
+    }
+
+    // detectSessionInUrl:true processes ?code= automatically and fires SIGNED_IN.
+    // We must NOT call exchangeCodeForSession manually — the code is already consumed.
+    // Strategy: check existing session first (fast path), then listen for state change.
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) finish(session)
+    })
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session) finish(session)
+    })
+
+    // Fallback timeout: if nothing happens in 6s, session truly failed
+    const timer = setTimeout(() => finish(null), 6000)
+
+    return () => {
+      subscription.unsubscribe()
+      clearTimeout(timer)
+    }
   }, [navigate])
 
   return (
