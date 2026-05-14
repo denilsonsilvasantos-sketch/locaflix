@@ -10,6 +10,7 @@ import {
   Banknote, AlertTriangle, UserPlus, Ban, Search, Bell, RefreshCw, Plus, Eye,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { Logo } from '../components/layout/Logo'
 import { useAuth } from '../hooks/useAuth'
 import { useToast } from '../hooks/useToast'
 import { formatCurrency, formatShortDate } from '../lib/utils'
@@ -289,7 +290,7 @@ export function AdminDashboard() {
         {/* Logo */}
         <div className="px-5 py-5 border-b border-[#1F1F1F] flex items-center justify-between">
           <div>
-            <span className="font-display text-xl font-bold text-[#E50914]">LOCAFLIX</span>
+            <Logo size="sm" />
             <div className="flex items-center gap-1.5 mt-0.5">
               <div className="w-1.5 h-1.5 rounded-full bg-[#E50914]" />
               <span className="text-[10px] font-bold text-[#E50914] uppercase tracking-widest">Painel Admin</span>

@@ -6,6 +6,7 @@ import { useAuth } from '../hooks/useAuth'
 import { useToast } from '../hooks/useToast'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
+import { Logo } from '../components/layout/Logo'
 import { APP_ROUTES } from '../constants'
 
 interface LoginProps {
@@ -219,7 +220,7 @@ export function Login({ mode: initialMode = 'login' }: LoginProps) {
       <div className="absolute inset-0 bg-gradient-to-b from-[#141414]/80 via-transparent to-[#141414]" />
 
       <Link to={APP_ROUTES.HOME} className="absolute top-6 left-6 z-10">
-        <span className="font-display text-3xl font-bold text-[#E50914]">LOCAFLIX</span>
+        <Logo size="lg" />
       </Link>
 
       <motion.div

@@ -6,6 +6,7 @@ import { useAuth } from '../../hooks/useAuth'
 import { useNotifications } from '../../hooks/useNotifications'
 import { APP_ROUTES } from '../../constants'
 import { getInitials } from '../../lib/utils'
+import { Logo } from './Logo'
 
 export function Navbar() {
   const { user, profile, signOut } = useAuth()
@@ -53,20 +54,8 @@ export function Navbar() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-20">
           {/* Logo */}
-          <Link to={APP_ROUTES.HOME} className="flex-shrink-0 flex items-center">
-            <img
-              src="/logo.png"
-              alt="LOCAFLIX"
-              className="h-16 w-auto drop-shadow-lg"
-              onError={e => {
-                const img = e.currentTarget
-                img.style.display = 'none'
-                img.nextElementSibling?.removeAttribute('style')
-              }}
-            />
-            <span className="font-display text-3xl font-bold tracking-wider text-[#E50914] drop-shadow-lg" style={{ display: 'none' }}>
-              LOCAFLIX
-            </span>
+          <Link to={APP_ROUTES.HOME} className="flex-shrink-0">
+            <Logo size="lg" />
           </Link>
 
           {/* Desktop nav */}
