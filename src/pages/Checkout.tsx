@@ -282,10 +282,13 @@ export function Checkout() {
       if (!pixRes.ok) {
         const err = await pixRes.json()
         const msg = err.error ?? 'Erro ao gerar Pix'
-        // Booking was created — navigate to dashboard so user can see it
-        toast('warning', 'Reserva criada, mas Pix falhou', `${msg}. Acesse "Minhas reservas" para tentar novamente.`)
+        if (isMock) {
+          toast('error', 'Erro Asaas (sandbox)', msg)
+        } else {
+          toast('warning', 'Reserva criada, mas Pix falhou', `${msg}. Acesse "Minhas reservas" para tentar novamente.`)
+          navigate(APP_ROUTES.GUEST_DASHBOARD + '?tab=reservas', { replace: true })
+        }
         setPaymentModalOpen(false)
-        navigate(APP_ROUTES.GUEST_DASHBOARD + '?tab=reservas', { replace: true })
         return
       }
 
