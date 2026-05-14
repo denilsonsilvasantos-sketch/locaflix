@@ -5,7 +5,7 @@ import { Star, MapPin, Users, BedDouble, Bath, ChevronLeft, ChevronRight, Heart,
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { supabase } from '../lib/supabase'
-import type { Property } from '../types'
+import type { Property, Review } from '../types'
 import { MOCK_PROPERTIES } from '../constants/mocks'
 import { APP_ROUTES } from '../constants'
 import { formatCurrency, calculateMaxInstallments } from '../lib/utils'
@@ -22,6 +22,7 @@ export function PropertyDetails() {
   const { toast } = useToast()
 
   const [property, setProperty] = useState<Property | null>(null)
+  const [reviews, setReviews] = useState<Review[]>([])
   const [loading, setLoading] = useState(true)
   const [imgIdx, setImgIdx] = useState(0)
   const [checkIn, setCheckIn] = useState(() => searchParams.get('entrada') ?? '')
@@ -48,18 +49,28 @@ export function PropertyDetails() {
   }, [id, user?.id])
 
   async function loadProperty(propertyId: string) {
-    const { data } = await supabase
-      .from('properties')
-      .select('*, owner:users(id, name, avatar_url, created_at)')
-      .eq('id', propertyId)
-      .single()
+    const [propRes, revRes] = await Promise.all([
+      supabase
+        .from('properties')
+        .select('*, owner:users(id, name, avatar_url, created_at)')
+        .eq('id', propertyId)
+        .single(),
+      supabase
+        .from('reviews')
+        .select('*, reviewer:users(id, name, avatar_url)')
+        .eq('target_property_id', propertyId)
+        .eq('visible', true)
+        .order('created_at', { ascending: false })
+        .limit(20),
+    ])
 
-    if (data) {
-      setProperty(data as Property)
+    if (propRes.data) {
+      setProperty(propRes.data as Property)
     } else {
       const mock = MOCK_PROPERTIES.find(p => p.id === propertyId)
       setProperty(mock ?? null)
     }
+    setReviews((revRes.data ?? []) as Review[])
     setLoading(false)
   }
 
@@ -280,6 +291,27 @@ export function PropertyDetails() {
               <CancellationInfo policy={property.cancellation_policy} />
             </section>
 
+            {/* Reviews */}
+            {reviews.length > 0 && (
+              <section>
+                <div className="flex items-center gap-4 mb-6 flex-wrap">
+                  <h2 className="font-display text-xl font-bold text-white">Avaliações</h2>
+                  {property.rating && (
+                    <div className="flex items-center gap-2">
+                      <RatingStars value={property.rating} size={15} />
+                      <span className="text-sm font-bold text-white">{property.rating.toFixed(1)}</span>
+                      <span className="text-sm text-[#B3B3B3]">
+                        · {property.reviews_count} avaliação{property.reviews_count !== 1 ? 'ões' : ''}
+                      </span>
+                    </div>
+                  )}
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {reviews.map(r => <ReviewCard key={r.id} review={r} />)}
+                </div>
+              </section>
+            )}
+
             {/* Owner */}
             {property.owner && (
               <section className="flex items-start gap-4 p-5 bg-[#1F1F1F] border border-[#333] rounded-xl">
@@ -467,6 +499,66 @@ function CancellationInfo({ policy }: { policy: string }) {
     <div className="bg-[#1F1F1F] border border-[#333] rounded-xl p-4">
       <p className={`text-sm font-semibold mb-1 ${p.color}`}>{p.label}</p>
       <p className="text-sm text-[#B3B3B3]">{p.details}</p>
+    </div>
+  )
+}
+
+// ── Reviews ──────────────────────────────────────────────────
+
+function RatingStars({ value, size = 14 }: { value: number; size?: number }) {
+  return (
+    <div className="flex gap-0.5">
+      {[1, 2, 3, 4, 5].map(i => (
+        <Star
+          key={i}
+          size={size}
+          className={i <= Math.round(value)
+            ? 'fill-[#F5A623] text-[#F5A623]'
+            : 'fill-[#333] text-[#333]'
+          }
+        />
+      ))}
+    </div>
+  )
+}
+
+function formatReviewDate(dateStr: string): string {
+  const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000)
+  if (diff === 0) return 'Hoje'
+  if (diff === 1) return 'Ontem'
+  if (diff < 30) return `há ${diff} dias`
+  const months = Math.floor(diff / 30)
+  if (months === 1) return 'há 1 mês'
+  if (months < 12) return `há ${months} meses`
+  const years = Math.floor(diff / 365)
+  return `há ${years} ano${years > 1 ? 's' : ''}`
+}
+
+function ReviewCard({ review }: { review: Review }) {
+  const name = review.reviewer?.name ?? 'Hóspede verificado'
+  const initial = name[0].toUpperCase()
+  return (
+    <div className="bg-[#1F1F1F] border border-[#2A2A2A] rounded-xl p-4 flex flex-col gap-3">
+      {/* Header: avatar + nome + data + estrelas */}
+      <div className="flex items-start gap-3">
+        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#E50914] to-[#F5A623] flex items-center justify-center text-sm font-bold text-white flex-shrink-0 overflow-hidden">
+          {review.reviewer?.avatar_url
+            ? <img src={review.reviewer.avatar_url} alt="" className="w-full h-full object-cover" />
+            : initial
+          }
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <p className="text-sm font-semibold text-white truncate">{name}</p>
+            <RatingStars value={review.rating} size={12} />
+          </div>
+          <p className="text-xs text-[#555] mt-0.5">{formatReviewDate(review.created_at)}</p>
+        </div>
+      </div>
+      {/* Comment */}
+      {review.comment && (
+        <p className="text-sm text-[#B3B3B3] leading-relaxed">{review.comment}</p>
+      )}
     </div>
   )
 }

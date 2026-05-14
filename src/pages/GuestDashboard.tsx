@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   Calendar, Heart, Bell, ShieldCheck, User,
-  AlertTriangle, CheckCircle, XCircle,
+  AlertTriangle, CheckCircle, XCircle, Star,
   BedDouble, MapPin, CreditCard, LogOut, Clock,
   RefreshCw, Layers,
 } from 'lucide-react'
@@ -15,6 +15,7 @@ import { KYCDocumentField } from '../components/ui/KYCDocumentField'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { Card } from '../components/ui/Card'
+import { ReviewModal } from '../components/ui/ReviewModal'
 import { formatCurrency, formatShortDate, daysUntil } from '../lib/utils'
 import { APP_ROUTES } from '../constants'
 
@@ -40,6 +41,8 @@ export function GuestDashboard() {
   const [favorites, setFavorites] = useState<Favorite[]>([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
+  const [reviewedBookingIds, setReviewedBookingIds] = useState<Set<string>>(new Set())
+  const [reviewingBooking, setReviewingBooking] = useState<Booking | null>(null)
 
   // Perfil form
   const [saving, setSaving] = useState(false)
@@ -88,19 +91,30 @@ export function GuestDashboard() {
       const rawBookings = (bkRes.data ?? []) as (Booking & { property_id: string })[]
       const rawFavs = ((favRes.data ?? []) as (Favorite & { property_id: string })[])
 
-      // Fetch installments for all bookings in one query
+      // Fetch installments + own reviews for all bookings in parallel
       const instMap: Record<string, Installment[]> = {}
+      const reviewedIds = new Set<string>()
       if (rawBookings.length > 0) {
-        const { data: insts } = await supabase
-          .from('installments')
-          .select('*')
-          .in('booking_id', rawBookings.map(b => b.id))
-          .order('number', { ascending: true })
-        for (const inst of insts ?? []) {
+        const bookingIds = rawBookings.map(b => b.id)
+        const [instRes, revRes] = await Promise.all([
+          supabase
+            .from('installments')
+            .select('*')
+            .in('booking_id', bookingIds)
+            .order('number', { ascending: true }),
+          supabase
+            .from('reviews')
+            .select('booking_id')
+            .eq('reviewer_id', user.id)
+            .in('booking_id', bookingIds),
+        ])
+        for (const inst of instRes.data ?? []) {
           if (!instMap[inst.booking_id]) instMap[inst.booking_id] = []
           instMap[inst.booking_id].push(inst as Installment)
         }
+        for (const r of revRes.data ?? []) reviewedIds.add(r.booking_id as string)
       }
+      setReviewedBookingIds(reviewedIds)
 
       // Fetch properties — properties in non-ATIVO status may be missing here (RLS), that's OK
       const bookingPropIds = [...new Set(rawBookings.map(b => b.property_id).filter(Boolean))]
@@ -270,10 +284,30 @@ export function GuestDashboard() {
                 </EmptyState>
               ) : (
                 <div className="space-y-3">
-                  {bookings.map(b => <BookingCard key={b.id} booking={b} />)}
+                  {bookings.map(b => (
+                    <BookingCard
+                      key={b.id}
+                      booking={b}
+                      hasReviewed={reviewedBookingIds.has(b.id)}
+                      onReview={() => setReviewingBooking(b)}
+                    />
+                  ))}
                 </div>
               )}
             </section>
+          )}
+
+          {reviewingBooking && (
+            <ReviewModal
+              open={!!reviewingBooking}
+              booking={reviewingBooking}
+              onClose={() => setReviewingBooking(null)}
+              onSuccess={() => {
+                setReviewedBookingIds(prev => new Set([...prev, reviewingBooking.id]))
+                setReviewingBooking(null)
+                toast('success', 'Avaliação enviada!', 'Ficará visível quando o anfitrião também avaliar.')
+              }}
+            />
           )}
 
           {/* ── FAVORITOS ────────────────────────── */}
@@ -499,7 +533,15 @@ function deriveStatus(booking: Booking): StatusInfo {
   return { label: 'Reserva parcelada', icon: <Layers size={11} />, cls: 'bg-blue-500/20 text-blue-400 border-blue-500/30', barColor: '#3B82F6' }
 }
 
-function BookingCard({ booking }: { booking: Booking }) {
+function BookingCard({
+  booking,
+  hasReviewed,
+  onReview,
+}: {
+  booking: Booking
+  hasReviewed: boolean
+  onReview: () => void
+}) {
   const insts = booking.installments ?? []
   const total = insts.length
   const paid = insts.filter(i => i.status === 'PAGO').length
@@ -571,6 +613,29 @@ function BookingCard({ booking }: { booking: Booking }) {
           )}
         </div>
       </div>
+
+      {/* Review action — only for "Reserva utilizada" */}
+      {s.label === 'Reserva utilizada' && (
+        <div className="mt-3 pt-3 border-t border-[#222] flex items-center justify-between">
+          {hasReviewed ? (
+            <span className="inline-flex items-center gap-1.5 text-xs text-[#46D369]">
+              <CheckCircle size={13} />
+              Avaliação enviada
+            </span>
+          ) : (
+            <button
+              onClick={onReview}
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#F5A623] hover:text-[#F5A623]/80 transition-colors"
+            >
+              <Star size={13} className="fill-[#F5A623]" />
+              Avaliar estadia
+            </button>
+          )}
+          <span className="text-[10px] text-[#555]">
+            {hasReviewed ? 'Obrigado pelo feedback' : 'Prazo: 14 dias após o checkout'}
+          </span>
+        </div>
+      )}
     </Card>
   )
 }

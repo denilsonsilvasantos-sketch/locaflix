@@ -166,16 +166,12 @@ export interface Review {
   target_property_id: string | null
   target_user_id: string | null
   rating: number
-  cleanliness: number | null
-  communication: number | null
-  location: number | null
-  cost_benefit: number | null
   comment: string | null
   mode: ReviewMode
   visible: boolean
   created_at: string
   updated_at: string
-  reviewer?: UserProfile
+  reviewer?: Pick<UserProfile, 'id' | 'name' | 'avatar_url'>
 }
 
 // ---- Notification ----
