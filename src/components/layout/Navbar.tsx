@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Bell, ChevronDown, Heart, Home, LogOut, Menu, MessageSquare, Settings, User, X } from 'lucide-react'
+import {
+  Bell, Calendar, FileText, Heart, Home, LogOut,
+  Menu, MessageSquare, Settings, ShieldCheck, User, X,
+} from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 import { useNotifications } from '../../hooks/useNotifications'
 import { APP_ROUTES } from '../../constants'
@@ -14,7 +17,7 @@ export function Navbar() {
   const location = useLocation()
   const navigate = useNavigate()
   const [scrolled, setScrolled] = useState(false)
-  const [menuOpen, setMenuOpen] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)       // mobile nav (not logged in)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const userMenuRef = useRef<HTMLDivElement>(null)
 
@@ -44,34 +47,22 @@ export function Navbar() {
     navigate(APP_ROUTES.HOME)
   }
 
-  const dashboardRoute =
-    profile?.role === 'ADMIN' ? APP_ROUTES.ADMIN_DASHBOARD
-    : profile?.role === 'OWNER' ? APP_ROUTES.OWNER_DASHBOARD
-    : APP_ROUTES.GUEST_DASHBOARD
-
   return (
     <header className={`fixed top-0 left-0 right-0 z-40 transition-all duration-300 ${scrolled ? 'bg-[#141414]/95 backdrop-blur-md shadow-lg' : 'bg-gradient-to-b from-black/70 to-transparent'}`}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-20">
+
           {/* Logo */}
           <Link to={APP_ROUTES.HOME} className="flex-shrink-0">
             <Logo size="lg" />
           </Link>
 
-          {/* Desktop nav */}
+          {/* Desktop nav links */}
           <nav className="hidden md:flex items-center gap-6">
-            <Link to={APP_ROUTES.HOME} className="text-sm text-[#B3B3B3] hover:text-white transition-colors">
-              Início
-            </Link>
-            <Link to={`${APP_ROUTES.HOME}?tipo=praia`} className="text-sm text-[#B3B3B3] hover:text-white transition-colors">
-              Praia
-            </Link>
-            <Link to={`${APP_ROUTES.HOME}?tipo=campo`} className="text-sm text-[#B3B3B3] hover:text-white transition-colors">
-              Campo
-            </Link>
-            <Link to={`${APP_ROUTES.HOME}?tipo=cidade`} className="text-sm text-[#B3B3B3] hover:text-white transition-colors">
-              Cidade
-            </Link>
+            <Link to={APP_ROUTES.HOME} className="text-sm text-[#B3B3B3] hover:text-white transition-colors">Início</Link>
+            <Link to={`${APP_ROUTES.HOME}?tipo=praia`} className="text-sm text-[#B3B3B3] hover:text-white transition-colors">Praia</Link>
+            <Link to={`${APP_ROUTES.HOME}?tipo=campo`} className="text-sm text-[#B3B3B3] hover:text-white transition-colors">Campo</Link>
+            <Link to={`${APP_ROUTES.HOME}?tipo=cidade`} className="text-sm text-[#B3B3B3] hover:text-white transition-colors">Cidade</Link>
             <Link
               to={APP_ROUTES.NEW_PROPERTY}
               className="text-sm bg-[#F5A623] hover:bg-[#e6951a] text-black font-bold px-4 py-2 rounded-lg transition-colors whitespace-nowrap"
@@ -81,10 +72,10 @@ export function Navbar() {
           </nav>
 
           {/* Right side */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             {user ? (
               <>
-                {/* Messages — oculto para admin */}
+                {/* Messages — desktop only, not admin */}
                 {profile?.role !== 'ADMIN' && (
                   <Link
                     to={APP_ROUTES.MESSAGES}
@@ -94,10 +85,10 @@ export function Navbar() {
                   </Link>
                 )}
 
-                {/* Notifications — oculto para admin */}
+                {/* Bell — desktop only, not admin */}
                 {profile?.role !== 'ADMIN' && (
                   <Link
-                    to={dashboardRoute}
+                    to={`${APP_ROUTES.GUEST_DASHBOARD}?tab=notificacoes`}
                     className="relative hidden md:flex w-9 h-9 items-center justify-center rounded-lg text-[#B3B3B3] hover:text-white hover:bg-[#2A2A2A] transition-colors"
                   >
                     <Bell size={18} />
@@ -109,8 +100,8 @@ export function Navbar() {
                   </Link>
                 )}
 
-                {/* User menu */}
-                <div ref={userMenuRef} className="relative hidden md:block">
+                {/* User button — visible on ALL screens */}
+                <div ref={userMenuRef} className="relative">
                   <button
                     onClick={() => setUserMenuOpen(v => !v)}
                     className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-[#2A2A2A] transition-colors"
@@ -121,7 +112,7 @@ export function Navbar() {
                         : getInitials(profile?.name ?? user.email ?? 'U')
                       }
                     </div>
-                    <ChevronDown size={14} className={`text-[#B3B3B3] transition-transform ${userMenuOpen ? 'rotate-180' : ''}`} />
+                    <Menu size={16} className="text-[#B3B3B3]" />
                   </button>
 
                   <AnimatePresence>
@@ -131,8 +122,9 @@ export function Navbar() {
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: 8, scale: 0.95 }}
                         transition={{ duration: 0.15 }}
-                        className="absolute right-0 mt-2 w-56 bg-[#1F1F1F] border border-[#333] rounded-xl shadow-2xl overflow-hidden"
+                        className="absolute right-0 mt-2 w-60 bg-[#1F1F1F] border border-[#333] rounded-xl shadow-2xl overflow-hidden z-50"
                       >
+                        {/* User info */}
                         <div className="px-4 py-3 border-b border-[#333]">
                           <p className="text-sm font-semibold text-white truncate">{profile?.name ?? 'Usuário'}</p>
                           <p className="text-xs text-[#B3B3B3] truncate">{user.email}</p>
@@ -141,24 +133,48 @@ export function Navbar() {
                           )}
                         </div>
 
-                        {/* Menu simplificado para ADMIN */}
+                        {/* Admin */}
                         {profile?.role === 'ADMIN' ? (
                           <div className="py-1">
                             <MenuLink to={APP_ROUTES.ADMIN_DASHBOARD} icon={<Settings size={14} className="text-[#E50914]" />} label="Painel Administrativo" />
                           </div>
                         ) : (
                           <div className="py-1">
-                            <MenuLink to={APP_ROUTES.GUEST_DASHBOARD} icon={<User size={14} />} label="Minha conta" />
+                            {/* Mobile: include main nav links */}
+                            <div className="md:hidden border-b border-[#2A2A2A] pb-1 mb-1">
+                              <MenuLink to={APP_ROUTES.HOME} icon={<Home size={14} />} label="Início" />
+                              <MenuLink to={`${APP_ROUTES.HOME}?tipo=praia`} icon={<span className="text-[10px]">🏖</span>} label="Praia" />
+                              <MenuLink to={`${APP_ROUTES.HOME}?tipo=campo`} icon={<span className="text-[10px]">🌿</span>} label="Campo" />
+                              <MenuLink to={`${APP_ROUTES.HOME}?tipo=cidade`} icon={<span className="text-[10px]">🏙</span>} label="Cidade" />
+                            </div>
+
+                            {/* Guest items */}
+                            <MenuLink to={`${APP_ROUTES.GUEST_DASHBOARD}?tab=reservas`} icon={<Calendar size={14} />} label="Reservas" />
                             <MenuLink to={APP_ROUTES.MESSAGES} icon={<MessageSquare size={14} />} label="Mensagens" />
                             <MenuLink to={`${APP_ROUTES.GUEST_DASHBOARD}?tab=favoritos`} icon={<Heart size={14} />} label="Favoritos" />
-                            <MenuLink to={`${APP_ROUTES.GUEST_DASHBOARD}?tab=perfil`} icon={<Settings size={14} />} label="Configurações" />
+                            <MenuLink
+                              to={`${APP_ROUTES.GUEST_DASHBOARD}?tab=notificacoes`}
+                              icon={<Bell size={14} />}
+                              label="Notificações"
+                              badge={unreadCount}
+                            />
+                            <MenuLink to={`${APP_ROUTES.GUEST_DASHBOARD}?tab=documentos`} icon={<ShieldCheck size={14} />} label="Documentos" />
+                            <MenuLink to={`${APP_ROUTES.GUEST_DASHBOARD}?tab=perfil`} icon={<User size={14} />} label="Perfil" />
+
+                            {/* Owner extras */}
                             {profile?.role === 'OWNER' && (
                               <>
                                 <div className="mx-4 my-1 h-px bg-[#333]" />
                                 <MenuLink to={APP_ROUTES.OWNER_DASHBOARD} icon={<Home size={14} className="text-[#F5A623]" />} label="Painel Anfitrião" />
-                                <MenuLink to={APP_ROUTES.NEW_PROPERTY} icon={<span className="text-[#F5A623] font-bold">+</span>} label="Cadastrar imóvel" />
+                                <MenuLink to={APP_ROUTES.NEW_PROPERTY} icon={<FileText size={14} className="text-[#F5A623]" />} label="Cadastrar imóvel" />
                               </>
                             )}
+
+                            {/* Mobile: anunciar */}
+                            <div className="md:hidden mx-4 my-1 h-px bg-[#333]" />
+                            <div className="md:hidden">
+                              <MenuLink to={APP_ROUTES.NEW_PROPERTY} icon={<span className="text-[#F5A623] font-bold text-sm">+</span>} label="Anuncie seu imóvel" />
+                            </div>
                           </div>
                         )}
 
@@ -177,36 +193,36 @@ export function Navbar() {
                 </div>
               </>
             ) : (
-              <div className="hidden md:flex items-center gap-3">
-                <Link
-                  to={APP_ROUTES.LOGIN}
-                  className="text-sm text-[#B3B3B3] hover:text-white transition-colors"
-                >
-                  Entrar
-                </Link>
-                <Link
-                  to={APP_ROUTES.REGISTER}
-                  className="text-sm bg-[#E50914] hover:bg-[#F40612] text-white px-4 py-2 rounded-lg font-semibold transition-colors"
-                >
-                  Cadastrar
-                </Link>
-              </div>
-            )}
+              <>
+                {/* Desktop: login/register buttons */}
+                <div className="hidden md:flex items-center gap-3">
+                  <Link to={APP_ROUTES.LOGIN} className="text-sm text-[#B3B3B3] hover:text-white transition-colors">
+                    Entrar
+                  </Link>
+                  <Link
+                    to={APP_ROUTES.REGISTER}
+                    className="text-sm bg-[#E50914] hover:bg-[#F40612] text-white px-4 py-2 rounded-lg font-semibold transition-colors"
+                  >
+                    Cadastrar
+                  </Link>
+                </div>
 
-            {/* Mobile hamburger */}
-            <button
-              className="md:hidden w-9 h-9 flex items-center justify-center rounded-lg text-[#B3B3B3] hover:text-white hover:bg-[#2A2A2A] transition-colors"
-              onClick={() => setMenuOpen(v => !v)}
-            >
-              {menuOpen ? <X size={20} /> : <Menu size={20} />}
-            </button>
+                {/* Mobile hamburger — only when not logged in */}
+                <button
+                  className="md:hidden w-9 h-9 flex items-center justify-center rounded-lg text-[#B3B3B3] hover:text-white hover:bg-[#2A2A2A] transition-colors"
+                  onClick={() => setMenuOpen(v => !v)}
+                >
+                  {menuOpen ? <X size={20} /> : <Menu size={20} />}
+                </button>
+              </>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Mobile menu */}
+      {/* Mobile menu — not logged in only */}
       <AnimatePresence>
-        {menuOpen && (
+        {menuOpen && !user && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
@@ -218,31 +234,9 @@ export function Navbar() {
               <MobileLink to={`${APP_ROUTES.HOME}?tipo=praia`} label="Praia" />
               <MobileLink to={`${APP_ROUTES.HOME}?tipo=campo`} label="Campo" />
               <MobileLink to={`${APP_ROUTES.HOME}?tipo=cidade`} label="Cidade" />
-              {user ? (
-                <>
-                  {profile?.role === 'ADMIN' ? (
-                    <MobileLink to={APP_ROUTES.ADMIN_DASHBOARD} label="Painel Administrativo" />
-                  ) : (
-                    <>
-                      <MobileLink to={dashboardRoute} label="Minha conta" />
-                      <MobileLink to={APP_ROUTES.MESSAGES} label="Mensagens" />
-                      <MobileLink to={APP_ROUTES.NEW_PROPERTY} label="+ Anuncie seu imóvel" />
-                    </>
-                  )}
-                  <button
-                    onClick={handleSignOut}
-                    className="text-left text-sm text-[#E50914] py-2 px-3 rounded-lg hover:bg-[#2A2A2A] transition-colors"
-                  >
-                    Sair
-                  </button>
-                </>
-              ) : (
-                <>
-                  <MobileLink to={APP_ROUTES.LOGIN} label="Entrar" />
-                  <MobileLink to={APP_ROUTES.REGISTER} label="Cadastrar" />
-                  <MobileLink to={APP_ROUTES.NEW_PROPERTY} label="+ Anuncie seu imóvel" />
-                </>
-              )}
+              <MobileLink to={APP_ROUTES.LOGIN} label="Entrar" />
+              <MobileLink to={APP_ROUTES.REGISTER} label="Cadastrar" />
+              <MobileLink to={APP_ROUTES.NEW_PROPERTY} label="+ Anuncie seu imóvel" />
             </div>
           </motion.div>
         )}
@@ -251,14 +245,23 @@ export function Navbar() {
   )
 }
 
-function MenuLink({ to, icon, label }: { to: string; icon: React.ReactNode; label: string }) {
+function MenuLink({
+  to, icon, label, badge,
+}: {
+  to: string; icon: React.ReactNode; label: string; badge?: number
+}) {
   return (
     <Link
       to={to}
       className="flex items-center gap-3 px-4 py-2 text-sm text-[#B3B3B3] hover:text-white hover:bg-[#2A2A2A] transition-colors"
     >
       {icon}
-      {label}
+      <span className="flex-1">{label}</span>
+      {badge && badge > 0 ? (
+        <span className="w-5 h-5 bg-[#E50914] rounded-full text-[10px] font-bold flex items-center justify-center text-white">
+          {badge > 9 ? '9+' : badge}
+        </span>
+      ) : null}
     </Link>
   )
 }

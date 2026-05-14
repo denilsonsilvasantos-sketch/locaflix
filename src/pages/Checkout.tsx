@@ -271,6 +271,14 @@ export function Checkout() {
           accepted_at: new Date().toISOString(),
         })
 
+        // Notify guest about the new booking
+        await supabase.from('notifications').insert({
+          user_id: user.id,
+          title: 'Reserva criada com sucesso!',
+          message: `Sua reserva para ${property.name} foi criada. Aguardando confirmação do pagamento.`,
+          type: 'BOOKING',
+        })
+
         firstInstallmentId = installments?.[0]?.id
       }
       // Mock properties skip DB writes — Pix is still called to test Asaas sandbox

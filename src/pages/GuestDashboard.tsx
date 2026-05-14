@@ -10,7 +10,6 @@ import type { Booking, Favorite, Installment, Notification, KYCStatus, Property 
 import { useAuth } from '../hooks/useAuth'
 import { useNotifications } from '../hooks/useNotifications'
 import { useToast } from '../hooks/useToast'
-import { DashboardLayout } from '../components/layout/DashboardLayout'
 import { KYCDocumentField } from '../components/ui/KYCDocumentField'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
@@ -154,15 +153,38 @@ export function GuestDashboard() {
     setFavorites(prev => prev.filter(f => f.property_id !== propertyId))
   }
 
-  const navItems = TABS.map(t =>
-    t.key === 'notificacoes' ? { ...t, badge: unreadCount } : t
-  )
-
   const kycStatus = profile?.kyc_status ?? 'INCOMPLETO'
   const kycIncomplete = kycStatus === 'INCOMPLETO' || kycStatus === 'REPROVADO'
 
   return (
-    <DashboardLayout title="Minha Conta" navItems={navItems}>
+    <div className="min-h-screen bg-[#141414] pt-20">
+      {/* Horizontal tab bar */}
+      <div className="border-b border-[#333] bg-[#141414]/95 backdrop-blur-sm sticky top-20 z-30">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 flex overflow-x-auto scrollbar-hide">
+          {TABS.map(t => {
+            const active = t.key === tab
+            return (
+              <Link
+                key={t.key}
+                to={t.href}
+                className={`flex items-center gap-1.5 px-4 py-3.5 text-sm font-medium whitespace-nowrap border-b-2 transition-colors relative flex-shrink-0 ${
+                  active ? 'border-[#E50914] text-white' : 'border-transparent text-[#B3B3B3] hover:text-white'
+                }`}
+              >
+                {t.icon}
+                {t.label}
+                {t.key === 'notificacoes' && unreadCount > 0 && (
+                  <span className="w-4 h-4 bg-[#E50914] rounded-full text-[9px] font-bold flex items-center justify-center text-white ml-0.5">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
+              </Link>
+            )
+          })}
+        </div>
+      </div>
+
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
       {/* Banner boas-vindas Google */}
       {isWelcome && tab === 'perfil' && (
@@ -400,7 +422,8 @@ export function GuestDashboard() {
           )}
         </>
       )}
-    </DashboardLayout>
+      </div>
+    </div>
   )
 }
 

@@ -189,6 +189,21 @@ async function handlePaymentConfirmed(payment: { externalReference?: string; id:
     paid_at: new Date().toISOString(),
     asaas_payment_id: payment.id,
   }).eq('id', id)
+
+  // Notify guest
+  const { data: inst } = await supabase.from('installments').select('booking_id, number, value').eq('id', id).single()
+  if (inst) {
+    const { data: booking } = await supabase.from('bookings').select('guest_id').eq('id', inst.booking_id).single()
+    if (booking) {
+      const valueFormatted = `R$ ${Number(inst.value).toFixed(2).replace('.', ',')}`
+      await supabase.from('notifications').insert({
+        user_id: booking.guest_id,
+        title: 'Pagamento confirmado!',
+        message: `Parcela ${inst.number} de ${valueFormatted} foi confirmada com sucesso.`,
+        type: 'PAYMENT',
+      })
+    }
+  }
 }
 
 async function handlePaymentOverdue(payment: { externalReference?: string }) {
@@ -203,6 +218,20 @@ async function handlePaymentOverdue(payment: { externalReference?: string }) {
   )
 
   await supabase.from('installments').update({ status: 'ATRASADO' }).eq('id', id)
+
+  // Notify guest
+  const { data: inst } = await supabase.from('installments').select('booking_id, number, due_date').eq('id', id).single()
+  if (inst) {
+    const { data: booking } = await supabase.from('bookings').select('guest_id').eq('id', inst.booking_id).single()
+    if (booking) {
+      await supabase.from('notifications').insert({
+        user_id: booking.guest_id,
+        title: 'Pagamento em atraso',
+        message: `A parcela ${inst.number} com vencimento em ${new Date(inst.due_date).toLocaleDateString('pt-BR')} está em atraso.`,
+        type: 'WARNING',
+      })
+    }
+  }
 }
 
 async function asaasRequest(method: string, path: string, body?: unknown) {

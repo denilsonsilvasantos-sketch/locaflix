@@ -149,10 +149,11 @@ export interface Contract {
 // ---- Message ----
 export interface Message {
   id: string
-  booking_id: string
+  booking_id: string | null
   sender_id: string
   receiver_id: string
   content: string
+  subject: string | null
   is_read: boolean
   created_at: string
   updated_at: string
