@@ -176,9 +176,11 @@ export function PropertyDetails() {
   async function toggleFavorite() {
     if (!user) { navigate(APP_ROUTES.LOGIN); return }
     if (isFavorited) {
-      await supabase.from('favorites').delete().eq('user_id', user.id).eq('property_id', id)
+      const { error } = await supabase.from('favorites').delete().eq('user_id', user.id).eq('property_id', id)
+      if (error) { toast('error', 'Erro', 'Não foi possível remover dos favoritos.'); return }
     } else {
-      await supabase.from('favorites').insert({ user_id: user.id, property_id: id })
+      const { error } = await supabase.from('favorites').insert({ user_id: user.id, property_id: id })
+      if (error) { toast('error', 'Erro', 'Não foi possível adicionar aos favoritos.'); return }
     }
     setIsFavorited(v => !v)
   }

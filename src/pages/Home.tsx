@@ -63,11 +63,11 @@ export function Home() {
     const checkIn = searchParams.get('entrada')
     const checkOut = searchParams.get('saida')
     const tipo = searchParams.get('tipo')
-    const locationStr = [cidade, bairro].filter(Boolean).join(' ') || local || undefined
     if (estado || cidade || bairro || local || guests || checkIn || checkOut || tipo) {
       setFilters({
         state: estado ?? undefined,
-        city: locationStr,
+        city: cidade ?? local ?? undefined,
+        neighborhood: bairro ?? undefined,
         guests: guests ? Number(guests) : undefined,
         check_in: checkIn ?? undefined,
         check_out: checkOut ?? undefined,
@@ -90,12 +90,15 @@ export function Home() {
     if (!user) { navigate(APP_ROUTES.LOGIN); return }
     const isMock = MOCK_PROPERTIES.some(p => p.id === propertyId)
     if (favoritedIds.has(propertyId)) {
-      if (!isMock) await supabase.from('favorites').delete().eq('user_id', user.id).eq('property_id', propertyId)
+      if (!isMock) {
+        const { error } = await supabase.from('favorites').delete().eq('user_id', user.id).eq('property_id', propertyId)
+        if (error) return
+      }
       setFavoritedIds(prev => { const s = new Set(prev); s.delete(propertyId); return s })
     } else {
       if (!isMock) {
         const { error } = await supabase.from('favorites').insert({ user_id: user.id, property_id: propertyId })
-        if (error) return // don't update UI if insert failed
+        if (error) return
       }
       setFavoritedIds(prev => new Set([...prev, propertyId]))
     }
@@ -109,7 +112,7 @@ export function Home() {
       .eq('status', 'ATIVO')
       .order('plan', { ascending: false })
       .order('rating', { ascending: false })
-      .limit(60)
+      .limit(500)
 
     if (error || !data) {
       setProperties(MOCK_PROPERTIES)
@@ -141,8 +144,9 @@ export function Home() {
   }
 
   const filteredProperties = properties.filter(p => {
-    if (filters.state && p.state !== filters.state) return false
-    if (filters.city && !`${p.city} ${p.neighborhood ?? ''}`.toLowerCase().includes(filters.city.toLowerCase())) return false
+    if (filters.state && p.state.toLowerCase() !== filters.state.toLowerCase()) return false
+    if (filters.city && !p.city.toLowerCase().includes(filters.city.toLowerCase())) return false
+    if (filters.neighborhood && !(p.neighborhood ?? '').toLowerCase().includes(filters.neighborhood.toLowerCase())) return false
     if (filters.type && p.type !== filters.type) return false
     if (filters.guests && filters.guests > 1 && (p.max_guests ?? Infinity) < filters.guests) return false
     if (filters.min_price && p.price_per_night < filters.min_price) return false
@@ -354,7 +358,7 @@ export function Home() {
               exit={{ opacity: 0, height: 0 }}
               className="overflow-hidden mb-8"
             >
-              <div className="bg-[#1F1F1F] border border-[#333] rounded-xl p-6 space-y-5">
+              <div className="bg-[#1F1F1F] border border-[#333] rounded-xl p-4 sm:p-6 space-y-5">
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {/* Type */}
                   <div>
@@ -482,7 +486,7 @@ export function Home() {
                                       <button
                                         key={item.id}
                                         onClick={() => toggleAmenityFilter(item.id)}
-                                        className={`text-[10px] px-2 py-0.5 rounded border transition-colors ${isActive ? 'bg-[#E50914] border-[#E50914] text-white' : 'border-[#444] text-[#999] hover:border-[#666]'}`}
+                                        className={`text-[10px] px-2 py-1 rounded border transition-colors ${isActive ? 'bg-[#E50914] border-[#E50914] text-white' : 'border-[#444] text-[#999] hover:border-[#666]'}`}
                                       >
                                         {item.name}
                                       </button>

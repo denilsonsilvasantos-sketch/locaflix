@@ -58,7 +58,7 @@ export function Navbar() {
           </Link>
 
           {/* Desktop nav links */}
-          <nav className="hidden md:flex items-center gap-6">
+          <nav className="hidden lg:flex items-center gap-6">
             <Link to={APP_ROUTES.HOME} className="text-sm text-[#B3B3B3] hover:text-white transition-colors">Início</Link>
             <Link to={`${APP_ROUTES.HOME}?tipo=praia`} className="text-sm text-[#B3B3B3] hover:text-white transition-colors">Praia</Link>
             <Link to={`${APP_ROUTES.HOME}?tipo=campo`} className="text-sm text-[#B3B3B3] hover:text-white transition-colors">Campo</Link>
@@ -79,7 +79,7 @@ export function Navbar() {
                 {profile?.role !== 'ADMIN' && (
                   <Link
                     to={APP_ROUTES.MESSAGES}
-                    className="hidden md:flex w-9 h-9 items-center justify-center rounded-lg text-[#B3B3B3] hover:text-white hover:bg-[#2A2A2A] transition-colors"
+                    className="hidden lg:flex w-9 h-9 items-center justify-center rounded-lg text-[#B3B3B3] hover:text-white hover:bg-[#2A2A2A] transition-colors"
                   >
                     <MessageSquare size={18} />
                   </Link>
@@ -89,7 +89,7 @@ export function Navbar() {
                 {profile?.role !== 'ADMIN' && (
                   <Link
                     to={`${APP_ROUTES.GUEST_DASHBOARD}?tab=notificacoes`}
-                    className="relative hidden md:flex w-9 h-9 items-center justify-center rounded-lg text-[#B3B3B3] hover:text-white hover:bg-[#2A2A2A] transition-colors"
+                    className="relative hidden lg:flex w-9 h-9 items-center justify-center rounded-lg text-[#B3B3B3] hover:text-white hover:bg-[#2A2A2A] transition-colors"
                   >
                     <Bell size={18} />
                     {unreadCount > 0 && (
@@ -141,7 +141,7 @@ export function Navbar() {
                         ) : (
                           <div className="py-1">
                             {/* Mobile: include main nav links */}
-                            <div className="md:hidden border-b border-[#2A2A2A] pb-1 mb-1">
+                            <div className="lg:hidden border-b border-[#2A2A2A] pb-1 mb-1">
                               <MenuLink to={APP_ROUTES.HOME} icon={<Home size={14} />} label="Início" />
                               <MenuLink to={`${APP_ROUTES.HOME}?tipo=praia`} icon={<span className="text-[10px]">🏖</span>} label="Praia" />
                               <MenuLink to={`${APP_ROUTES.HOME}?tipo=campo`} icon={<span className="text-[10px]">🌿</span>} label="Campo" />
@@ -171,8 +171,8 @@ export function Navbar() {
                             )}
 
                             {/* Mobile: anunciar */}
-                            <div className="md:hidden mx-4 my-1 h-px bg-[#333]" />
-                            <div className="md:hidden">
+                            <div className="lg:hidden mx-4 my-1 h-px bg-[#333]" />
+                            <div className="lg:hidden">
                               <MenuLink to={APP_ROUTES.NEW_PROPERTY} icon={<span className="text-[#F5A623] font-bold text-sm">+</span>} label="Anuncie seu imóvel" />
                             </div>
                           </div>
@@ -195,7 +195,7 @@ export function Navbar() {
             ) : (
               <>
                 {/* Desktop: login/register buttons */}
-                <div className="hidden md:flex items-center gap-3">
+                <div className="hidden lg:flex items-center gap-3">
                   <Link to={APP_ROUTES.LOGIN} className="text-sm text-[#B3B3B3] hover:text-white transition-colors">
                     Entrar
                   </Link>
@@ -209,7 +209,7 @@ export function Navbar() {
 
                 {/* Mobile hamburger — only when not logged in */}
                 <button
-                  className="md:hidden w-9 h-9 flex items-center justify-center rounded-lg text-[#B3B3B3] hover:text-white hover:bg-[#2A2A2A] transition-colors"
+                  className="lg:hidden w-9 h-9 flex items-center justify-center rounded-lg text-[#B3B3B3] hover:text-white hover:bg-[#2A2A2A] transition-colors"
                   onClick={() => setMenuOpen(v => !v)}
                 >
                   {menuOpen ? <X size={20} /> : <Menu size={20} />}
@@ -227,7 +227,7 @@ export function Navbar() {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            className="md:hidden bg-[#141414] border-t border-[#333] overflow-hidden"
+            className="lg:hidden bg-[#141414] border-t border-[#333] overflow-hidden"
           >
             <div className="px-4 py-4 flex flex-col gap-2">
               <MobileLink to={APP_ROUTES.HOME} label="Início" />
