@@ -6,7 +6,7 @@ import {
   BedDouble, MapPin, CreditCard, LogOut,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
-import type { Booking, Favorite, Notification, KYCStatus, Property } from '../types'
+import type { Booking, Favorite, Installment, Notification, KYCStatus, Property } from '../types'
 import { useAuth } from '../hooks/useAuth'
 import { useNotifications } from '../hooks/useNotifications'
 import { useToast } from '../hooks/useToast'
@@ -70,7 +70,7 @@ export function GuestDashboard() {
       const [bkRes, favRes] = await Promise.all([
         supabase
           .from('bookings')
-          .select('*, installments(*)')
+          .select('*')
           .eq('guest_id', user!.id)
           .order('created_at', { ascending: false })
           .limit(20),
@@ -87,6 +87,19 @@ export function GuestDashboard() {
       const rawBookings = (bkRes.data ?? []) as (Booking & { property_id: string })[]
       const rawFavs = (favRes.data ?? []) as (Favorite & { property_id: string })[]
 
+      // Fetch installments separately
+      const instMap: Record<string, Installment[]> = {}
+      if (rawBookings.length > 0) {
+        const { data: insts } = await supabase
+          .from('installments')
+          .select('*')
+          .in('booking_id', rawBookings.map(b => b.id))
+        for (const inst of insts ?? []) {
+          if (!instMap[inst.booking_id]) instMap[inst.booking_id] = []
+          instMap[inst.booking_id].push(inst as Installment)
+        }
+      }
+
       // Fetch properties separately to avoid FK/RLS join issues
       const bookingPropIds = [...new Set(rawBookings.map(b => b.property_id).filter(Boolean))]
       const favPropIds = [...new Set(rawFavs.map(f => f.property_id).filter(Boolean))]
@@ -101,7 +114,11 @@ export function GuestDashboard() {
         for (const p of props ?? []) propsMap[p.id] = p
       }
 
-      setBookings(rawBookings.map(b => ({ ...b, property: (propsMap[b.property_id] ?? null) as Property })) as Booking[])
+      setBookings(rawBookings.map(b => ({
+        ...b,
+        property: (propsMap[b.property_id] ?? null) as Property,
+        installments: instMap[b.id] ?? [],
+      })) as Booking[])
       setFavorites(rawFavs.map(f => ({ ...f, property: (propsMap[f.property_id] ?? null) as Property })) as Favorite[])
     } catch {
       // tables may not exist yet, render empty state

@@ -1,7 +1,4 @@
-import { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { motion, AnimatePresence } from 'framer-motion'
-import { Menu, X } from 'lucide-react'
 import { cn } from '../../lib/utils'
 
 interface NavItem {
@@ -19,7 +16,6 @@ interface DashboardLayoutProps {
 
 export function DashboardLayout({ children, title, navItems }: DashboardLayoutProps) {
   const location = useLocation()
-  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   const SidebarContent = () => (
     <nav className="flex flex-col gap-1 p-4">
@@ -32,7 +28,7 @@ export function DashboardLayout({ children, title, navItems }: DashboardLayoutPr
           <Link
             key={item.href}
             to={item.href}
-            onClick={() => setSidebarOpen(false)}
+
             className={cn(
               'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all',
               active
@@ -70,45 +66,37 @@ export function DashboardLayout({ children, title, navItems }: DashboardLayoutPr
             </div>
           </aside>
 
-          {/* Mobile sidebar toggle */}
-          <div className="lg:hidden fixed bottom-6 left-6 z-30">
-            <button
-              onClick={() => setSidebarOpen(true)}
-              className="w-12 h-12 bg-[#E50914] rounded-full shadow-2xl flex items-center justify-center text-white"
-            >
-              <Menu size={20} />
-            </button>
+          {/* Mobile tab bar — substitui o FAB flutuante, evita conflito com Navbar */}
+          <div className="lg:hidden w-full col-span-full -mx-4 sm:-mx-6">
+            <div className="flex overflow-x-auto scrollbar-hide border-b border-[#333] bg-[#1A1A1A] px-2">
+              {navItems.map(item => {
+                const queryPart = item.href.includes('?') ? item.href.split('?')[1] : null
+                const active = queryPart
+                  ? location.search.includes(queryPart)
+                  : location.pathname === item.href && !location.search.includes('tab=')
+                return (
+                  <Link
+                    key={item.href}
+                    to={item.href}
+                    className={cn(
+                      'flex-shrink-0 flex flex-col items-center gap-0.5 px-4 py-3 text-[10px] font-medium border-b-2 transition-colors relative',
+                      active
+                        ? 'border-[#E50914] text-white'
+                        : 'border-transparent text-[#B3B3B3] hover:text-white',
+                    )}
+                  >
+                    <span className="w-4 h-4">{item.icon}</span>
+                    <span>{item.label}</span>
+                    {item.badge && item.badge > 0 && (
+                      <span className="absolute top-2 right-2 w-4 h-4 bg-[#E50914] rounded-full text-[9px] font-bold flex items-center justify-center text-white">
+                        {item.badge > 9 ? '9+' : item.badge}
+                      </span>
+                    )}
+                  </Link>
+                )
+              })}
+            </div>
           </div>
-
-          {/* Mobile sidebar */}
-          <AnimatePresence>
-            {sidebarOpen && (
-              <>
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  className="lg:hidden fixed inset-0 z-40 bg-black/60"
-                  onClick={() => setSidebarOpen(false)}
-                />
-                <motion.div
-                  initial={{ x: '-100%' }}
-                  animate={{ x: 0 }}
-                  exit={{ x: '-100%' }}
-                  transition={{ type: 'spring', damping: 30, stiffness: 400 }}
-                  className="lg:hidden fixed top-0 left-0 bottom-0 z-50 w-64 bg-[#1F1F1F] border-r border-[#333]"
-                >
-                  <div className="flex items-center justify-between px-4 py-4 border-b border-[#333]">
-                    <h2 className="font-display text-lg font-bold text-white">{title}</h2>
-                    <button onClick={() => setSidebarOpen(false)} className="text-[#B3B3B3] hover:text-white">
-                      <X size={18} />
-                    </button>
-                  </div>
-                  <SidebarContent />
-                </motion.div>
-              </>
-            )}
-          </AnimatePresence>
 
           {/* Main content */}
           <main className="flex-1 min-w-0">
