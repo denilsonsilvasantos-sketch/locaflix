@@ -11,6 +11,7 @@ import { Button } from '../components/ui/Button'
 import { formatCurrency } from '../lib/utils'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { APP_ROUTES } from '../constants'
+import { useAuth } from '../hooks/useAuth'
 
 export function Home() {
   const [properties, setProperties] = useState<Property[]>([])
@@ -18,12 +19,19 @@ export function Home() {
   const [heroIdx, setHeroIdx] = useState(0)
   const [filters, setFilters] = useState<SearchFilters>({})
   const [filtersOpen, setFiltersOpen] = useState(false)
+  const [favoritedIds, setFavoritedIds] = useState<Set<string>>(new Set())
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
+  const { user } = useAuth()
 
   useEffect(() => {
     loadProperties()
   }, [])
+
+  useEffect(() => {
+    if (user) loadFavorites()
+    else setFavoritedIds(new Set())
+  }, [user?.id])
 
   // Auto-carousel every 6s
   useEffect(() => {
@@ -57,6 +65,25 @@ export function Home() {
       setFilters({})
     }
   }, [searchParams])
+
+  async function loadFavorites() {
+    const { data } = await supabase
+      .from('favorites')
+      .select('property_id')
+      .eq('user_id', user!.id)
+    if (data) setFavoritedIds(new Set(data.map(f => f.property_id)))
+  }
+
+  async function toggleFavorite(propertyId: string) {
+    if (!user) { navigate(APP_ROUTES.LOGIN); return }
+    if (favoritedIds.has(propertyId)) {
+      await supabase.from('favorites').delete().eq('user_id', user.id).eq('property_id', propertyId)
+      setFavoritedIds(prev => { const s = new Set(prev); s.delete(propertyId); return s })
+    } else {
+      await supabase.from('favorites').insert({ user_id: user.id, property_id: propertyId })
+      setFavoritedIds(prev => new Set([...prev, propertyId]))
+    }
+  }
 
   async function loadProperties() {
     setLoading(true)
@@ -371,6 +398,8 @@ export function Home() {
             properties={filteredProperties}
             loading={loading}
             emptyMessage="Nenhum imóvel encontrado para essa busca."
+            favoritedIds={favoritedIds}
+            onFavoriteToggle={toggleFavorite}
             checkIn={filters.check_in}
             checkOut={filters.check_out}
             guests={filters.guests}
@@ -382,6 +411,8 @@ export function Home() {
                 key={row.id}
                 title={row.label}
                 properties={row.items}
+                favoritedIds={favoritedIds}
+                onFavoriteToggle={toggleFavorite}
               />
             ))}
           </div>

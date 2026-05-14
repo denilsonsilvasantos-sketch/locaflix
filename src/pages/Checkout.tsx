@@ -112,6 +112,18 @@ export function Checkout() {
     fetchIp()
   }, [id])
 
+  // Load persisted personal data from previous checkout
+  useEffect(() => {
+    if (!user?.id) return
+    try {
+      const saved = localStorage.getItem(`locaflix_checkout_${user.id}`)
+      if (saved) {
+        const { name, cpf, birth_date, phone, address, number, complement, city, state, cep } = JSON.parse(saved)
+        setForm(f => ({ ...f, name: name || f.name, cpf: cpf || f.cpf, birth_date: birth_date || f.birth_date, phone: phone || f.phone, address: address || f.address, number: number || f.number, complement: complement || f.complement, city: city || f.city, state: state || f.state, cep: cep || f.cep }))
+      }
+    } catch { /* ignore */ }
+  }, [user?.id])
+
   useEffect(() => {
     if (profile) {
       setForm(f => ({
@@ -172,7 +184,15 @@ export function Checkout() {
   }
 
   function upd(k: keyof CheckoutFormData, v: unknown) {
-    setForm(f => ({ ...f, [k]: v }))
+    setForm(f => {
+      const next = { ...f, [k]: v }
+      // Persist personal data to reuse in future checkouts
+      if (user?.id) {
+        const { name, cpf, birth_date, phone, address, number, complement, city, state, cep } = next
+        localStorage.setItem(`locaflix_checkout_${user.id}`, JSON.stringify({ name, cpf, birth_date, phone, address, number, complement, city, state, cep }))
+      }
+      return next
+    })
   }
 
   function canAdvance() {

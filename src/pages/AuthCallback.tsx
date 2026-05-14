@@ -3,8 +3,9 @@ import { useNavigate } from 'react-router-dom'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 import { APP_ROUTES } from '../constants'
+import { Logo } from '../components/layout/Logo'
 
-async function ensureProfile(userId: string, meta: Record<string, unknown>) {
+async function ensureProfile(userId: string, meta: Record<string, unknown>): Promise<boolean> {
   const { data } = await supabase.from('users').select('id').eq('id', userId).single()
   if (!data) {
     await supabase.from('users').upsert({
@@ -14,7 +15,9 @@ async function ensureProfile(userId: string, meta: Record<string, unknown>) {
       role: 'GUEST',
       avatar_url: (meta.avatar_url as string) ?? null,
     })
+    return true // new user
   }
+  return false
 }
 
 export function AuthCallback() {
@@ -25,7 +28,6 @@ export function AuthCallback() {
     const hasCode = !!params.get('code')
     const urlError = params.get('error')
 
-    // Supabase returned an explicit OAuth error (provider not configured, etc.)
     if (urlError) {
       navigate(`${APP_ROUTES.LOGIN}?error=link_expirado`, { replace: true })
       return
@@ -37,19 +39,20 @@ export function AuthCallback() {
       if (resolved) return
       resolved = true
       if (session) {
-        await ensureProfile(session.user.id, session.user.user_metadata ?? {})
-        navigate(APP_ROUTES.HOME, { replace: true })
+        const isNew = await ensureProfile(session.user.id, session.user.user_metadata ?? {})
+        // New Google users go to profile completion; returning users go home
+        navigate(
+          isNew
+            ? `${APP_ROUTES.GUEST_DASHBOARD}?tab=perfil&welcome=1`
+            : APP_ROUTES.HOME,
+          { replace: true },
+        )
       } else if (hasCode) {
-        // Had a code but no session → truly expired/invalid link
         navigate(`${APP_ROUTES.LOGIN}?error=link_expirado`, { replace: true })
       } else {
         navigate(APP_ROUTES.LOGIN, { replace: true })
       }
     }
-
-    // detectSessionInUrl:true processes ?code= automatically and fires SIGNED_IN.
-    // We must NOT call exchangeCodeForSession manually — the code is already consumed.
-    // Strategy: check existing session first (fast path), then listen for state change.
 
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) finish(session)
@@ -59,7 +62,6 @@ export function AuthCallback() {
       if (session) finish(session)
     })
 
-    // Fallback timeout: if nothing happens in 6s, session truly failed
     const timer = setTimeout(() => finish(null), 6000)
 
     return () => {
@@ -69,8 +71,12 @@ export function AuthCallback() {
   }, [navigate])
 
   return (
-    <div className="min-h-screen bg-[#141414] flex items-center justify-center">
-      <div className="w-12 h-12 border-4 border-[#E50914] border-t-transparent rounded-full animate-spin" />
+    <div className="min-h-screen bg-[#141414] flex flex-col items-center justify-center gap-8">
+      <Logo size="lg" />
+      <div className="flex flex-col items-center gap-4">
+        <div className="w-10 h-10 border-4 border-[#E50914] border-t-transparent rounded-full animate-spin" />
+        <p className="text-[#B3B3B3] text-sm">Autenticando sua conta...</p>
+      </div>
     </div>
   )
 }

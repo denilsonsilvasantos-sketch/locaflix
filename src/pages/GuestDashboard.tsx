@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   Calendar, Heart, Bell, ShieldCheck, User,
   AlertTriangle, CheckCircle, XCircle,
@@ -29,6 +29,8 @@ const TABS = [
 export function GuestDashboard() {
   const [searchParams] = useSearchParams()
   const tab = searchParams.get('tab') ?? 'reservas'
+  const isWelcome = searchParams.get('welcome') === '1'
+  const navigate = useNavigate()
 
   const { user, profile, refreshProfile, signOut } = useAuth()
   const { notifications, unreadCount, markAllRead } = useNotifications()
@@ -74,26 +76,30 @@ export function GuestDashboard() {
           .limit(20),
         supabase
           .from('favorites')
-          .select('*, property:properties(id,name,photos,city,state,price_per_night,rating)')
+          .select('*')
           .eq('user_id', user!.id)
           .limit(20),
       ])
 
       const rawBookings = (bkRes.data ?? []) as (Booking & { property_id: string })[]
+      const rawFavs = (favRes.data ?? []) as (Favorite & { property_id: string })[]
 
       // Fetch properties separately to avoid FK/RLS join issues
-      const ids = [...new Set(rawBookings.map(b => b.property_id).filter(Boolean))]
+      const bookingPropIds = [...new Set(rawBookings.map(b => b.property_id).filter(Boolean))]
+      const favPropIds = [...new Set(rawFavs.map(f => f.property_id).filter(Boolean))]
+      const allIds = [...new Set([...bookingPropIds, ...favPropIds])]
+
       const propsMap: Record<string, Partial<Property>> = {}
-      if (ids.length > 0) {
+      if (allIds.length > 0) {
         const { data: props } = await supabase
           .from('properties')
-          .select('id,name,photos,city,state,price_per_night')
-          .in('id', ids)
+          .select('id,name,photos,city,state,price_per_night,rating')
+          .in('id', allIds)
         for (const p of props ?? []) propsMap[p.id] = p
       }
 
       setBookings(rawBookings.map(b => ({ ...b, property: (propsMap[b.property_id] ?? null) as Property })) as Booking[])
-      setFavorites((favRes.data ?? []) as Favorite[])
+      setFavorites(rawFavs.map(f => ({ ...f, property: (propsMap[f.property_id] ?? null) as Property })) as Favorite[])
     } catch {
       // tables may not exist yet, render empty state
     } finally {
@@ -137,6 +143,22 @@ export function GuestDashboard() {
 
   return (
     <DashboardLayout title="Minha Conta" navItems={navItems}>
+
+      {/* Banner boas-vindas Google */}
+      {isWelcome && tab === 'perfil' && (
+        <div className="mb-6 flex items-center justify-between gap-4 p-4 bg-[#E50914]/10 border border-[#E50914]/40 rounded-xl">
+          <div>
+            <p className="text-sm font-semibold text-white">Bem-vindo à Locaflix! 🎉</p>
+            <p className="text-xs text-[#B3B3B3] mt-0.5">Complete seu perfil para agilizar suas reservas.</p>
+          </div>
+          <button
+            onClick={() => navigate(APP_ROUTES.HOME)}
+            className="flex-shrink-0 text-xs text-[#B3B3B3] hover:text-white underline"
+          >
+            Explorar imóveis
+          </button>
+        </div>
+      )}
 
       {/* Banner KYC obrigatório */}
       {kycIncomplete && tab !== 'documentos' && (
@@ -380,14 +402,18 @@ function BookingCard({ booking }: { booking: Booking }) {
   const next = booking.installments?.find(i => i.status === 'PENDENTE')
   const daysLeft = next ? daysUntil(next.due_date) : null
 
+  const isUsed = booking.status !== 'CANCELADA' && new Date(booking.check_out + 'T23:59:59') < new Date()
+
   const statusMap: Record<string, { label: string; cls: string }> = {
-    AGUARDANDO_PAGAMENTO: { label: 'Aguardando', cls: 'bg-[#F5A623]/20 text-[#F5A623]' },
-    PARCIAL:              { label: 'Parcial',    cls: 'bg-blue-500/20 text-blue-400' },
-    PAGO:                 { label: 'Pago',       cls: 'bg-[#46D369]/20 text-[#46D369]' },
-    CONCLUIDA:            { label: 'Concluída',  cls: 'bg-[#333] text-[#B3B3B3]' },
-    CANCELADA:            { label: 'Cancelada',  cls: 'bg-[#E50914]/20 text-[#E50914]' },
+    AGUARDANDO_PAGAMENTO: { label: 'Aguardando pagamento', cls: 'bg-[#F5A623]/20 text-[#F5A623]' },
+    PARCIAL:              { label: 'Parcelada — em dia',   cls: 'bg-blue-500/20 text-blue-400' },
+    PAGO:                 { label: 'Paga',                 cls: 'bg-[#46D369]/20 text-[#46D369]' },
+    CONCLUIDA:            { label: 'Utilizada',            cls: 'bg-[#333] text-[#B3B3B3]' },
+    CANCELADA:            { label: 'Cancelada',            cls: 'bg-[#E50914]/20 text-[#E50914]' },
   }
-  const s = statusMap[booking.status] ?? statusMap.AGUARDANDO_PAGAMENTO
+  const s = isUsed
+    ? { label: 'Utilizada', cls: 'bg-[#333] text-[#B3B3B3]' }
+    : (statusMap[booking.status] ?? statusMap.AGUARDANDO_PAGAMENTO)
 
   return (
     <Card className="p-4 flex gap-4 items-start">
