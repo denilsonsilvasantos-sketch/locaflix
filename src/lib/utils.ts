@@ -1,6 +1,6 @@
 import { format, parseISO, addDays, addMonths, differenceInDays } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import type { InstallmentPreview, InsurancePlan } from '../types'
+import type { InstallmentPreview } from '../types'
 
 export function formatCurrency(value: number): string {
   return new Intl.NumberFormat('pt-BR', {
@@ -31,17 +31,6 @@ export function daysUntil(dateStr: string): number {
 
 export function addDaysToISO(dateStr: string, days: number): string {
   return toISODateString(addDays(parseISO(dateStr), days))
-}
-
-export const INSURANCE_PRICES: Record<InsurancePlan, number> = {
-  NENHUM: 0,
-  BASICO: 5,
-  PADRAO: 12,
-  PREMIUM: 25,
-}
-
-export function calculateInsuranceAmount(plan: InsurancePlan, nights: number): number {
-  return INSURANCE_PRICES[plan] * nights
 }
 
 export function calculatePlatformFee(subtotal: number, feePercent = 0.05): number {

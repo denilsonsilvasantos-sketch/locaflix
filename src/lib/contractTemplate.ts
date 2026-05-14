@@ -68,11 +68,10 @@ Hóspedes: ${booking.total_guests}
 DOS VALORES
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Subtotal da estadia:  ${formatCurrency(booking.subtotal)}
-Taxa de serviço (5%): ${formatCurrency(booking.platform_fee)}
-Seguro viagem:        ${formatCurrency(booking.insurance_amount)}
-Desconto aplicado:    ${formatCurrency(booking.discount_amount)}
-TOTAL:                ${formatCurrency(booking.total_price)}
+Subtotal da estadia: ${formatCurrency(booking.subtotal)}
+Taxa de serviço:     ${formatCurrency(booking.platform_fee)}
+Desconto aplicado:   ${formatCurrency(booking.discount_amount)}
+TOTAL:               ${formatCurrency(booking.total_price)}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 DA POLÍTICA DE CANCELAMENTO

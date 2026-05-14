@@ -94,37 +94,6 @@ export const CANCELLATION_POLICIES = [
   },
 ] as const
 
-export const INSURANCE_OPTIONS = [
-  {
-    plan: 'NENHUM' as const,
-    label: 'Sem seguro',
-    description: 'Viaje sem cobertura adicional.',
-    price_per_night: 0,
-    coverage: [],
-  },
-  {
-    plan: 'BASICO' as const,
-    label: 'Básico',
-    description: 'Cobertura essencial para imprevistos.',
-    price_per_night: 5,
-    coverage: ['Cancelamento por doença', 'Assistência 24h'],
-  },
-  {
-    plan: 'PADRAO' as const,
-    label: 'Padrão',
-    description: 'Proteção completa para sua viagem.',
-    price_per_night: 12,
-    coverage: ['Cancelamento por doença', 'Assistência 24h', 'Danos ao imóvel', 'Extravio de bagagem'],
-  },
-  {
-    plan: 'PREMIUM' as const,
-    label: 'Premium',
-    description: 'Máxima proteção, sem preocupações.',
-    price_per_night: 25,
-    coverage: ['Cancelamento por qualquer motivo', 'Assistência 24h', 'Danos ao imóvel', 'Extravio de bagagem', 'Atraso de voo', 'Emergência médica'],
-  },
-] as const
-
 export const PLATFORM_FEE_PERCENT = 0.05
 
 export const NETFLIX_CATEGORIES = [

@@ -896,9 +896,6 @@ export function AdminDashboard() {
                 <h3 className="text-sm font-semibold text-white mb-4">Configurações da Plataforma</h3>
                 <div className="space-y-1">
                   <CfgRow label="Taxa da plataforma"    desc="Percentual cobrado sobre cada reserva"    val="5%" />
-                  <CfgRow label="Seguro básico"         desc="Valor por noite — plano básico"            val="R$ 5,00/noite" />
-                  <CfgRow label="Seguro padrão"         desc="Valor por noite — plano padrão"            val="R$ 12,00/noite" />
-                  <CfgRow label="Seguro premium"        desc="Valor por noite — plano premium"           val="R$ 25,00/noite" />
                 </div>
               </div>
               <div className="bg-[#1A1A1A] border border-[#222] rounded-xl p-6">

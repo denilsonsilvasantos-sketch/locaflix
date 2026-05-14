@@ -36,6 +36,17 @@ export function PropertyDetails() {
     loadProperty(id)
   }, [id])
 
+  useEffect(() => {
+    if (!id || !user) return
+    supabase
+      .from('favorites')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('property_id', id)
+      .maybeSingle()
+      .then(({ data }) => setIsFavorited(!!data))
+  }, [id, user?.id])
+
   async function loadProperty(propertyId: string) {
     const { data } = await supabase
       .from('properties')
@@ -79,6 +90,26 @@ export function PropertyDetails() {
       await supabase.from('favorites').insert({ user_id: user.id, property_id: id })
     }
     setIsFavorited(v => !v)
+  }
+
+  async function handleShare() {
+    const url = window.location.href
+    const title = property?.name ?? 'Imóvel na Locaflix'
+    const text = `Confira este imóvel na Locaflix: ${title}`
+    if (navigator.share) {
+      try {
+        await navigator.share({ title, text, url })
+      } catch {
+        // user cancelled — no action needed
+      }
+    } else {
+      try {
+        await navigator.clipboard.writeText(url)
+        toast('success', 'Link copiado!', 'O link do imóvel foi copiado para a área de transferência.')
+      } catch {
+        toast('error', 'Erro ao copiar', 'Não foi possível copiar o link.')
+      }
+    }
   }
 
   const nights = calcNights()
@@ -201,7 +232,11 @@ export function PropertyDetails() {
                   >
                     <Heart size={18} className={isFavorited ? 'fill-[#E50914] text-[#E50914]' : 'text-[#B3B3B3]'} />
                   </button>
-                  <button className="w-10 h-10 rounded-xl bg-[#1F1F1F] border border-[#333] flex items-center justify-center hover:bg-[#2A2A2A] transition-colors">
+                  <button
+                    onClick={handleShare}
+                    className="w-10 h-10 rounded-xl bg-[#1F1F1F] border border-[#333] flex items-center justify-center hover:bg-[#2A2A2A] transition-colors"
+                    title="Compartilhar imóvel"
+                  >
                     <Share2 size={18} className="text-[#B3B3B3]" />
                   </button>
                 </div>
@@ -379,7 +414,7 @@ export function PropertyDetails() {
                       <span className="text-white">{formatCurrency(subtotal)}</span>
                     </div>
                     <div className="flex justify-between text-sm">
-                      <span className="text-[#B3B3B3]">Taxa de serviço (5%)</span>
+                      <span className="text-[#B3B3B3]">Taxa de serviço</span>
                       <span className="text-white">{formatCurrency(fee)}</span>
                     </div>
                     <div className="flex justify-between text-sm font-bold pt-2 border-t border-[#333]">

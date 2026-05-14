@@ -100,7 +100,6 @@ export function Checkout() {
     city: profile?.city ?? '',
     state: profile?.state ?? '',
     cep: profile?.cep ?? '',
-    insurance_plan: 'NENHUM',
     contract_accepted: false,
     payment_method: 'PIX',
     installments_count: 1,
@@ -234,10 +233,8 @@ export function Checkout() {
           total_guests: guestsParam,
           subtotal,
           platform_fee,
-          insurance_amount: 0,
           discount_amount: 0,
           total_price,
-          insurance_plan: 'NENHUM',
           status: 'AGUARDANDO_PAGAMENTO',
         }).select().single()
 
@@ -482,7 +479,7 @@ export function Checkout() {
                     })()}
                     <div className="space-y-2 text-sm text-[#B3B3B3] mb-6 bg-[#1A1A1A] rounded-xl p-4">
                       <p>• A LOCAFLIX atua como intermediadora na relação locador-locatário.</p>
-                      <p>• Taxa de serviço de 5% cobrada do hóspede.</p>
+                      <p>• Taxa de serviço cobrada do hóspede sobre o valor da estadia.</p>
                       <p>• Parcelamento livre via Pix. Última parcela até 7 dias antes do check-in.</p>
                       <p>• O anfitrião é responsável pelo estado do imóvel no momento da entrega.</p>
                     </div>
@@ -557,9 +554,9 @@ export function Checkout() {
                           id: 'preview', property_id: property.id, guest_id: user!.id,
                           owner_id: property.owner_id, check_in: checkIn, check_out: checkOut,
                           nights, total_guests: guestsParam,
-                          subtotal, platform_fee: fee, insurance_amount: 0,
+                          subtotal, platform_fee: fee,
                           discount_amount: 0, total_price: total, coupon_code: null,
-                          status: 'AGUARDANDO_PAGAMENTO', insurance_plan: 'NENHUM',
+                          status: 'AGUARDANDO_PAGAMENTO',
                           booking_number: 'LFX-PREVIEW', created_at: '', updated_at: '',
                           property,
                         },
@@ -673,7 +670,7 @@ export function Checkout() {
 
               <div className="space-y-2 text-sm">
                 <Row label={`${formatCurrency(property.price_per_night)} × ${nights} noites`} value={formatCurrency(subtotal)} />
-                <Row label="Taxa de serviço (5%)" value={formatCurrency(fee)} />
+                <Row label="Taxa de serviço" value={formatCurrency(fee)} />
                 <div className="pt-2 border-t border-[#333] flex justify-between font-bold">
                   <span className="text-white">Total</span>
                   <span className="text-[#F5A623] text-base">{formatCurrency(total)}</span>

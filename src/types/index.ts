@@ -11,7 +11,6 @@ export type CancellationPolicy = 'FLEXIVEL' | 'MODERADO' | 'FIRME'
 export type BookingStatus = 'AGUARDANDO_PAGAMENTO' | 'PARCIAL' | 'PAGO' | 'CONCLUIDA' | 'CANCELADA'
 export type InstallmentStatus = 'PENDENTE' | 'PAGO' | 'ATRASADO' | 'CANCELADO'
 export type InstallmentType = 'ENTRADA' | 'PARCELA'
-export type InsurancePlan = 'NENHUM' | 'BASICO' | 'PADRAO' | 'PREMIUM'
 export type ReviewMode = 'OWNER_RATES_GUEST' | 'GUEST_RATES_PROPERTY'
 export type CouponType = 'PERCENTUAL' | 'FIXO'
 export type PricingRuleType = 'WEEKEND' | 'HOLIDAY' | 'SPECIAL' | 'LOW_SEASON' | 'HIGH_SEASON'
@@ -98,12 +97,10 @@ export interface Booking {
   total_guests: number
   subtotal: number
   platform_fee: number
-  insurance_amount: number
   discount_amount: number
   total_price: number
   coupon_code: string | null
   status: BookingStatus
-  insurance_plan: InsurancePlan
   booking_number: string | null
   created_at: string
   updated_at: string
@@ -256,21 +253,11 @@ export interface CheckoutFormData {
   city: string
   state: string
   cep: string
-  // step 3: insurance
-  insurance_plan: InsurancePlan
-  // step 4: contract
+  // step 3: contract
   contract_accepted: boolean
   // step 5: payment
   payment_method: 'PIX' | 'BOLETO'
   installments_count: number
-}
-
-export interface InsuranceOption {
-  plan: InsurancePlan
-  label: string
-  description: string
-  price_per_night: number
-  coverage: string[]
 }
 
 export interface InstallmentPreview {
