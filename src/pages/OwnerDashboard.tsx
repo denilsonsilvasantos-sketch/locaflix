@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams, Link } from 'react-router-dom'
-import { Home, Calendar, DollarSign, Star, Plus, Eye, Pencil, ToggleLeft, ToggleRight, ShieldCheck, Check, X, AlertCircle } from 'lucide-react'
+import { Home, Calendar, DollarSign, Star, Plus, Eye, Pencil, ToggleLeft, ToggleRight, ShieldCheck, Check, X, AlertCircle, ChevronDown, ChevronUp, Trash2 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
-import type { Property, Booking, KinshipType, OwnershipType } from '../types'
+import type { Property, Booking, KinshipType, OwnershipType, PricePeriod, PeriodType } from '../types'
 import { useAuth } from '../hooks/useAuth'
 import { useToast } from '../hooks/useToast'
 import { DashboardLayout } from '../components/layout/DashboardLayout'
@@ -12,6 +12,12 @@ import { Input } from '../components/ui/Input'
 import { KYCDocumentField } from '../components/ui/KYCDocumentField'
 import { formatCurrency, formatShortDate } from '../lib/utils'
 import { APP_ROUTES } from '../constants'
+import { PERIOD_TYPE_LABELS, PERIOD_DEFAULT_NAMES, PERIOD_TYPES_WITH_DATES } from '../lib/pricing'
+
+const PERIOD_TYPE_OPTIONS = (Object.keys(PERIOD_TYPE_LABELS) as PeriodType[]).map(v => ({
+  value: v,
+  label: PERIOD_TYPE_LABELS[v],
+}))
 
 const KINSHIP_LABELS: Record<KinshipType, string> = {
   PAI: 'Pai',
@@ -468,38 +474,288 @@ function PendingClock() {
 }
 
 function PropertyRow({ property, onToggle }: { property: Property; onToggle: (p: Property) => void }) {
+  const [showPrices, setShowPrices] = useState(false)
+
   return (
-    <Card className="p-4 flex items-center gap-4">
-      <img src={property.photos[0] ?? ''} alt="" className="w-16 h-16 rounded-xl object-cover flex-shrink-0" />
-      <div className="flex-1 min-w-0">
-        <p className="font-semibold text-white text-sm line-clamp-1">{property.name}</p>
-        <p className="text-xs text-[#B3B3B3]">{property.city}, {property.state}</p>
-        <div className="flex items-center gap-2 mt-1">
-          <PropertyStatusBadge status={property.status} />
-          <span className="text-xs text-[#666]">{formatCurrency(property.price_per_night)}/noite</span>
+    <Card className="overflow-hidden">
+      <div className="p-4 flex items-center gap-4">
+        <img src={property.photos[0] ?? ''} alt="" className="w-16 h-16 rounded-xl object-cover flex-shrink-0" />
+        <div className="flex-1 min-w-0">
+          <p className="font-semibold text-white text-sm line-clamp-1">{property.name}</p>
+          <p className="text-xs text-[#B3B3B3]">{property.city}, {property.state}</p>
+          <div className="flex items-center gap-2 mt-1">
+            <PropertyStatusBadge status={property.status} />
+            <span className="text-xs text-[#666]">{formatCurrency(property.price_per_night)}/noite</span>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <button
+            onClick={() => setShowPrices(v => !v)}
+            className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${showPrices ? 'bg-[#E50914]/20 text-[#E50914]' : 'bg-[#2A2A2A] text-[#B3B3B3] hover:text-white'}`}
+            title="Preços por período"
+          >
+            <DollarSign size={14} />
+          </button>
+          <Link to={APP_ROUTES.PROPERTY(property.id)}>
+            <button className="w-8 h-8 rounded-lg bg-[#2A2A2A] flex items-center justify-center text-[#B3B3B3] hover:text-white transition-colors">
+              <Eye size={14} />
+            </button>
+          </Link>
+          <button className="w-8 h-8 rounded-lg bg-[#2A2A2A] flex items-center justify-center text-[#B3B3B3] hover:text-white transition-colors">
+            <Pencil size={14} />
+          </button>
+          <button
+            onClick={() => onToggle(property)}
+            className="w-8 h-8 rounded-lg bg-[#2A2A2A] flex items-center justify-center transition-colors"
+            title={property.status === 'ATIVO' ? 'Desativar' : 'Ativar'}
+          >
+            {property.status === 'ATIVO'
+              ? <ToggleRight size={16} className="text-[#46D369]" />
+              : <ToggleLeft size={16} className="text-[#666]" />
+            }
+          </button>
         </div>
       </div>
-      <div className="flex items-center gap-2 flex-shrink-0">
-        <Link to={APP_ROUTES.PROPERTY(property.id)}>
-          <button className="w-8 h-8 rounded-lg bg-[#2A2A2A] flex items-center justify-center text-[#B3B3B3] hover:text-white transition-colors">
-            <Eye size={14} />
-          </button>
-        </Link>
-        <button className="w-8 h-8 rounded-lg bg-[#2A2A2A] flex items-center justify-center text-[#B3B3B3] hover:text-white transition-colors">
-          <Pencil size={14} />
-        </button>
+
+      {showPrices && (
+        <div className="border-t border-[#2A2A2A] bg-[#141414]">
+          <PricePeriodsManager propertyId={property.id} defaultPrice={property.price_per_night} />
+        </div>
+      )}
+    </Card>
+  )
+}
+
+// ── PricePeriodsManager ───────────────────────────────────────
+
+interface NewPeriodForm {
+  period_type: PeriodType
+  name: string
+  price_per_night: string
+  start_date: string
+  end_date: string
+  priority: string
+}
+
+function PricePeriodsManager({ propertyId, defaultPrice }: { propertyId: string; defaultPrice: number }) {
+  const { toast } = useToast()
+  const [periods, setPeriods] = useState<PricePeriod[]>([])
+  const [loading, setLoading] = useState(true)
+  const [showForm, setShowForm] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [form, setForm] = useState<NewPeriodForm>({
+    period_type: 'WEEKEND',
+    name: PERIOD_DEFAULT_NAMES.WEEKEND,
+    price_per_night: '',
+    start_date: '',
+    end_date: '',
+    priority: '0',
+  })
+
+  useEffect(() => {
+    supabase
+      .from('price_periods')
+      .select('*')
+      .eq('property_id', propertyId)
+      .order('priority', { ascending: false })
+      .then(({ data }) => {
+        setPeriods((data ?? []) as PricePeriod[])
+        setLoading(false)
+      })
+  }, [propertyId])
+
+  function updForm(patch: Partial<NewPeriodForm>) {
+    setForm(f => ({ ...f, ...patch }))
+  }
+
+  function handleTypeChange(t: PeriodType) {
+    updForm({ period_type: t, name: PERIOD_DEFAULT_NAMES[t] })
+  }
+
+  async function handleAdd() {
+    if (!form.name.trim() || !form.price_per_night) {
+      toast('warning', 'Campos obrigatórios', 'Preencha o nome e o preço.')
+      return
+    }
+    const needsDates = PERIOD_TYPES_WITH_DATES.includes(form.period_type)
+    if (needsDates && (!form.start_date || !form.end_date)) {
+      toast('warning', 'Datas obrigatórias', 'Defina o início e o fim do período.')
+      return
+    }
+    setSaving(true)
+    const { data, error } = await supabase
+      .from('price_periods')
+      .insert({
+        property_id: propertyId,
+        name: form.name.trim(),
+        period_type: form.period_type,
+        price_per_night: Number(form.price_per_night),
+        start_date: form.start_date || null,
+        end_date: form.end_date || null,
+        priority: Number(form.priority) || 0,
+        active: true,
+      })
+      .select()
+      .single()
+    setSaving(false)
+    if (error) { toast('error', 'Erro', error.message); return }
+    setPeriods(p => [data as PricePeriod, ...p].sort((a, b) => b.priority - a.priority))
+    setForm({ period_type: 'WEEKEND', name: PERIOD_DEFAULT_NAMES.WEEKEND, price_per_night: '', start_date: '', end_date: '', priority: '0' })
+    setShowForm(false)
+    toast('success', 'Período adicionado')
+  }
+
+  async function handleDelete(id: string) {
+    const { error } = await supabase.from('price_periods').delete().eq('id', id)
+    if (error) { toast('error', 'Erro', error.message); return }
+    setPeriods(p => p.filter(x => x.id !== id))
+    toast('success', 'Período removido')
+  }
+
+  async function handleToggle(period: PricePeriod) {
+    const { error } = await supabase.from('price_periods').update({ active: !period.active }).eq('id', period.id)
+    if (error) { toast('error', 'Erro', error.message); return }
+    setPeriods(p => p.map(x => x.id === period.id ? { ...x, active: !x.active } : x))
+  }
+
+  const needsDates = PERIOD_TYPES_WITH_DATES.includes(form.period_type)
+
+  return (
+    <div className="p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-semibold text-[#B3B3B3] uppercase tracking-wide">Preços por período</p>
         <button
-          onClick={() => onToggle(property)}
-          className="w-8 h-8 rounded-lg bg-[#2A2A2A] flex items-center justify-center transition-colors"
-          title={property.status === 'ATIVO' ? 'Desativar' : 'Ativar'}
+          onClick={() => setShowForm(v => !v)}
+          className="flex items-center gap-1.5 text-xs text-[#E50914] hover:text-red-400 transition-colors font-medium"
         >
-          {property.status === 'ATIVO'
-            ? <ToggleRight size={16} className="text-[#46D369]" />
-            : <ToggleLeft size={16} className="text-[#666]" />
-          }
+          {showForm ? <ChevronUp size={13} /> : <Plus size={13} />}
+          {showForm ? 'Cancelar' : 'Adicionar período'}
         </button>
       </div>
-    </Card>
+
+      {/* Add form */}
+      {showForm && (
+        <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-4 space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div>
+              <label className="text-xs text-[#666] block mb-1">Tipo</label>
+              <select
+                value={form.period_type}
+                onChange={e => handleTypeChange(e.target.value as PeriodType)}
+                className="w-full bg-[#2A2A2A] border border-[#333] rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-[#555]"
+              >
+                {PERIOD_TYPE_OPTIONS.map(o => (
+                  <option key={o.value} value={o.value} className="bg-[#2A2A2A]">{o.label}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs text-[#666] block mb-1">Nome</label>
+              <input
+                value={form.name}
+                onChange={e => updForm({ name: e.target.value })}
+                className="w-full bg-[#2A2A2A] border border-[#333] rounded-lg px-3 py-2 text-xs text-white placeholder-[#555] outline-none focus:border-[#555]"
+              />
+            </div>
+          </div>
+          <div className={`grid gap-2 ${needsDates ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-2'}`}>
+            <div>
+              <label className="text-xs text-[#666] block mb-1">Preço/noite (R$)</label>
+              <input
+                type="number"
+                min="1"
+                step="0.01"
+                value={form.price_per_night}
+                onChange={e => updForm({ price_per_night: e.target.value })}
+                placeholder="0,00"
+                className="w-full bg-[#2A2A2A] border border-[#333] rounded-lg px-3 py-2 text-xs text-white placeholder-[#555] outline-none focus:border-[#555]"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-[#666] block mb-1">Prioridade</label>
+              <input
+                type="number"
+                min="0"
+                value={form.priority}
+                onChange={e => updForm({ priority: e.target.value })}
+                className="w-full bg-[#2A2A2A] border border-[#333] rounded-lg px-3 py-2 text-xs text-white placeholder-[#555] outline-none focus:border-[#555]"
+              />
+            </div>
+            {needsDates && (
+              <>
+                <div>
+                  <label className="text-xs text-[#666] block mb-1">Início</label>
+                  <input
+                    type="date"
+                    value={form.start_date}
+                    onChange={e => updForm({ start_date: e.target.value })}
+                    className="w-full bg-[#2A2A2A] border border-[#333] rounded-lg px-2 py-2 text-xs text-white outline-none focus:border-[#555]"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-[#666] block mb-1">Fim</label>
+                  <input
+                    type="date"
+                    value={form.end_date}
+                    onChange={e => updForm({ end_date: e.target.value })}
+                    className="w-full bg-[#2A2A2A] border border-[#333] rounded-lg px-2 py-2 text-xs text-white outline-none focus:border-[#555]"
+                  />
+                </div>
+              </>
+            )}
+          </div>
+          <Button onClick={handleAdd} loading={saving} size="sm" className="w-full">
+            Salvar período
+          </Button>
+        </div>
+      )}
+
+      {/* Periods list */}
+      {loading ? (
+        <div className="text-center py-4">
+          <div className="w-5 h-5 border-2 border-[#E50914] border-t-transparent rounded-full animate-spin mx-auto" />
+        </div>
+      ) : periods.length === 0 ? (
+        <p className="text-xs text-[#555] text-center py-3">
+          Nenhum período configurado — será usado o preço base ({formatCurrency(defaultPrice)}/noite) para todas as diárias.
+        </p>
+      ) : (
+        <div className="space-y-2">
+          {periods.map(p => (
+            <div key={p.id} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg border transition-opacity ${p.active ? 'border-[#2A2A2A] bg-[#1A1A1A]' : 'border-[#1F1F1F] bg-[#111] opacity-50'}`}>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <p className="text-xs font-semibold text-white truncate">{p.name}</p>
+                  <span className="text-[10px] text-[#555] shrink-0">prio {p.priority}</span>
+                </div>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <span className="text-[10px] text-[#666]">{PERIOD_TYPE_LABELS[p.period_type]}</span>
+                  {p.start_date && p.end_date && (
+                    <span className="text-[10px] text-[#555]">· {p.start_date} → {p.end_date}</span>
+                  )}
+                </div>
+              </div>
+              <span className="text-sm font-bold text-[#F5A623] shrink-0">{formatCurrency(p.price_per_night)}</span>
+              <div className="flex items-center gap-1 shrink-0">
+                <button
+                  onClick={() => handleToggle(p)}
+                  className="w-7 h-7 rounded-lg bg-[#2A2A2A] flex items-center justify-center text-[#666] hover:text-white transition-colors"
+                  title={p.active ? 'Desativar' : 'Ativar'}
+                >
+                  {p.active ? <ToggleRight size={13} className="text-[#46D369]" /> : <ToggleLeft size={13} />}
+                </button>
+                <button
+                  onClick={() => handleDelete(p.id)}
+                  className="w-7 h-7 rounded-lg bg-[#2A2A2A] flex items-center justify-center text-[#666] hover:text-[#E50914] transition-colors"
+                >
+                  <Trash2 size={12} />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   )
 }
 

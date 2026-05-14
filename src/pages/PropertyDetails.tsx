@@ -5,7 +5,8 @@ import { Star, MapPin, Users, BedDouble, Bath, ChevronLeft, ChevronRight, Heart,
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { supabase } from '../lib/supabase'
-import type { Property, PropertyPhoto, Review } from '../types'
+import type { Property, PropertyPhoto, PricePeriod, Review } from '../types'
+import { getMinPrice, PERIOD_TYPE_LABELS } from '../lib/pricing'
 import { MOCK_PROPERTIES } from '../constants/mocks'
 import { APP_ROUTES } from '../constants'
 import { formatCurrency, calculateMaxInstallments } from '../lib/utils'
@@ -32,6 +33,7 @@ export function PropertyDetails() {
   const [property, setProperty] = useState<Property | null>(null)
   const [reviews, setReviews] = useState<Review[]>([])
   const [roomGroups, setRoomGroups] = useState<RoomGroup[]>([])
+  const [pricePeriods, setPricePeriods] = useState<PricePeriod[]>([])
   const [loading, setLoading] = useState(true)
   const [imgIdx, setImgIdx] = useState(0)
   const [lightboxOpen, setLightboxOpen] = useState(false)
@@ -60,7 +62,7 @@ export function PropertyDetails() {
   }, [id, user?.id])
 
   const loadProperty = useCallback(async (propertyId: string) => {
-    const [propRes, revRes, photoRes] = await Promise.all([
+    const [propRes, revRes, photoRes, periodsRes] = await Promise.all([
       supabase
         .from('properties')
         .select('*, owner:users(id, name, avatar_url, created_at)')
@@ -78,6 +80,12 @@ export function PropertyDetails() {
         .select('*, room:property_rooms(id, name, display_order)')
         .eq('property_id', propertyId)
         .order('display_order', { ascending: true }),
+      supabase
+        .from('price_periods')
+        .select('*')
+        .eq('property_id', propertyId)
+        .eq('active', true)
+        .order('priority', { ascending: false }),
     ])
 
     if (propRes.data) {
@@ -102,6 +110,7 @@ export function PropertyDetails() {
       group.photos.push({ ...photo, roomName })
     }
     setRoomGroups(groups)
+    setPricePeriods((periodsRes.data ?? []) as PricePeriod[])
     setLoading(false)
   }, [])
 
@@ -523,11 +532,36 @@ export function PropertyDetails() {
                   </div>
                 ) : (
                   <div className="mb-5">
-                    <div className="flex items-baseline gap-1.5">
-                      <span className="text-2xl font-bold text-white">{formatCurrency(property.price_per_night)}</span>
-                      <span className="text-sm text-[#B3B3B3]">/ noite</span>
-                    </div>
-                    <p className="text-xs text-[#555] mt-1">Selecione as datas para ver o parcelamento</p>
+                    {pricePeriods.length > 0 ? (
+                      <>
+                        <div className="flex items-baseline gap-1.5">
+                          <span className="text-2xl font-bold text-white">{formatCurrency(getMinPrice(pricePeriods, property.price_per_night))}</span>
+                          <span className="text-sm text-[#B3B3B3]">/ noite</span>
+                        </div>
+                        <p className="text-xs text-[#555] mt-1">Preço varia por período — selecione as datas</p>
+                      </>
+                    ) : (
+                      <>
+                        <div className="flex items-baseline gap-1.5">
+                          <span className="text-2xl font-bold text-white">{formatCurrency(property.price_per_night)}</span>
+                          <span className="text-sm text-[#B3B3B3]">/ noite</span>
+                        </div>
+                        <p className="text-xs text-[#555] mt-1">Selecione as datas para ver o parcelamento</p>
+                      </>
+                    )}
+                    {pricePeriods.length > 0 && (
+                      <div className="mt-3 space-y-1">
+                        {pricePeriods.slice(0, 3).map(p => (
+                          <div key={p.id} className="flex items-center justify-between text-xs">
+                            <span className="text-[#666]">{p.name}</span>
+                            <span className="text-white font-medium">{formatCurrency(p.price_per_night)}</span>
+                          </div>
+                        ))}
+                        {pricePeriods.length > 3 && (
+                          <p className="text-xs text-[#555]">+{pricePeriods.length - 3} outros períodos</p>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
 

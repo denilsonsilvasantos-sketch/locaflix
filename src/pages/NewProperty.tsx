@@ -1,13 +1,29 @@
 import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { X, Plus, Upload, Trash2, Image, Link } from 'lucide-react'
+import { X, Plus, Upload, Trash2, Image, Link, DollarSign } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { useToast } from '../hooks/useToast'
 import { Button } from '../components/ui/Button'
 import { Input, Select, Textarea } from '../components/ui/Input'
 import { APP_ROUTES, AMENITIES_LIST, PROPERTY_TYPES, CANCELLATION_POLICIES, BRASIL_STATES } from '../constants'
-import type { PropertyType, CancellationPolicy } from '../types'
+import type { PropertyType, CancellationPolicy, PeriodType } from '../types'
+import { PERIOD_TYPE_LABELS, PERIOD_DEFAULT_NAMES, PERIOD_TYPES_WITH_DATES } from '../lib/pricing'
+
+const PERIOD_TYPE_OPTIONS = (Object.keys(PERIOD_TYPE_LABELS) as PeriodType[]).map(v => ({
+  value: v,
+  label: PERIOD_TYPE_LABELS[v],
+}))
+
+interface PeriodDraft {
+  id: string
+  period_type: PeriodType
+  name: string
+  price_per_night: string
+  start_date: string
+  end_date: string
+  priority: string
+}
 
 const MAX_ROOMS = 10
 const MAX_PHOTOS_PER_ROOM = 20
@@ -36,6 +52,7 @@ export function NewProperty() {
   const { toast } = useToast()
   const [saving, setSaving] = useState(false)
   const [rooms, setRooms] = useState<RoomDraft[]>([])
+  const [periods, setPeriods] = useState<PeriodDraft[]>([])
 
   const [form, setForm] = useState({
     name: '',
@@ -156,6 +173,26 @@ export function NewProperty() {
     ))
   }
 
+  function addPeriod() {
+    setPeriods(p => [...p, {
+      id: uid(),
+      period_type: 'WEEKEND',
+      name: PERIOD_DEFAULT_NAMES.WEEKEND,
+      price_per_night: '',
+      start_date: '',
+      end_date: '',
+      priority: String(p.length),
+    }])
+  }
+
+  function removePeriod(periodId: string) {
+    setPeriods(p => p.filter(x => x.id !== periodId))
+  }
+
+  function updatePeriod(periodId: string, patch: Partial<Omit<PeriodDraft, 'id'>>) {
+    setPeriods(p => p.map(x => x.id === periodId ? { ...x, ...patch } : x))
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!user) return
@@ -222,6 +259,22 @@ export function NewProperty() {
           url: p.url,
           caption: p.caption.trim() || null,
           display_order: j,
+        }))
+      )
+    }
+
+    const validPeriods = periods.filter(p => p.name.trim() && p.price_per_night)
+    if (validPeriods.length > 0) {
+      await supabase.from('price_periods').insert(
+        validPeriods.map((p, i) => ({
+          property_id: propertyId,
+          name: p.name.trim(),
+          period_type: p.period_type,
+          price_per_night: Number(p.price_per_night),
+          start_date: p.start_date || null,
+          end_date: p.end_date || null,
+          priority: Number(p.priority) || i,
+          active: true,
         }))
       )
     }
@@ -391,6 +444,117 @@ export function NewProperty() {
             >
               <Plus size={16} />
               Adicionar cômodo
+            </Button>
+          </section>
+
+          {/* Preços por período */}
+          <section className="bg-[#1F1F1F] border border-[#333] rounded-2xl p-6 space-y-4">
+            <div>
+              <h2 className="font-display text-lg font-bold text-white">Preços por período</h2>
+              <p className="text-xs text-[#666] mt-0.5">Defina preços diferentes para fins de semana, feriados, alta temporada, etc.</p>
+            </div>
+
+            {periods.length === 0 && (
+              <div className="border-2 border-dashed border-[#333] rounded-xl p-6 text-center">
+                <DollarSign size={28} className="mx-auto mb-2 text-[#444]" />
+                <p className="text-sm text-[#666]">Sem períodos configurados</p>
+                <p className="text-xs text-[#444] mt-1">Apenas o preço base será cobrado para todas as diárias</p>
+              </div>
+            )}
+
+            <div className="space-y-3">
+              {periods.map((period, idx) => {
+                const needsDates = PERIOD_TYPES_WITH_DATES.includes(period.period_type)
+                return (
+                  <div key={period.id} className="border border-[#2A2A2A] rounded-xl p-4 space-y-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-[#555] w-5 text-center shrink-0">{idx + 1}</span>
+                      <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <select
+                          value={period.period_type}
+                          onChange={e => {
+                            const t = e.target.value as PeriodType
+                            updatePeriod(period.id, { period_type: t, name: PERIOD_DEFAULT_NAMES[t] })
+                          }}
+                          className="bg-[#2A2A2A] border border-[#333] rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-[#555]"
+                        >
+                          {PERIOD_TYPE_OPTIONS.map(o => (
+                            <option key={o.value} value={o.value} className="bg-[#2A2A2A]">{o.label}</option>
+                          ))}
+                        </select>
+                        <input
+                          value={period.name}
+                          onChange={e => updatePeriod(period.id, { name: e.target.value })}
+                          placeholder="Nome do período"
+                          className="bg-[#2A2A2A] border border-[#333] rounded-lg px-3 py-2 text-sm text-white placeholder-[#555] outline-none focus:border-[#555]"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removePeriod(period.id)}
+                        className="text-[#555] hover:text-[#E50914] transition-colors shrink-0"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pl-7">
+                      <div>
+                        <label className="text-xs text-[#666] block mb-1">Preço/noite (R$)</label>
+                        <input
+                          type="number"
+                          min="1"
+                          step="0.01"
+                          value={period.price_per_night}
+                          onChange={e => updatePeriod(period.id, { price_per_night: e.target.value })}
+                          placeholder="0,00"
+                          className="w-full bg-[#2A2A2A] border border-[#333] rounded-lg px-3 py-2 text-sm text-white placeholder-[#555] outline-none focus:border-[#555]"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs text-[#666] block mb-1">Prioridade</label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={period.priority}
+                          onChange={e => updatePeriod(period.id, { priority: e.target.value })}
+                          placeholder="0"
+                          className="w-full bg-[#2A2A2A] border border-[#333] rounded-lg px-3 py-2 text-sm text-white placeholder-[#555] outline-none focus:border-[#555]"
+                        />
+                      </div>
+                      {needsDates && (
+                        <>
+                          <div className="col-span-2 sm:col-span-1 grid grid-cols-2 gap-2">
+                            <div>
+                              <label className="text-xs text-[#666] block mb-1">Início</label>
+                              <input
+                                type="date"
+                                value={period.start_date}
+                                onChange={e => updatePeriod(period.id, { start_date: e.target.value })}
+                                className="w-full bg-[#2A2A2A] border border-[#333] rounded-lg px-2 py-2 text-xs text-white outline-none focus:border-[#555]"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-xs text-[#666] block mb-1">Fim</label>
+                              <input
+                                type="date"
+                                value={period.end_date}
+                                onChange={e => updatePeriod(period.id, { end_date: e.target.value })}
+                                className="w-full bg-[#2A2A2A] border border-[#333] rounded-lg px-2 py-2 text-xs text-white outline-none focus:border-[#555]"
+                              />
+                            </div>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+
+            <Button type="button" variant="secondary" onClick={addPeriod} className="w-full">
+              <Plus size={16} />
+              Adicionar período
             </Button>
           </section>
 

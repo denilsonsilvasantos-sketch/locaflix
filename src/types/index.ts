@@ -12,6 +12,7 @@ export type BookingStatus = 'AGUARDANDO_PAGAMENTO' | 'PARCIAL' | 'PAGO' | 'CONCL
 export type InstallmentStatus = 'PENDENTE' | 'PAGO' | 'ATRASADO' | 'CANCELADO'
 export type InstallmentType = 'ENTRADA' | 'PARCELA'
 export type ReviewMode = 'OWNER_RATES_GUEST' | 'GUEST_RATES_PROPERTY'
+export type PeriodType = 'WEEKDAY' | 'WEEKEND' | 'CUSTOM' | 'HOLIDAY' | 'LOW_SEASON' | 'HIGH_SEASON' | 'CHRISTMAS_NEW_YEAR' | 'CARNIVAL'
 export type CouponType = 'PERCENTUAL' | 'FIXO'
 export type PricingRuleType = 'WEEKEND' | 'HOLIDAY' | 'SPECIAL' | 'LOW_SEASON' | 'HIGH_SEASON'
 export type OwnershipType = 'PROPRIO' | 'TERCEIRO'
@@ -184,6 +185,20 @@ export interface Notification {
   is_read: boolean
   created_at: string
   updated_at: string
+}
+
+// ---- Price Period ----
+export interface PricePeriod {
+  id: string
+  property_id: string
+  name: string
+  price_per_night: number
+  period_type: PeriodType
+  start_date: string | null
+  end_date: string | null
+  priority: number
+  active: boolean
+  created_at: string
 }
 
 // ---- Property Room ----

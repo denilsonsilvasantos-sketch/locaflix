@@ -3,7 +3,7 @@ import { useParams, useSearchParams, useNavigate, Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Check, ChevronRight, FileText, CreditCard, User, AlertTriangle, ShieldCheck, Calendar } from 'lucide-react'
 import { supabase } from '../lib/supabase'
-import type { Property, CheckoutFormData, InstallmentPreview, PixPaymentResponse, CancellationPolicy } from '../types'
+import type { Property, CheckoutFormData, InstallmentPreview, PixPaymentResponse, CancellationPolicy, PricePeriod } from '../types'
 import { CANCELLATION_POLICIES, APP_ROUTES } from '../constants'
 import { MOCK_PROPERTIES } from '../constants/mocks'
 import { Button } from '../components/ui/Button'
@@ -16,6 +16,7 @@ import {
   formatCurrency, calculateInstallments, calculateMaxInstallments,
   calculatePlatformFee, formatDate,
 } from '../lib/utils'
+import { calcularEstadia, type EstadiaResult } from '../lib/pricing'
 import { generateContractContent } from '../lib/contractTemplate'
 import { format, subDays } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -70,6 +71,8 @@ export function Checkout() {
 
   const [step, setStep] = useState(1)
   const [property, setProperty] = useState<Property | null>(null)
+  const [pricePeriods, setPricePeriods] = useState<PricePeriod[]>([])
+  const [estadiaResult, setEstadiaResult] = useState<EstadiaResult | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [paymentModalOpen, setPaymentModalOpen] = useState(false)
@@ -141,17 +144,22 @@ export function Checkout() {
   }, [profile])
 
   useEffect(() => {
-    if (checkIn && property) {
-      const subtotal = property.price_per_night * nights
-      const fee = calculatePlatformFee(subtotal)
-      const total = subtotal + fee
-      setInstallmentPreviews(calculateInstallments(total, installmentCount, checkIn))
-    }
-  }, [installmentCount, property, checkIn, nights])
+    if (!checkIn || !checkOut || !property || nights <= 0) return
+    const ci = new Date(checkIn + 'T00:00:00')
+    const co = new Date(checkOut + 'T00:00:00')
+    const result = calcularEstadia(ci, co, pricePeriods, property.price_per_night)
+    setEstadiaResult(result)
+    const fee = calculatePlatformFee(result.total)
+    setInstallmentPreviews(calculateInstallments(result.total + fee, installmentCount, checkIn))
+  }, [installmentCount, property, checkIn, checkOut, nights, pricePeriods])
 
   async function loadProperty(pid: string) {
-    const { data } = await supabase.from('properties').select('*, owner:users(id,name)').eq('id', pid).single()
+    const [{ data }, { data: periodsData }] = await Promise.all([
+      supabase.from('properties').select('*, owner:users(id,name)').eq('id', pid).single(),
+      supabase.from('price_periods').select('*').eq('property_id', pid).eq('active', true).order('priority', { ascending: false }),
+    ])
     setProperty(data ? (data as Property) : (MOCK_PROPERTIES.find(p => p.id === pid) ?? null))
+    setPricePeriods((periodsData ?? []) as PricePeriod[])
     setLoading(false)
   }
 
@@ -214,7 +222,10 @@ export function Checkout() {
     const isMock = MOCK_PROPERTIES.some(p => p.id === property.id)
 
     try {
-      const subtotal = property.price_per_night * nights
+      const ci = new Date(checkIn + 'T00:00:00')
+      const co = new Date(checkOut + 'T00:00:00')
+      const estadia = calcularEstadia(ci, co, pricePeriods, property.price_per_night)
+      const subtotal = estadia.total
       const platform_fee = calculatePlatformFee(subtotal)
       const total_price = subtotal + platform_fee
       const previews = calculateInstallments(total_price, installmentCount, checkIn)
@@ -369,7 +380,7 @@ export function Checkout() {
     return <KYCGate status={profile.kyc_status ?? 'INCOMPLETO'} />
   }
 
-  const subtotal = property.price_per_night * nights
+  const subtotal = estadiaResult?.total ?? property.price_per_night * nights
   const fee = calculatePlatformFee(subtotal)
   const total = subtotal + fee
   const maxInstallments = checkIn ? calculateMaxInstallments(checkIn) : 1
@@ -669,7 +680,17 @@ export function Checkout() {
               <p className="text-xs text-[#B3B3B3] mb-4">{property.city}, {property.state}</p>
 
               <div className="space-y-2 text-sm">
-                <Row label={`${formatCurrency(property.price_per_night)} × ${nights} noites`} value={formatCurrency(subtotal)} />
+                {estadiaResult && estadiaResult.summary.length > 1 ? (
+                  estadiaResult.summary.map((s, i) => (
+                    <Row
+                      key={i}
+                      label={`${s.nights}× ${s.periodName}`}
+                      value={formatCurrency(s.nights * s.pricePerNight)}
+                    />
+                  ))
+                ) : (
+                  <Row label={`${formatCurrency(property.price_per_night)} × ${nights} noites`} value={formatCurrency(subtotal)} />
+                )}
                 <Row label="Taxa de serviço" value={formatCurrency(fee)} />
                 <div className="pt-2 border-t border-[#333] flex justify-between font-bold">
                   <span className="text-white">Total</span>
