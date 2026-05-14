@@ -17,6 +17,7 @@ import {
   calculatePlatformFee, formatDate,
 } from '../lib/utils'
 import { calcularEstadia, type EstadiaResult } from '../lib/pricing'
+import { calcularReserva } from '../lib/financeiro'
 import { generateContractContent } from '../lib/contractTemplate'
 import { format, subDays } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -149,8 +150,8 @@ export function Checkout() {
     const co = new Date(checkOut + 'T00:00:00')
     const result = calcularEstadia(ci, co, pricePeriods, property.price_per_night)
     setEstadiaResult(result)
-    const fee = calculatePlatformFee(result.total)
-    setInstallmentPreviews(calculateInstallments(result.total + fee, installmentCount, checkIn))
+    const financeiro = calcularReserva(result.total / Math.max(nights, 1), nights, 0, 'dividido')
+    setInstallmentPreviews(calculateInstallments(financeiro.totalPagoPeloHospede, installmentCount, checkIn))
   }, [installmentCount, property, checkIn, checkOut, nights, pricePeriods])
 
   async function loadProperty(pid: string) {
@@ -225,9 +226,10 @@ export function Checkout() {
       const ci = new Date(checkIn + 'T00:00:00')
       const co = new Date(checkOut + 'T00:00:00')
       const estadia = calcularEstadia(ci, co, pricePeriods, property.price_per_night)
-      const subtotal = estadia.total
-      const platform_fee = calculatePlatformFee(subtotal)
-      const total_price = subtotal + platform_fee
+      const fin = calcularReserva(estadia.total / Math.max(nights, 1), nights, 0, 'dividido')
+      const subtotal = fin.subtotalBase
+      const platform_fee = fin.valorTaxaHospede
+      const total_price = fin.totalPagoPeloHospede
       const previews = calculateInstallments(total_price, installmentCount, checkIn)
 
       let firstInstallmentId: string | undefined
@@ -380,9 +382,11 @@ export function Checkout() {
     return <KYCGate status={profile.kyc_status ?? 'INCOMPLETO'} />
   }
 
-  const subtotal = estadiaResult?.total ?? property.price_per_night * nights
-  const fee = calculatePlatformFee(subtotal)
-  const total = subtotal + fee
+  const subtotalDiarias = estadiaResult?.total ?? property.price_per_night * nights
+  const financeiro = calcularReserva(subtotalDiarias / Math.max(nights, 1), nights, 0, 'dividido')
+  const subtotal = financeiro.subtotalBase
+  const fee = financeiro.valorTaxaHospede
+  const total = financeiro.totalPagoPeloHospede
   const maxInstallments = checkIn ? calculateMaxInstallments(checkIn) : 1
   const isMock = MOCK_PROPERTIES.some(p => p.id === property.id)
 

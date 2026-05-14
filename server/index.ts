@@ -62,7 +62,7 @@ app.post('/api/payments/create-pix', requireAuth, async (req: Request, res: Resp
       mobilePhone: customer.phone?.replace(/\D/g, ''),
     })
 
-    // Create Pix payment
+    // Create Pix payment (with fine 2% + interest 1%/month)
     const paymentRes = await asaasRequest('POST', '/payments', {
       customer: customerRes.id,
       billingType: 'PIX',
@@ -70,6 +70,8 @@ app.post('/api/payments/create-pix', requireAuth, async (req: Request, res: Resp
       dueDate,
       description,
       externalReference,
+      fine:     { value: 2.00, type: 'PERCENTAGE' },
+      interest: { value: 1.00, type: 'MONTHLY' },
     })
 
     // Get Pix QR code
@@ -141,6 +143,16 @@ app.get('/api/payments/:id', requireAuth, async (req: Request, res: Response) =>
   try {
     const payment = await asaasRequest('GET', `/payments/${req.params.id}`)
     res.json(payment)
+  } catch (err: unknown) {
+    res.status(500).json({ error: err instanceof Error ? err.message : 'Error' })
+  }
+})
+
+// ---- GET /api/payments/:id/pixQrCode ----
+app.get('/api/payments/:id/pixQrCode', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const qr = await asaasRequest('GET', `/payments/${req.params.id}/pixQrCode`)
+    res.json(qr)
   } catch (err: unknown) {
     res.status(500).json({ error: err instanceof Error ? err.message : 'Error' })
   }

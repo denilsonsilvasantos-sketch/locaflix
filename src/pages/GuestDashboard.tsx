@@ -17,7 +17,10 @@ import { Input } from '../components/ui/Input'
 import { Card } from '../components/ui/Card'
 import { ReviewModal } from '../components/ui/ReviewModal'
 import { formatCurrency, formatShortDate, daysUntil } from '../lib/utils'
+import { calcularValorAtualizado } from '../lib/financeiro'
+import { PixModal } from '../components/ui/PixModal'
 import { APP_ROUTES } from '../constants'
+import type { PixPaymentResponse } from '../types'
 
 const TABS = [
   { key: 'reservas',     label: 'Reservas',      icon: <Calendar   size={16} />, href: '/minha-conta' },
@@ -542,12 +545,46 @@ function BookingCard({
   hasReviewed: boolean
   onReview: () => void
 }) {
+  const [overdueQR, setOverdueQR] = useState<PixPaymentResponse | null>(null)
+  const [fetchingQR, setFetchingQR] = useState(false)
+  const [pixModalOpen, setPixModalOpen] = useState(false)
+
   const insts = booking.installments ?? []
   const total = insts.length
   const paid = insts.filter(i => i.status === 'PAGO').length
   const next = insts.find(i => i.status === 'PENDENTE' || i.status === 'ATRASADO')
   const daysLeft = next ? daysUntil(next.due_date) : null
   const isOverdue = next?.status === 'ATRASADO'
+
+  const updatedValue = isOverdue && next
+    ? calcularValorAtualizado(next.value, Math.abs(daysLeft ?? 0))
+    : 0
+
+  async function fetchOverdueQR() {
+    if (!next?.asaas_payment_id) return
+    setFetchingQR(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const res = await fetch(`/api/payments/${next.asaas_payment_id}/pixQrCode`, {
+        headers: { Authorization: `Bearer ${session?.access_token ?? ''}` },
+      })
+      const qrData = await res.json()
+      if (!res.ok) throw new Error(qrData.error ?? 'Erro ao gerar QR Code')
+      setOverdueQR({
+        payment_id: next.asaas_payment_id,
+        status: 'OVERDUE',
+        pix_key: qrData.payload,
+        pix_qr_code: qrData.encodedImage,
+        due_date: next.due_date,
+        value: updatedValue,
+      })
+      setPixModalOpen(true)
+    } catch {
+      // user can retry via the button
+    } finally {
+      setFetchingQR(false)
+    }
+  }
 
   const s = deriveStatus(booking)
 
@@ -614,6 +651,38 @@ function BookingCard({
         </div>
       </div>
 
+      {/* Overdue installment panel */}
+      {isOverdue && next?.asaas_payment_id && (
+        <div className="mt-3 pt-3 border-t border-[#E50914]/30">
+          <div className="bg-[#E50914]/10 border border-[#E50914]/30 rounded-xl p-3 space-y-2.5">
+            <div className="flex items-start gap-2">
+              <AlertTriangle size={14} className="text-[#E50914] flex-shrink-0 mt-0.5" />
+              <p className="text-xs text-[#E50914]">
+                Esta parcela está vencida. O valor original de{' '}
+                <strong>{formatCurrency(next.value)}</strong> foi atualizado para{' '}
+                <strong>{formatCurrency(updatedValue)}</strong> devido aos dias de atraso.
+              </p>
+            </div>
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-[#F5A623] bg-[#F5A623]/10 border border-[#F5A623]/30 rounded-full px-2 py-0.5">
+                <AlertTriangle size={9} />
+                Sinalizado para contato manual
+              </span>
+              <button
+                onClick={fetchOverdueQR}
+                disabled={fetchingQR}
+                className="flex items-center gap-1.5 text-xs font-semibold text-white bg-[#E50914] hover:bg-[#C50813] disabled:opacity-50 rounded-lg px-3 py-1.5 transition-colors"
+              >
+                {fetchingQR
+                  ? <RefreshCw size={12} className="animate-spin" />
+                  : <CreditCard size={12} />}
+                Gerar QR Code atualizado
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Review action — only for "Reserva utilizada" */}
       {s.label === 'Reserva utilizada' && (
         <div className="mt-3 pt-3 border-t border-[#222] flex items-center justify-between">
@@ -636,6 +705,14 @@ function BookingCard({
           </span>
         </div>
       )}
+
+      {/* Pix Modal for overdue payment */}
+      <PixModal
+        open={pixModalOpen}
+        onClose={() => setPixModalOpen(false)}
+        pix={overdueQR}
+        onConfirm={() => setPixModalOpen(false)}
+      />
     </Card>
   )
 }
