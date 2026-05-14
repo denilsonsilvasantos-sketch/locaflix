@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Heart, Star, MapPin, Users, BedDouble } from 'lucide-react'
+import { Heart, Star, MapPin, Users, BedDouble, Wifi, Waves, Wind, Car, PawPrint } from 'lucide-react'
 import type { Property } from '../../types'
 import { formatCurrency, cn, calculateMaxInstallments, calculatePlatformFee } from '../../lib/utils'
 import { APP_ROUTES } from '../../constants'
@@ -155,6 +155,33 @@ export function PropertyCard({ property, onFavoriteToggle, isFavorited = false, 
               <p className="text-xs text-[#555] italic">Selecione as datas para ver o preço</p>
             )}
           </div>
+
+          {/* Amenity badges */}
+          {(() => {
+            const amenities = property.amenities ?? []
+            const badges = [
+              { key: 'wifi',    label: 'Wi-Fi',   show: amenities.some(a => a === 'Wi-Fi') },
+              { key: 'pool',    label: 'Piscina',  show: amenities.some(a => a === 'Piscina' || a.startsWith('Piscina ')) },
+              { key: 'ac',      label: 'Ar-cond.', show: amenities.some(a => a === 'Ar-condicionado') },
+              { key: 'pet',     label: 'Pets',     show: amenities.some(a => a === 'Aceita animais' || a === 'Permitido pets') },
+              { key: 'parking', label: 'Estac.',   show: amenities.some(a => a.startsWith('Estacionamento')) },
+            ].filter(b => b.show)
+            if (badges.length === 0) return null
+            return (
+              <div className="flex items-center gap-2.5 mt-1.5 flex-wrap">
+                {badges.map(b => (
+                  <span key={b.key} className="flex items-center gap-0.5 text-[10px] text-[#777]">
+                    {b.key === 'wifi'    && <Wifi     size={9} />}
+                    {b.key === 'pool'    && <Waves    size={9} />}
+                    {b.key === 'ac'      && <Wind     size={9} />}
+                    {b.key === 'pet'     && <PawPrint size={9} />}
+                    {b.key === 'parking' && <Car      size={9} />}
+                    {b.label}
+                  </span>
+                ))}
+              </div>
+            )
+          })()}
         </div>
       </Link>
     </motion.div>

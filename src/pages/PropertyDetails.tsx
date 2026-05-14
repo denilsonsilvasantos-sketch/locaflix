@@ -1,11 +1,21 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Star, MapPin, Users, BedDouble, Bath, ChevronLeft, ChevronRight, Heart, Share2, Check, Calendar, X, Grid2x2 } from 'lucide-react'
+import {
+  Star, MapPin, Users, BedDouble, Bath, ChevronLeft, ChevronRight,
+  Heart, Share2, Check, Calendar, X, Grid2x2,
+  AirVent, Wind, Wifi, Tv, Shirt, Zap, Car, Accessibility,
+  Utensils, UtensilsCrossed, Refrigerator, Snowflake, Flame, Coffee,
+  Thermometer, Lock, Baby, Umbrella, Droplets, Dumbbell, Gamepad2, Trees,
+  Mountain, Building2, Sun, DoorOpen, Moon,
+  PawPrint, Cigarette, Shield, Camera, Box, Laptop, Monitor,
+  Bed, Sparkles, PlusCircle, Waves,
+  type LucideProps,
+} from 'lucide-react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { supabase } from '../lib/supabase'
-import type { Property, PropertyPhoto, PricePeriod, Review } from '../types'
+import type { Property, PropertyPhoto, PricePeriod, Review, PropertyAmenity } from '../types'
 import { getMinPrice, PERIOD_TYPE_LABELS } from '../lib/pricing'
 import { MOCK_PROPERTIES } from '../constants/mocks'
 import { APP_ROUTES } from '../constants'
@@ -14,6 +24,30 @@ import { Button } from '../components/ui/Button'
 import { DateRangePicker } from '../components/ui/DateRangePicker'
 import { useAuth } from '../hooks/useAuth'
 import { useToast } from '../hooks/useToast'
+
+// ── Amenity icon map (lucide kebab-case → component) ──────────
+const ICON_MAP: Record<string, React.ComponentType<LucideProps>> = {
+  'air-vent': AirVent, 'wind': Wind, 'wifi': Wifi, 'tv': Tv,
+  'washing-machine': Shirt, 'shirt': Shirt, 'zap': Zap, 'car': Car,
+  'arrow-up-square': Box, 'accessibility': Accessibility,
+  'utensils': Utensils, 'utensils-crossed': UtensilsCrossed,
+  'refrigerator': Refrigerator, 'snowflake': Snowflake,
+  'flame': Flame, 'microwave': Zap, 'oven': Flame, 'coffee': Coffee,
+  'thermometer': Thermometer, 'lock': Lock, 'users': Users,
+  'baby': Baby, 'umbrella': Umbrella, 'droplets': Droplets,
+  'dumbbell': Dumbbell, 'gamepad-2': Gamepad2, 'trees': Trees,
+  'waves': Waves, 'mountain': Mountain, 'building-2': Building2,
+  'sunset': Sun, 'sun': Sun, 'door-open': DoorOpen, 'flower-2': Sparkles,
+  'moon': Moon, 'paw-print': PawPrint, 'party-popper': Sparkles,
+  'cigarette': Cigarette, 'shield': Shield, 'camera': Camera,
+  'box': Box, 'laptop': Laptop, 'monitor': Monitor,
+  'bed': Bed, 'towel': Bed, 'sparkles': Sparkles, 'plus-circle': PlusCircle,
+}
+
+function AmenityIcon({ name, size = 15, className }: { name: string | null; size?: number; className?: string }) {
+  const Icon = (name ? ICON_MAP[name] : null) ?? Check
+  return <Icon size={size} className={className} />
+}
 
 interface RoomGroup {
   id: string | null
@@ -34,6 +68,7 @@ export function PropertyDetails() {
   const [reviews, setReviews] = useState<Review[]>([])
   const [roomGroups, setRoomGroups] = useState<RoomGroup[]>([])
   const [pricePeriods, setPricePeriods] = useState<PricePeriod[]>([])
+  const [propertyAmenities, setPropertyAmenities] = useState<PropertyAmenity[]>([])
   const [loading, setLoading] = useState(true)
   const [imgIdx, setImgIdx] = useState(0)
   const [lightboxOpen, setLightboxOpen] = useState(false)
@@ -62,7 +97,7 @@ export function PropertyDetails() {
   }, [id, user?.id])
 
   const loadProperty = useCallback(async (propertyId: string) => {
-    const [propRes, revRes, photoRes, periodsRes] = await Promise.all([
+    const [propRes, revRes, photoRes, periodsRes, amenitiesRes] = await Promise.all([
       supabase
         .from('properties')
         .select('*, owner:users(id, name, avatar_url, created_at)')
@@ -86,6 +121,10 @@ export function PropertyDetails() {
         .eq('property_id', propertyId)
         .eq('active', true)
         .order('priority', { ascending: false }),
+      supabase
+        .from('property_amenities')
+        .select('property_id, amenity_id, amenity:amenities_catalog(id, category, name, icon, display_order)')
+        .eq('property_id', propertyId),
     ])
 
     if (propRes.data) {
@@ -111,6 +150,7 @@ export function PropertyDetails() {
     }
     setRoomGroups(groups)
     setPricePeriods((periodsRes.data ?? []) as PricePeriod[])
+    setPropertyAmenities((amenitiesRes.data ?? []) as PropertyAmenity[])
     setLoading(false)
   }, [])
 
@@ -452,17 +492,44 @@ export function PropertyDetails() {
             {/* Amenities */}
             <section>
               <h2 className="font-display text-xl font-bold text-white mb-4">Comodidades</h2>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {property.amenities.map(a => (
-                  <div key={a} className="flex items-center gap-2 text-sm text-[#B3B3B3]">
-                    <Check size={14} className="text-[#46D369] flex-shrink-0" />
-                    {a}
+              {propertyAmenities.length > 0 ? (() => {
+                // Group by category, sorted by display_order within each
+                const byCategory: Record<string, PropertyAmenity[]> = {}
+                for (const pa of propertyAmenities) {
+                  const cat = pa.amenity?.category ?? 'Outros'
+                  if (!byCategory[cat]) byCategory[cat] = []
+                  byCategory[cat].push(pa)
+                }
+                return (
+                  <div className="space-y-5">
+                    {Object.entries(byCategory).map(([category, items]) => (
+                      <div key={category}>
+                        <h3 className="text-xs font-bold text-[#555] uppercase tracking-wider mb-3">{category}</h3>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                          {items.map(pa => (
+                            <div key={pa.amenity_id} className="flex items-center gap-2 text-sm text-[#B3B3B3]">
+                              <AmenityIcon name={pa.amenity?.icon ?? null} className="text-[#46D369] flex-shrink-0" />
+                              <span className="truncate">{pa.amenity?.name ?? ''}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                ))}
-                {property.amenities.length === 0 && (
-                  <p className="text-sm text-[#666] col-span-full">Detalhes em breve.</p>
-                )}
-              </div>
+                )
+              })() : property.amenities.length > 0 ? (
+                // Fallback: legacy amenities[]
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {property.amenities.map(a => (
+                    <div key={a} className="flex items-center gap-2 text-sm text-[#B3B3B3]">
+                      <Check size={14} className="text-[#46D369] flex-shrink-0" />
+                      {a}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-[#666]">Detalhes em breve.</p>
+              )}
             </section>
 
             {/* Cancellation policy */}

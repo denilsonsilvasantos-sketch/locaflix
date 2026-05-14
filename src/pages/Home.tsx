@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ChevronLeft, ChevronRight, Home as HouseIcon, Info, SlidersHorizontal, X, Star, MapPin } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Home as HouseIcon, Info, SlidersHorizontal, X, Star, MapPin } from 'lucide-react'
 import { supabase } from '../lib/supabase'
-import { PROPERTY_TYPES, AMENITIES_LIST } from '../constants'
+import { PROPERTY_TYPES } from '../constants'
 import { MOCK_PROPERTIES } from '../constants/mocks'
-import type { Property, SearchFilters, PropertyType } from '../types'
+import type { Property, SearchFilters, PropertyType, AmenityCatalog } from '../types'
 import { PropertyRow, PropertyGrid } from '../components/property/PropertyGrid'
 import { SearchBar } from '../components/property/SearchBar'
 import { Button } from '../components/ui/Button'
@@ -20,12 +20,24 @@ export function Home() {
   const [filters, setFilters] = useState<SearchFilters>({})
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [favoritedIds, setFavoritedIds] = useState<Set<string>>(new Set())
+  const [catalog, setCatalog] = useState<AmenityCatalog[]>([])
+  const [amenitiesExpanded, setAmenitiesExpanded] = useState(false)
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set())
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const { user } = useAuth()
 
   useEffect(() => {
     loadProperties()
+  }, [])
+
+  useEffect(() => {
+    supabase
+      .from('amenities_catalog')
+      .select('*')
+      .order('category')
+      .order('display_order')
+      .then(({ data }) => { if (data) setCatalog(data as AmenityCatalog[]) })
   }, [])
 
   useEffect(() => {
@@ -107,6 +119,27 @@ export function Home() {
     setLoading(false)
   }
 
+  function toggleAmenityFilter(amenityId: string) {
+    setFilters(f => {
+      const existing = f.amenity_ids ?? []
+      return {
+        ...f,
+        amenity_ids: existing.includes(amenityId)
+          ? existing.filter(id => id !== amenityId)
+          : [...existing, amenityId],
+      }
+    })
+  }
+
+  function toggleCategory(category: string) {
+    setExpandedCategories(prev => {
+      const next = new Set(prev)
+      if (next.has(category)) next.delete(category)
+      else next.add(category)
+      return next
+    })
+  }
+
   const filteredProperties = properties.filter(p => {
     if (filters.state && p.state !== filters.state) return false
     if (filters.city && !`${p.city} ${p.neighborhood ?? ''}`.toLowerCase().includes(filters.city.toLowerCase())) return false
@@ -116,6 +149,12 @@ export function Home() {
     if (filters.max_price && p.price_per_night > filters.max_price) return false
     if (filters.amenities?.length) {
       if (!filters.amenities.every(a => p.amenities.includes(a))) return false
+    }
+    if (filters.amenity_ids?.length && catalog.length > 0) {
+      const selectedNames = filters.amenity_ids
+        .map(id => catalog.find(c => c.id === id)?.name)
+        .filter(Boolean) as string[]
+      if (!selectedNames.every(name => (p.amenities ?? []).includes(name))) return false
     }
     return true
   })
@@ -133,7 +172,11 @@ export function Home() {
     { id: 'economico', label: 'Ótimo Custo-Benefício', items: properties.filter(p => p.price_per_night < 300) },
   ]
 
-  const isSearching = Object.keys(filters).length > 0
+  const isSearching = Object.keys(filters).some(k => {
+    const v = filters[k as keyof SearchFilters]
+    if (Array.isArray(v)) return v.length > 0
+    return v !== undefined
+  })
 
   return (
     <div className="min-h-screen bg-[#141414]">
@@ -284,7 +327,7 @@ export function Home() {
                 {filteredProperties.length} {filteredProperties.length === 1 ? 'imóvel encontrado' : 'imóveis encontrados'}
               </h2>
               <button
-                onClick={() => { setFilters({}); navigate(APP_ROUTES.HOME) }}
+                onClick={() => { setFilters({}); setAmenitiesExpanded(false); navigate(APP_ROUTES.HOME) }}
                 className="flex items-center gap-1.5 text-xs text-[#B3B3B3] hover:text-white bg-[#2A2A2A] px-2.5 py-1.5 rounded-lg transition-colors"
               >
                 <X size={12} /> Limpar
@@ -311,8 +354,8 @@ export function Home() {
               exit={{ opacity: 0, height: 0 }}
               className="overflow-hidden mb-8"
             >
-              <div className="bg-[#1F1F1F] border border-[#333] rounded-xl p-6">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="bg-[#1F1F1F] border border-[#333] rounded-xl p-6 space-y-5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {/* Type */}
                   <div>
                     <label className="text-xs font-semibold text-[#B3B3B3] uppercase mb-2 block">Tipo</label>
@@ -366,30 +409,93 @@ export function Home() {
                       ))}
                     </div>
                   </div>
+                </div>
 
-                  {/* Amenities */}
-                  <div>
-                    <label className="text-xs font-semibold text-[#B3B3B3] uppercase mb-2 block">Comodidades</label>
-                    <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto">
-                      {AMENITIES_LIST.slice(0, 10).map(a => (
-                        <button
-                          key={a}
-                          onClick={() => setFilters(f => {
-                            const existing = f.amenities ?? []
-                            return {
-                              ...f,
-                              amenities: existing.includes(a)
-                                ? existing.filter(x => x !== a)
-                                : [...existing, a],
-                            }
-                          })}
-                          className={`text-xs px-2.5 py-1 rounded-lg border transition-colors ${(filters.amenities ?? []).includes(a) ? 'bg-[#E50914] border-[#E50914] text-white' : 'border-[#333] text-[#B3B3B3] hover:border-[#555]'}`}
-                        >
-                          {a}
-                        </button>
-                      ))}
-                    </div>
+                {/* Amenities — quick badges + expandable categories */}
+                <div className="pt-4 border-t border-[#2A2A2A]">
+                  <div className="flex items-center justify-between mb-3">
+                    <label className="text-xs font-semibold text-[#B3B3B3] uppercase">Comodidades</label>
+                    {(filters.amenity_ids?.length ?? 0) > 0 && (
+                      <button
+                        onClick={() => setFilters(f => ({ ...f, amenity_ids: [] }))}
+                        className="text-[10px] text-[#E50914] hover:underline"
+                      >
+                        Limpar ({filters.amenity_ids?.length})
+                      </button>
+                    )}
                   </div>
+
+                  {/* Quick badges — top 8 from catalog */}
+                  <div className="flex flex-wrap gap-1.5 mb-3">
+                    {catalog.slice(0, 8).map(item => {
+                      const isActive = (filters.amenity_ids ?? []).includes(item.id)
+                      return (
+                        <button
+                          key={item.id}
+                          onClick={() => toggleAmenityFilter(item.id)}
+                          className={`text-xs px-2.5 py-1 rounded-lg border transition-colors ${isActive ? 'bg-[#E50914] border-[#E50914] text-white' : 'border-[#333] text-[#B3B3B3] hover:border-[#555]'}`}
+                        >
+                          {item.name}
+                        </button>
+                      )
+                    })}
+                    {catalog.length > 8 && (
+                      <button
+                        onClick={() => setAmenitiesExpanded(v => !v)}
+                        className="flex items-center gap-1 text-xs text-[#B3B3B3] hover:text-white border border-[#333] hover:border-[#555] px-2.5 py-1 rounded-lg transition-colors"
+                      >
+                        {amenitiesExpanded ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
+                        {amenitiesExpanded ? 'Ver menos' : `Ver todas (${catalog.length})`}
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Expanded: all categories with collapsible sections */}
+                  {amenitiesExpanded && catalog.length > 0 && (() => {
+                    const byCategory: Record<string, AmenityCatalog[]> = {}
+                    for (const item of catalog) {
+                      if (!byCategory[item.category]) byCategory[item.category] = []
+                      byCategory[item.category].push(item)
+                    }
+                    return (
+                      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 mt-1">
+                        {Object.entries(byCategory).map(([category, items]) => {
+                          const isOpen = expandedCategories.has(category)
+                          const activeInCat = items.filter(i => (filters.amenity_ids ?? []).includes(i.id)).length
+                          return (
+                            <div key={category} className="bg-[#2A2A2A] rounded-lg overflow-hidden">
+                              <button
+                                onClick={() => toggleCategory(category)}
+                                className="w-full flex items-center justify-between px-3 py-2 text-left"
+                              >
+                                <span className="text-[10px] font-bold text-[#888] uppercase truncate">{category}</span>
+                                <div className="flex items-center gap-1 flex-shrink-0">
+                                  {activeInCat > 0 && <span className="text-[10px] font-bold text-[#E50914]">{activeInCat}</span>}
+                                  {isOpen ? <ChevronUp size={10} className="text-[#555]" /> : <ChevronDown size={10} className="text-[#555]" />}
+                                </div>
+                              </button>
+                              {isOpen && (
+                                <div className="px-3 pb-3 flex flex-wrap gap-1.5">
+                                  {items.map(item => {
+                                    const isActive = (filters.amenity_ids ?? []).includes(item.id)
+                                    return (
+                                      <button
+                                        key={item.id}
+                                        onClick={() => toggleAmenityFilter(item.id)}
+                                        className={`text-[10px] px-2 py-0.5 rounded border transition-colors ${isActive ? 'bg-[#E50914] border-[#E50914] text-white' : 'border-[#444] text-[#999] hover:border-[#666]'}`}
+                                      >
+                                        {item.name}
+                                      </button>
+                                    )
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )
+                  })()}
                 </div>
               </div>
             </motion.div>

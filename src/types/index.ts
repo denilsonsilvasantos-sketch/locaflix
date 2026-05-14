@@ -211,6 +211,23 @@ export interface PropertyRoom {
   created_at: string
 }
 
+// ---- Amenity Catalog ----
+export interface AmenityCatalog {
+  id: string
+  category: string
+  name: string
+  icon: string | null
+  display_order: number
+  created_at: string
+}
+
+export interface PropertyAmenity {
+  property_id: string
+  amenity_id: string
+  created_at: string
+  amenity?: AmenityCatalog
+}
+
 // ---- Property Photo ----
 export interface PropertyPhoto {
   id: string
@@ -313,6 +330,7 @@ export interface SearchFilters {
   type?: PropertyType
   bedrooms?: number
   amenities?: string[]
+  amenity_ids?: string[]
 }
 
 // ---- Admin KPIs ----

@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { X, Plus, Upload, Trash2, Image, Link, DollarSign } from 'lucide-react'
 import { supabase } from '../lib/supabase'
@@ -6,8 +6,8 @@ import { useAuth } from '../hooks/useAuth'
 import { useToast } from '../hooks/useToast'
 import { Button } from '../components/ui/Button'
 import { Input, Select, Textarea } from '../components/ui/Input'
-import { APP_ROUTES, AMENITIES_LIST, PROPERTY_TYPES, CANCELLATION_POLICIES, BRASIL_STATES } from '../constants'
-import type { PropertyType, CancellationPolicy, PeriodType } from '../types'
+import { APP_ROUTES, PROPERTY_TYPES, CANCELLATION_POLICIES, BRASIL_STATES } from '../constants'
+import type { PropertyType, CancellationPolicy, PeriodType, AmenityCatalog } from '../types'
 import { PERIOD_TYPE_LABELS, PERIOD_DEFAULT_NAMES, PERIOD_TYPES_WITH_DATES } from '../lib/pricing'
 
 const PERIOD_TYPE_OPTIONS = (Object.keys(PERIOD_TYPE_LABELS) as PeriodType[]).map(v => ({
@@ -53,6 +53,8 @@ export function NewProperty() {
   const [saving, setSaving] = useState(false)
   const [rooms, setRooms] = useState<RoomDraft[]>([])
   const [periods, setPeriods] = useState<PeriodDraft[]>([])
+  const [catalog, setCatalog] = useState<AmenityCatalog[]>([])
+  const [selectedAmenityIds, setSelectedAmenityIds] = useState<Set<string>>(new Set())
 
   const [form, setForm] = useState({
     name: '',
@@ -70,21 +72,36 @@ export function NewProperty() {
     bedrooms: '1',
     bathrooms: '1',
     max_guests: '4',
-    amenities: [] as string[],
     cancellation_policy: 'MODERADO' as CancellationPolicy,
   })
+
+  useEffect(() => {
+    supabase
+      .from('amenities_catalog')
+      .select('*')
+      .order('category')
+      .order('display_order')
+      .then(({ data }) => { if (data) setCatalog(data as AmenityCatalog[]) })
+  }, [])
 
   function upd(k: keyof typeof form, v: unknown) {
     setForm(f => ({ ...f, [k]: v }))
   }
 
-  function toggleAmenity(a: string) {
-    setForm(f => ({
-      ...f,
-      amenities: f.amenities.includes(a)
-        ? f.amenities.filter(x => x !== a)
-        : [...f.amenities, a],
-    }))
+  function toggleAmenity(id: string, name: string) {
+    setSelectedAmenityIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) {
+        next.delete(id)
+        // Unchecking "Piscina" removes all pool subtypes too
+        if (name === 'Piscina') {
+          catalog.filter(c => c.name !== 'Piscina' && c.name.startsWith('Piscina')).forEach(c => next.delete(c.id))
+        }
+      } else {
+        next.add(id)
+      }
+      return next
+    })
   }
 
   async function handleCEP(cep: string) {
@@ -202,6 +219,10 @@ export function NewProperty() {
     }
     setSaving(true)
 
+    const amenityNames = Array.from(selectedAmenityIds)
+      .map(id => catalog.find(c => c.id === id)?.name ?? '')
+      .filter(Boolean)
+
     const { data: prop, error: propErr } = await supabase.from('properties').insert({
       owner_id: user.id,
       name: form.name,
@@ -220,7 +241,7 @@ export function NewProperty() {
       bedrooms: Number(form.bedrooms),
       bathrooms: Number(form.bathrooms),
       max_guests: Number(form.max_guests),
-      amenities: form.amenities,
+      amenities: amenityNames,
       photos: [],
       cancellation_policy: form.cancellation_policy,
     }).select('id').single()
@@ -232,6 +253,16 @@ export function NewProperty() {
     }
 
     const propertyId = prop.id
+
+    if (selectedAmenityIds.size > 0) {
+      await supabase.from('property_amenities').insert(
+        Array.from(selectedAmenityIds).map(amenityId => ({
+          property_id: propertyId,
+          amenity_id: amenityId,
+        }))
+      )
+    }
+
     const validRooms = rooms.filter(rm => rm.name.trim())
 
     for (let i = 0; i < validRooms.length; i++) {
@@ -381,24 +412,58 @@ export function NewProperty() {
           </section>
 
           {/* Comodidades */}
-          <section className="bg-[#1F1F1F] border border-[#333] rounded-2xl p-6">
-            <h2 className="font-display text-lg font-bold text-white mb-4">Comodidades</h2>
-            <div className="flex flex-wrap gap-2">
-              {AMENITIES_LIST.map(a => (
-                <button
-                  key={a}
-                  type="button"
-                  onClick={() => toggleAmenity(a)}
-                  className={`text-sm px-3 py-1.5 rounded-xl border transition-all ${
-                    form.amenities.includes(a)
-                      ? 'bg-[#E50914] border-[#E50914] text-white'
-                      : 'border-[#333] text-[#B3B3B3] hover:border-[#555]'
-                  }`}
-                >
-                  {a}
-                </button>
-              ))}
+          <section className="bg-[#1F1F1F] border border-[#333] rounded-2xl p-6 space-y-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="font-display text-lg font-bold text-white">Comodidades</h2>
+                <p className="text-xs text-[#666] mt-0.5">{selectedAmenityIds.size} selecionada{selectedAmenityIds.size !== 1 ? 's' : ''}</p>
+              </div>
             </div>
+
+            {catalog.length === 0 ? (
+              <p className="text-xs text-[#555]">Carregando comodidades...</p>
+            ) : (() => {
+              // Group by category preserving insertion order
+              const byCategory: Record<string, AmenityCatalog[]> = {}
+              for (const item of catalog) {
+                if (!byCategory[item.category]) byCategory[item.category] = []
+                byCategory[item.category].push(item)
+              }
+              const poolMainId = catalog.find(c => c.name === 'Piscina')?.id
+              const poolSubtypes = new Set(
+                catalog.filter(c => c.name !== 'Piscina' && c.name.startsWith('Piscina')).map(c => c.id)
+              )
+              const poolMainSelected = poolMainId ? selectedAmenityIds.has(poolMainId) : false
+
+              return Object.entries(byCategory).map(([category, items]) => (
+                <div key={category} className="space-y-2">
+                  <h3 className="text-[10px] font-bold text-[#555] uppercase tracking-widest">{category}</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {items.map(item => {
+                      const isSubtype = poolSubtypes.has(item.id)
+                      if (isSubtype && !poolMainSelected) return null
+                      const isSelected = selectedAmenityIds.has(item.id)
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => toggleAmenity(item.id, item.name)}
+                          className={`text-xs px-3 py-1.5 rounded-xl border transition-all ${
+                            isSubtype ? 'ml-3 border-dashed' : ''
+                          } ${
+                            isSelected
+                              ? 'bg-[#E50914] border-[#E50914] text-white'
+                              : 'border-[#333] text-[#B3B3B3] hover:border-[#555]'
+                          }`}
+                        >
+                          {item.name}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              ))
+            })()}
           </section>
 
           {/* Fotos por cômodo */}
