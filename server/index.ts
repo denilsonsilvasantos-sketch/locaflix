@@ -8,7 +8,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 const app = express()
 const PORT = process.env.PORT ?? 3000
-const ASAAS_API_KEY = process.env.ASAAS_API_KEY ?? ''
+// Hostinger escapes '$' to '\$' internally — strip any leading backslash
+const ASAAS_API_KEY = (process.env.ASAAS_API_KEY ?? '').replace(/^\\+/, '').trim()
 const ASAAS_BASE_URL = process.env.ASAAS_ENV === 'production'
   ? 'https://api.asaas.com/v3'
   : 'https://sandbox.asaas.com/api/v3'
@@ -30,12 +31,14 @@ function requireAuth(req: Request, res: Response, next: () => void) {
 
 // ---- GET /api/diagnostics/asaas ---- (remover em produção após teste)
 app.get('/api/diagnostics/asaas', async (_req: Request, res: Response) => {
+  const raw = process.env.ASAAS_API_KEY ?? ''
+  const rawPreview = raw ? `${raw.slice(0, 14)}...${raw.slice(-4)} (${raw.length} chars)` : '(vazia)'
   const keyPreview = ASAAS_API_KEY
     ? `${ASAAS_API_KEY.slice(0, 12)}...${ASAAS_API_KEY.slice(-4)} (${ASAAS_API_KEY.length} chars)`
     : '(não definida)'
 
   if (!ASAAS_API_KEY) {
-    res.json({ ok: false, env: ASAAS_BASE_URL, key: keyPreview, error: 'ASAAS_API_KEY vazia' })
+    res.json({ ok: false, env: ASAAS_BASE_URL, raw: rawPreview, key_cleaned: keyPreview, error: 'ASAAS_API_KEY vazia' })
     return
   }
 
@@ -45,12 +48,12 @@ app.get('/api/diagnostics/asaas', async (_req: Request, res: Response) => {
     })
     const body = await r.json()
     if (r.ok) {
-      res.json({ ok: true, env: ASAAS_BASE_URL, key: keyPreview, status: r.status })
+      res.json({ ok: true, env: ASAAS_BASE_URL, raw: rawPreview, key_cleaned: keyPreview, status: r.status })
     } else {
-      res.json({ ok: false, env: ASAAS_BASE_URL, key: keyPreview, status: r.status, asaas_error: body })
+      res.json({ ok: false, env: ASAAS_BASE_URL, raw: rawPreview, key_cleaned: keyPreview, status: r.status, asaas_error: body })
     }
   } catch (err) {
-    res.json({ ok: false, env: ASAAS_BASE_URL, key: keyPreview, error: String(err) })
+    res.json({ ok: false, env: ASAAS_BASE_URL, raw: rawPreview, key_cleaned: keyPreview, error: String(err) })
   }
 })
 

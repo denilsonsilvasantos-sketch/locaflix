@@ -5,7 +5,7 @@ import { existsSync } from "node:fs";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 const PORT = process.env.PORT ?? 3e3;
-const ASAAS_API_KEY = process.env.ASAAS_API_KEY ?? "";
+const ASAAS_API_KEY = (process.env.ASAAS_API_KEY ?? "").replace(/^\\+/, "").trim();
 const ASAAS_BASE_URL = process.env.ASAAS_ENV === "production" ? "https://api.asaas.com/v3" : "https://sandbox.asaas.com/api/v3";
 const WEBHOOK_SECRET = process.env.ASAAS_WEBHOOK_SECRET ?? "";
 app.use(express.json());
@@ -19,9 +19,11 @@ function requireAuth(req, res, next) {
   next();
 }
 app.get("/api/diagnostics/asaas", async (_req, res) => {
+  const raw = process.env.ASAAS_API_KEY ?? "";
+  const rawPreview = raw ? `${raw.slice(0, 14)}...${raw.slice(-4)} (${raw.length} chars)` : "(vazia)";
   const keyPreview = ASAAS_API_KEY ? `${ASAAS_API_KEY.slice(0, 12)}...${ASAAS_API_KEY.slice(-4)} (${ASAAS_API_KEY.length} chars)` : "(n\xE3o definida)";
   if (!ASAAS_API_KEY) {
-    res.json({ ok: false, env: ASAAS_BASE_URL, key: keyPreview, error: "ASAAS_API_KEY vazia" });
+    res.json({ ok: false, env: ASAAS_BASE_URL, raw: rawPreview, key_cleaned: keyPreview, error: "ASAAS_API_KEY vazia" });
     return;
   }
   try {
@@ -30,12 +32,12 @@ app.get("/api/diagnostics/asaas", async (_req, res) => {
     });
     const body = await r.json();
     if (r.ok) {
-      res.json({ ok: true, env: ASAAS_BASE_URL, key: keyPreview, status: r.status });
+      res.json({ ok: true, env: ASAAS_BASE_URL, raw: rawPreview, key_cleaned: keyPreview, status: r.status });
     } else {
-      res.json({ ok: false, env: ASAAS_BASE_URL, key: keyPreview, status: r.status, asaas_error: body });
+      res.json({ ok: false, env: ASAAS_BASE_URL, raw: rawPreview, key_cleaned: keyPreview, status: r.status, asaas_error: body });
     }
   } catch (err) {
-    res.json({ ok: false, env: ASAAS_BASE_URL, key: keyPreview, error: String(err) });
+    res.json({ ok: false, env: ASAAS_BASE_URL, raw: rawPreview, key_cleaned: keyPreview, error: String(err) });
   }
 });
 app.get("/api/client-ip", (req, res) => {
