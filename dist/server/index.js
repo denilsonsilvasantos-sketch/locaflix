@@ -18,6 +18,26 @@ function requireAuth(req, res, next) {
   }
   next();
 }
+app.get("/api/diagnostics/asaas", async (_req, res) => {
+  const keyPreview = ASAAS_API_KEY ? `${ASAAS_API_KEY.slice(0, 12)}...${ASAAS_API_KEY.slice(-4)} (${ASAAS_API_KEY.length} chars)` : "(n\xE3o definida)";
+  if (!ASAAS_API_KEY) {
+    res.json({ ok: false, env: ASAAS_BASE_URL, key: keyPreview, error: "ASAAS_API_KEY vazia" });
+    return;
+  }
+  try {
+    const r = await fetch(`${ASAAS_BASE_URL}/customers?limit=1`, {
+      headers: { "access_token": ASAAS_API_KEY, "Content-Type": "application/json" }
+    });
+    const body = await r.json();
+    if (r.ok) {
+      res.json({ ok: true, env: ASAAS_BASE_URL, key: keyPreview, status: r.status });
+    } else {
+      res.json({ ok: false, env: ASAAS_BASE_URL, key: keyPreview, status: r.status, asaas_error: body });
+    }
+  } catch (err) {
+    res.json({ ok: false, env: ASAAS_BASE_URL, key: keyPreview, error: String(err) });
+  }
+});
 app.get("/api/client-ip", (req, res) => {
   const ip = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() ?? req.headers["x-real-ip"] ?? req.socket.remoteAddress ?? "0.0.0.0";
   res.json({ ip });
