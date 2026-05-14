@@ -76,11 +76,15 @@ export function Home() {
 
   async function toggleFavorite(propertyId: string) {
     if (!user) { navigate(APP_ROUTES.LOGIN); return }
+    const isMock = MOCK_PROPERTIES.some(p => p.id === propertyId)
     if (favoritedIds.has(propertyId)) {
-      await supabase.from('favorites').delete().eq('user_id', user.id).eq('property_id', propertyId)
+      if (!isMock) await supabase.from('favorites').delete().eq('user_id', user.id).eq('property_id', propertyId)
       setFavoritedIds(prev => { const s = new Set(prev); s.delete(propertyId); return s })
     } else {
-      await supabase.from('favorites').insert({ user_id: user.id, property_id: propertyId })
+      if (!isMock) {
+        const { error } = await supabase.from('favorites').insert({ user_id: user.id, property_id: propertyId })
+        if (error) return // don't update UI if insert failed
+      }
       setFavoritedIds(prev => new Set([...prev, propertyId]))
     }
   }

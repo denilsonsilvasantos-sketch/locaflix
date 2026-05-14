@@ -81,6 +81,9 @@ export function GuestDashboard() {
           .limit(20),
       ])
 
+      if (bkRes.error) console.error('bookings error:', bkRes.error)
+      if (favRes.error) console.error('favorites error:', favRes.error)
+
       const rawBookings = (bkRes.data ?? []) as (Booking & { property_id: string })[]
       const rawFavs = (favRes.data ?? []) as (Favorite & { property_id: string })[]
 
