@@ -6,7 +6,7 @@ import {
   BedDouble, MapPin, CreditCard, LogOut,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
-import type { Booking, Favorite, Notification, KYCStatus } from '../types'
+import type { Booking, Favorite, Notification, KYCStatus, Property } from '../types'
 import { useAuth } from '../hooks/useAuth'
 import { useNotifications } from '../hooks/useNotifications'
 import { useToast } from '../hooks/useToast'
@@ -68,7 +68,7 @@ export function GuestDashboard() {
       const [bkRes, favRes] = await Promise.all([
         supabase
           .from('bookings')
-          .select('*, property:properties(id,name,photos,city,state,price_per_night), installments(*)')
+          .select('*, installments(*)')
           .eq('guest_id', user!.id)
           .order('created_at', { ascending: false })
           .limit(20),
@@ -78,7 +78,21 @@ export function GuestDashboard() {
           .eq('user_id', user!.id)
           .limit(20),
       ])
-      setBookings((bkRes.data ?? []) as Booking[])
+
+      const rawBookings = (bkRes.data ?? []) as (Booking & { property_id: string })[]
+
+      // Fetch properties separately to avoid FK/RLS join issues
+      const ids = [...new Set(rawBookings.map(b => b.property_id).filter(Boolean))]
+      const propsMap: Record<string, Partial<Property>> = {}
+      if (ids.length > 0) {
+        const { data: props } = await supabase
+          .from('properties')
+          .select('id,name,photos,city,state,price_per_night')
+          .in('id', ids)
+        for (const p of props ?? []) propsMap[p.id] = p
+      }
+
+      setBookings(rawBookings.map(b => ({ ...b, property: (propsMap[b.property_id] ?? null) as Property })) as Booking[])
       setFavorites((favRes.data ?? []) as Favorite[])
     } catch {
       // tables may not exist yet, render empty state
@@ -386,7 +400,7 @@ function BookingCard({ booking }: { booking: Booking }) {
       <div className="flex-1 min-w-0">
         <div className="flex items-start justify-between gap-2 flex-wrap">
           <div className="min-w-0">
-            <p className="font-semibold text-white text-sm line-clamp-1">{booking.property?.name}</p>
+            <p className="font-semibold text-white text-sm line-clamp-1">{booking.property?.name ?? 'Imóvel'}</p>
             <p className="text-xs text-[#B3B3B3] flex items-center gap-1 mt-0.5">
               <BedDouble size={10} /> {formatShortDate(booking.check_in)} → {formatShortDate(booking.check_out)}
               <span className="ml-1 text-[#555]">· {booking.nights}n</span>
