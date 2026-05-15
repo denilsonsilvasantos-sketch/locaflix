@@ -178,7 +178,8 @@ export function GuestDashboard() {
   }
 
   async function removeFavorite(propertyId: string) {
-    await supabase.from('favorites').delete().eq('user_id', user!.id).eq('property_id', propertyId)
+    const { error } = await supabase.from('favorites').delete().eq('user_id', user!.id).eq('property_id', propertyId)
+    if (error) { toast('error', 'Erro', 'Não foi possível remover o favorito.'); return }
     setFavorites(prev => prev.filter(f => f.property_id !== propertyId))
   }
 
@@ -323,11 +324,11 @@ export function GuestDashboard() {
                 </EmptyState>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {favorites.map(f => f.property && (
+                  {favorites.map(f => (
                     <Card key={f.id} className="flex gap-4 p-4">
                       <img
-                        src={f.property.photos?.[0] ?? ''}
-                        alt={f.property.name}
+                        src={f.property?.photos?.[0] ?? ''}
+                        alt={f.property?.name ?? 'Imóvel'}
                         className="w-20 h-20 rounded-xl object-cover flex-shrink-0 bg-[#2A2A2A]"
                         onError={e => { (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=400' }}
                       />
@@ -336,14 +337,18 @@ export function GuestDashboard() {
                           to={APP_ROUTES.PROPERTY(f.property_id)}
                           className="font-semibold text-white hover:text-[#E50914] transition-colors text-sm line-clamp-1"
                         >
-                          {f.property.name}
+                          {f.property?.name ?? 'Ver imóvel'}
                         </Link>
-                        <p className="text-xs text-[#B3B3B3] flex items-center gap-1 mt-0.5">
-                          <MapPin size={10} /> {f.property.city}, {f.property.state}
-                        </p>
-                        <p className="text-sm font-bold text-[#F5A623] mt-1">
-                          {formatCurrency(f.property.price_per_night)}<span className="text-xs text-[#666] font-normal">/noite</span>
-                        </p>
+                        {f.property && (
+                          <>
+                            <p className="text-xs text-[#B3B3B3] flex items-center gap-1 mt-0.5">
+                              <MapPin size={10} /> {f.property.city}, {f.property.state}
+                            </p>
+                            <p className="text-sm font-bold text-[#F5A623] mt-1">
+                              {formatCurrency(f.property.price_per_night)}<span className="text-xs text-[#666] font-normal">/noite</span>
+                            </p>
+                          </>
+                        )}
                         <button
                           onClick={() => removeFavorite(f.property_id)}
                           className="text-xs text-[#E50914] hover:underline mt-1"

@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
-import { ChevronDown, Edit, MessageSquare, Send, X } from 'lucide-react'
+import { ChevronDown, ChevronLeft, Edit, Headphones, MessageSquare, Send, X } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import type { Message } from '../types'
 import { useAuth } from '../hooks/useAuth'
 import { Button } from '../components/ui/Button'
 import { getInitials } from '../lib/utils'
+
+const SUPPORT_ID = '698e7994-96b4-4295-a72d-ba33497387b2'
 
 type Contact = {
   id: string
@@ -29,6 +31,7 @@ export function MessagesPage() {
   const [messages, setMessages] = useState<Message[]>([])
   const [text, setText] = useState('')
   const [sending, setSending] = useState(false)
+  const [mobileView, setMobileView] = useState<'list' | 'chat'>('list')
   const bottomRef = useRef<HTMLDivElement>(null)
   const activeContactIdRef = useRef<string | null>(null)
 
@@ -70,7 +73,6 @@ export function MessagesPage() {
               : c
             ).sort((a, b) => new Date(b.lastAt).getTime() - new Date(a.lastAt).getTime())
           }
-          // New contact — reload full list
           void loadContacts()
           return prev
         })
@@ -94,12 +96,10 @@ export function MessagesPage() {
 
     if (!msgs || msgs.length === 0) return
 
-    // Collect all unique other-party IDs
     const otherIds = [...new Set(
       msgs.map(m => m.sender_id === user.id ? m.receiver_id : m.sender_id).filter(Boolean)
     )]
 
-    // Fetch user details separately (avoids FK join issues)
     const { data: users } = await supabase
       .from('users')
       .select('id, name, avatar_url')
@@ -116,7 +116,7 @@ export function MessagesPage() {
         const u = userMap[otherId] ?? { name: null, avatar_url: null }
         map[otherId] = {
           id: otherId,
-          name: u.name,
+          name: otherId === SUPPORT_ID ? 'Suporte LOCAFLIX' : u.name,
           avatar_url: u.avatar_url,
           lastMessage: m.content,
           lastAt: m.created_at,
@@ -150,7 +150,6 @@ export function MessagesPage() {
 
     setMessages((data ?? []) as Message[])
 
-    // Mark as read
     await supabase.from('messages')
       .update({ is_read: true })
       .eq('receiver_id', user.id)
@@ -219,31 +218,56 @@ export function MessagesPage() {
         subject: composeSubject.trim() || null,
       })
 
-      // Switch to the new conversation
       setComposeOpen(false)
       setComposeRecipientId('')
       setComposeSubject('')
       setComposeText('')
 
       await loadContacts()
-      setActiveContactId(composeRecipientId)
-      await loadMessages(composeRecipientId)
+      openConversation(composeRecipientId)
     } finally {
       setComposeSending(false)
     }
   }
 
+  function openConversation(contactId: string) {
+    setActiveContactId(contactId)
+    void loadMessages(contactId)
+    setMobileView('chat')
+  }
+
+  function openSupport() {
+    setContacts(prev => {
+      if (prev.find(c => c.id === SUPPORT_ID)) return prev
+      return [{
+        id: SUPPORT_ID,
+        name: 'Suporte LOCAFLIX',
+        avatar_url: null,
+        lastMessage: 'Como podemos ajudar?',
+        lastAt: new Date().toISOString(),
+        unread: 0,
+        lastSubject: 'Suporte',
+      }, ...prev]
+    })
+    openConversation(SUPPORT_ID)
+  }
+
   const activeContact = contacts.find(c => c.id === activeContactId)
+  const activeContactName = activeContact?.id === SUPPORT_ID ? 'Suporte LOCAFLIX' : (activeContact?.name ?? 'Usuário')
 
   return (
     <div className="min-h-screen bg-[#141414] pt-24 flex flex-col">
-      <div
-        className="flex-1 flex max-w-6xl mx-auto w-full px-4 py-6 gap-4"
-        style={{ height: 'calc(100vh - 120px)' }}
+      <div className="flex-1 flex flex-col lg:flex-row max-w-6xl mx-auto w-full px-4 py-6 gap-4"
+        style={{ minHeight: 'calc(100vh - 96px)' }}
       >
         {/* ── Contact list ─────────────────────────────── */}
-        <div className="w-72 flex-shrink-0 bg-[#1F1F1F] border border-[#333] rounded-2xl overflow-hidden flex flex-col">
-          <div className="px-4 py-3 border-b border-[#333] flex items-center justify-between">
+        <div className={`
+          flex-shrink-0 bg-[#1F1F1F] border border-[#333] rounded-2xl overflow-hidden flex flex-col
+          w-full lg:w-72
+          ${mobileView === 'chat' ? 'hidden lg:flex' : 'flex'}
+          lg:h-[calc(100vh-160px)]
+        `}>
+          <div className="px-4 py-3 border-b border-[#333] flex items-center justify-between flex-shrink-0">
             <h2 className="font-display text-lg font-bold text-white">Mensagens</h2>
             <button
               onClick={() => setComposeOpen(true)}
@@ -269,20 +293,23 @@ export function MessagesPage() {
             ) : (
               contacts.map(contact => {
                 const isActive = contact.id === activeContactId
+                const name = contact.id === SUPPORT_ID ? 'Suporte LOCAFLIX' : (contact.name ?? 'Usuário')
                 return (
                   <button
                     key={contact.id}
-                    onClick={() => { setActiveContactId(contact.id); void loadMessages(contact.id) }}
+                    onClick={() => openConversation(contact.id)}
                     className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors ${isActive ? 'bg-[#2A2A2A]' : 'hover:bg-[#252525]'}`}
                   >
-                    <div className="w-10 h-10 rounded-full bg-[#E50914] flex items-center justify-center text-sm font-bold text-white flex-shrink-0 overflow-hidden">
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white flex-shrink-0 overflow-hidden ${contact.id === SUPPORT_ID ? 'bg-[#E50914]' : 'bg-[#E50914]'}`}>
                       {contact.avatar_url
                         ? <img src={contact.avatar_url} alt="" className="w-full h-full object-cover" />
-                        : getInitials(contact.name ?? '?')}
+                        : contact.id === SUPPORT_ID
+                          ? <Headphones size={16} />
+                          : getInitials(contact.name ?? '?')}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-1">
-                        <p className="text-sm font-semibold text-white truncate">{contact.name ?? 'Usuário'}</p>
+                        <p className="text-sm font-semibold text-white truncate">{name}</p>
                         {contact.unread > 0 && (
                           <span className="w-5 h-5 bg-[#E50914] rounded-full text-[9px] font-bold flex items-center justify-center text-white flex-shrink-0">
                             {contact.unread > 9 ? '9+' : contact.unread}
@@ -296,21 +323,42 @@ export function MessagesPage() {
               })
             )}
           </div>
+
+          {/* Support button */}
+          <button
+            onClick={openSupport}
+            className="flex items-center gap-3 px-4 py-3 border-t border-[#333] text-[#E50914] hover:bg-[#252525] transition-colors w-full text-left flex-shrink-0"
+          >
+            <Headphones size={16} />
+            <span className="text-sm font-medium">Falar com suporte</span>
+          </button>
         </div>
 
         {/* ── Chat window ──────────────────────────────── */}
-        <div className="flex-1 bg-[#1F1F1F] border border-[#333] rounded-2xl overflow-hidden flex flex-col min-w-0">
+        <div className={`
+          flex-1 bg-[#1F1F1F] border border-[#333] rounded-2xl overflow-hidden flex flex-col min-w-0
+          ${mobileView === 'list' ? 'hidden lg:flex' : 'flex'}
+          lg:h-[calc(100vh-160px)]
+        `}>
           {activeContact ? (
             <>
               {/* Header */}
-              <div className="px-5 py-3 border-b border-[#333] flex items-center gap-3">
+              <div className="px-4 py-3 border-b border-[#333] flex items-center gap-3 flex-shrink-0">
+                <button
+                  className="lg:hidden text-[#B3B3B3] hover:text-white transition-colors -ml-1 mr-1"
+                  onClick={() => setMobileView('list')}
+                >
+                  <ChevronLeft size={22} />
+                </button>
                 <div className="w-9 h-9 rounded-full bg-[#E50914] flex items-center justify-center text-sm font-bold text-white overflow-hidden flex-shrink-0">
                   {activeContact.avatar_url
                     ? <img src={activeContact.avatar_url} alt="" className="w-full h-full object-cover" />
-                    : getInitials(activeContact.name ?? '?')}
+                    : activeContact.id === SUPPORT_ID
+                      ? <Headphones size={15} />
+                      : getInitials(activeContact.name ?? '?')}
                 </div>
                 <div>
-                  <p className="font-semibold text-white text-sm">{activeContact.name ?? 'Usuário'}</p>
+                  <p className="font-semibold text-white text-sm">{activeContactName}</p>
                   {activeContact.lastSubject && (
                     <p className="text-xs text-[#B3B3B3]">{activeContact.lastSubject}</p>
                   )}
@@ -318,9 +366,13 @@ export function MessagesPage() {
               </div>
 
               {/* Messages */}
-              <div className="flex-1 overflow-y-auto p-5 space-y-3">
+              <div className="flex-1 overflow-y-auto p-4 space-y-3">
                 {messages.length === 0 && (
-                  <p className="text-center text-sm text-[#666] py-8">Nenhuma mensagem ainda. Diga olá!</p>
+                  <p className="text-center text-sm text-[#666] py-8">
+                    {activeContact.id === SUPPORT_ID
+                      ? 'Olá! Envie sua dúvida e nossa equipe responderá em breve.'
+                      : 'Nenhuma mensagem ainda. Diga olá!'}
+                  </p>
                 )}
                 {messages.map(m => {
                   const isOwn = m.sender_id === user?.id
@@ -329,7 +381,7 @@ export function MessagesPage() {
                       {m.subject && (
                         <p className="text-[10px] text-[#666] mb-1 px-1">Assunto: {m.subject}</p>
                       )}
-                      <div className={`max-w-[70%] px-4 py-2.5 rounded-2xl text-sm ${
+                      <div className={`max-w-[80%] px-4 py-2.5 rounded-2xl text-sm ${
                         isOwn
                           ? 'bg-[#E50914] text-white rounded-tr-sm'
                           : 'bg-[#2A2A2A] text-white rounded-tl-sm'
@@ -346,7 +398,7 @@ export function MessagesPage() {
               </div>
 
               {/* Input */}
-              <div className="px-4 py-3 border-t border-[#333] flex gap-3 items-end">
+              <div className="px-4 py-3 border-t border-[#333] flex gap-3 items-end flex-shrink-0">
                 <textarea
                   value={text}
                   onChange={e => setText(e.target.value)}
@@ -367,9 +419,9 @@ export function MessagesPage() {
               </div>
             </>
           ) : (
-            <div className="flex-1 flex flex-col items-center justify-center text-[#666] gap-4">
+            <div className="flex-1 flex flex-col items-center justify-center text-[#666] gap-4 p-6">
               <MessageSquare size={48} className="mb-2" />
-              <p className="text-sm">Selecione uma conversa</p>
+              <p className="text-sm text-center">Selecione uma conversa</p>
               <button
                 onClick={() => setComposeOpen(true)}
                 className="text-sm text-[#E50914] hover:underline"
@@ -393,16 +445,12 @@ export function MessagesPage() {
           >
             <div className="flex items-center justify-between mb-5">
               <h3 className="font-display text-lg font-bold text-white">Nova mensagem</h3>
-              <button
-                onClick={() => setComposeOpen(false)}
-                className="text-[#666] hover:text-white transition-colors"
-              >
+              <button onClick={() => setComposeOpen(false)} className="text-[#666] hover:text-white transition-colors">
                 <X size={20} />
               </button>
             </div>
 
             <div className="space-y-4">
-              {/* Recipient */}
               <div>
                 <label className="block text-xs text-[#B3B3B3] mb-1.5 font-medium">Para</label>
                 {recipientList.length > 0 ? (
@@ -426,7 +474,6 @@ export function MessagesPage() {
                 )}
               </div>
 
-              {/* Subject */}
               <div>
                 <label className="block text-xs text-[#B3B3B3] mb-1.5 font-medium">Assunto</label>
                 <input
@@ -438,7 +485,6 @@ export function MessagesPage() {
                 />
               </div>
 
-              {/* Message */}
               <div>
                 <label className="block text-xs text-[#B3B3B3] mb-1.5 font-medium">Mensagem</label>
                 <textarea

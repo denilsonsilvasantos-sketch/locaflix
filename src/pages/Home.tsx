@@ -12,6 +12,7 @@ import { formatCurrency } from '../lib/utils'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { APP_ROUTES } from '../constants'
 import { useAuth } from '../hooks/useAuth'
+import { useToast } from '../hooks/useToast'
 
 export function Home() {
   const [properties, setProperties] = useState<Property[]>([])
@@ -26,6 +27,7 @@ export function Home() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const { user } = useAuth()
+  const { toast } = useToast()
 
   useEffect(() => {
     loadProperties()
@@ -92,13 +94,13 @@ export function Home() {
     if (favoritedIds.has(propertyId)) {
       if (!isMock) {
         const { error } = await supabase.from('favorites').delete().eq('user_id', user.id).eq('property_id', propertyId)
-        if (error) return
+        if (error) { toast('error', 'Erro', 'Não foi possível remover dos favoritos.'); return }
       }
       setFavoritedIds(prev => { const s = new Set(prev); s.delete(propertyId); return s })
     } else {
       if (!isMock) {
         const { error } = await supabase.from('favorites').insert({ user_id: user.id, property_id: propertyId })
-        if (error) return
+        if (error) { toast('error', 'Erro', 'Não foi possível adicionar aos favoritos.'); return }
       }
       setFavoritedIds(prev => new Set([...prev, propertyId]))
     }
