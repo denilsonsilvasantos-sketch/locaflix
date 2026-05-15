@@ -2,18 +2,20 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  Bell, Calendar, FileText, Heart, Home, LogOut,
+  Bell, Calendar, FileText, Heart, HelpCircle, Home, LogOut,
   Menu, MessageSquare, Settings, ShieldCheck, User, X,
 } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 import { useNotifications } from '../../hooks/useNotifications'
+import { useUnreadMessages } from '../../hooks/useUnreadMessages'
 import { APP_ROUTES } from '../../constants'
 import { getInitials } from '../../lib/utils'
 import { Logo } from './Logo'
 
 export function Navbar() {
   const { user, profile, signOut } = useAuth()
-  const { unreadCount } = useNotifications()
+  const { unreadCount: unreadNotifications, markAllRead: markNotificationsRead } = useNotifications()
+  const { unreadCount: unreadMessages, markAllRead: markMessagesRead } = useUnreadMessages()
   const location = useLocation()
   const navigate = useNavigate()
   const [scrolled, setScrolled] = useState(false)
@@ -79,9 +81,15 @@ export function Navbar() {
                 {profile?.role !== 'ADMIN' && (
                   <Link
                     to={APP_ROUTES.MESSAGES}
-                    className="hidden lg:flex w-9 h-9 items-center justify-center rounded-lg text-[#B3B3B3] hover:text-white hover:bg-[#2A2A2A] transition-colors"
+                    onClick={() => { void markMessagesRead() }}
+                    className="relative hidden lg:flex w-9 h-9 items-center justify-center rounded-lg text-[#B3B3B3] hover:text-white hover:bg-[#2A2A2A] transition-colors"
                   >
                     <MessageSquare size={18} />
+                    {unreadMessages > 0 && (
+                      <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-[#E50914] rounded-full text-[10px] font-bold flex items-center justify-center text-white">
+                        {unreadMessages > 9 ? '9+' : unreadMessages}
+                      </span>
+                    )}
                   </Link>
                 )}
 
@@ -89,12 +97,13 @@ export function Navbar() {
                 {profile?.role !== 'ADMIN' && (
                   <Link
                     to={`${APP_ROUTES.GUEST_DASHBOARD}?tab=notificacoes`}
+                    onClick={() => { void markNotificationsRead() }}
                     className="relative hidden lg:flex w-9 h-9 items-center justify-center rounded-lg text-[#B3B3B3] hover:text-white hover:bg-[#2A2A2A] transition-colors"
                   >
                     <Bell size={18} />
-                    {unreadCount > 0 && (
+                    {unreadNotifications > 0 && (
                       <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-[#E50914] rounded-full text-[10px] font-bold flex items-center justify-center text-white">
-                        {unreadCount > 9 ? '9+' : unreadCount}
+                        {unreadNotifications > 9 ? '9+' : unreadNotifications}
                       </span>
                     )}
                   </Link>
@@ -153,6 +162,7 @@ export function Navbar() {
                               <MenuLink to={`${APP_ROUTES.HOME}?tipo=praia`} icon={<span className="text-[10px]">🏖</span>} label="Praia" />
                               <MenuLink to={`${APP_ROUTES.HOME}?tipo=campo`} icon={<span className="text-[10px]">🌿</span>} label="Campo" />
                               <MenuLink to={`${APP_ROUTES.HOME}?tipo=cidade`} icon={<span className="text-[10px]">🏙</span>} label="Cidade" />
+                              <MenuLink to="/central-ajuda" icon={<HelpCircle size={14} />} label="Central de ajuda" />
                             </div>
 
                             {/* Mobile only: account links (sidebar handles these on desktop) */}
@@ -236,6 +246,7 @@ export function Navbar() {
               <MobileLink to={APP_ROUTES.LOGIN} label="Entrar" />
               <MobileLink to={APP_ROUTES.REGISTER} label="Cadastrar" />
               <MobileLink to={APP_ROUTES.NEW_PROPERTY} label="+ Anuncie seu imóvel" />
+              <MobileLink to="/central-ajuda" label="Central de ajuda" />
             </div>
           </motion.div>
         )}

@@ -31,18 +31,17 @@ export function Footer() {
             <h4 className="text-sm font-semibold text-white mb-4">Anfitrião</h4>
             <ul className="space-y-2">
               <FooterLink to={APP_ROUTES.OWNER_DASHBOARD} label="Dashboard anfitrião" />
-              <FooterLink to="#" label="Como funciona" />
-              <FooterLink to="#" label="Termos para anfitriões" />
+              <FooterLink to="/como-funciona" label="Como funciona" />
+              <FooterLink to="/termos-anfitriao" label="Termos para anfitriões" />
             </ul>
           </div>
 
           <div>
             <h4 className="text-sm font-semibold text-white mb-4">Suporte</h4>
             <ul className="space-y-2">
-              <FooterLink to="#" label="Central de ajuda" />
               <FooterLink to="/politica-cancelamento" label="Política de cancelamento" />
-              <FooterLink to="#" label="Privacidade e LGPD" />
-              <FooterLink to="#" label="Termos de uso" />
+              <FooterLink to="/privacidade" label="Privacidade e LGPD" />
+              <FooterLink to="/termos-uso" label="Termos de uso" />
             </ul>
           </div>
         </div>

@@ -55,6 +55,8 @@ export function NewProperty() {
   const [periods, setPeriods] = useState<PeriodDraft[]>([])
   const [catalog, setCatalog] = useState<AmenityCatalog[]>([])
   const [selectedAmenityIds, setSelectedAmenityIds] = useState<Set<string>>(new Set())
+  const [customAmenities, setCustomAmenities] = useState<{ id: string; category: string; name: string }[]>([])
+  const [customForm, setCustomForm] = useState({ category: 'Cozinha', name: '' })
 
   const [form, setForm] = useState({
     name: '',
@@ -102,6 +104,17 @@ export function NewProperty() {
       }
       return next
     })
+  }
+
+  function addCustomAmenity() {
+    const name = customForm.name.trim()
+    if (!name) return
+    setCustomAmenities(prev => [...prev, { id: uid(), category: customForm.category, name }])
+    setCustomForm(f => ({ ...f, name: '' }))
+  }
+
+  function removeCustomAmenity(customId: string) {
+    setCustomAmenities(prev => prev.filter(a => a.id !== customId))
   }
 
   async function handleCEP(cep: string) {
@@ -222,6 +235,7 @@ export function NewProperty() {
     const amenityNames = Array.from(selectedAmenityIds)
       .map(id => catalog.find(c => c.id === id)?.name ?? '')
       .filter(Boolean)
+    const customNames = customAmenities.map(a => `CUSTOM::${a.category}::${a.name}`)
 
     const { data: prop, error: propErr } = await supabase.from('properties').insert({
       owner_id: user.id,
@@ -241,7 +255,7 @@ export function NewProperty() {
       bedrooms: Number(form.bedrooms),
       bathrooms: Number(form.bathrooms),
       max_guests: Number(form.max_guests),
-      amenities: amenityNames,
+      amenities: [...amenityNames, ...customNames],
       photos: [],
       cancellation_policy: form.cancellation_policy,
     }).select('id').single()
@@ -464,6 +478,55 @@ export function NewProperty() {
                 </div>
               ))
             })()}
+          </section>
+
+          {/* Comodidades personalizadas */}
+          <section className="bg-[#1F1F1F] border border-[#333] rounded-2xl p-6 space-y-4">
+            <div>
+              <h2 className="font-display text-lg font-bold text-white">Comodidades personalizadas</h2>
+              <p className="text-xs text-[#666] mt-0.5">Adicione itens que não estão na lista acima (ex: Liquidificador, Mesa de sinuca)</p>
+            </div>
+
+            <div className="flex gap-2">
+              <select
+                value={customForm.category}
+                onChange={e => setCustomForm(f => ({ ...f, category: e.target.value }))}
+                className="bg-[#2A2A2A] border border-[#333] rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-[#555] flex-shrink-0"
+              >
+                {['Cozinha','Quarto','Banheiro','Área de lazer','Trabalho','Segurança','Acessibilidade','Outros'].map(c => (
+                  <option key={c} value={c} className="bg-[#2A2A2A]">{c}</option>
+                ))}
+              </select>
+              <input
+                value={customForm.name}
+                onChange={e => setCustomForm(f => ({ ...f, name: e.target.value }))}
+                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addCustomAmenity() } }}
+                placeholder="Nome da comodidade"
+                className="flex-1 bg-[#2A2A2A] border border-[#333] rounded-lg px-3 py-2 text-sm text-white placeholder-[#555] outline-none focus:border-[#555]"
+              />
+              <button
+                type="button"
+                onClick={addCustomAmenity}
+                disabled={!customForm.name.trim()}
+                className="px-3 py-2 bg-[#E50914] hover:bg-[#F40612] disabled:opacity-40 rounded-lg text-sm text-white font-medium transition-colors flex-shrink-0"
+              >
+                <Plus size={16} />
+              </button>
+            </div>
+
+            {customAmenities.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {customAmenities.map(a => (
+                  <div key={a.id} className="flex items-center gap-1.5 bg-[#2A2A2A] border border-[#333] rounded-xl px-3 py-1.5">
+                    <span className="text-[10px] text-[#555] font-medium">{a.category}</span>
+                    <span className="text-xs text-white">{a.name}</span>
+                    <button type="button" onClick={() => removeCustomAmenity(a.id)} className="text-[#555] hover:text-[#E50914] transition-colors ml-1">
+                      <X size={12} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </section>
 
           {/* Fotos por cômodo */}

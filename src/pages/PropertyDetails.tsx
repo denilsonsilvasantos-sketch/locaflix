@@ -522,23 +522,39 @@ export function PropertyDetails() {
             <section>
               <h2 className="font-display text-xl font-bold text-white mb-4">Comodidades</h2>
               {propertyAmenities.length > 0 ? (() => {
-                // Group by category, sorted by display_order within each
+                // Group catalog amenities by category
                 const byCategory: Record<string, PropertyAmenity[]> = {}
                 for (const pa of propertyAmenities) {
                   const cat = pa.amenity?.category ?? 'Outros'
                   if (!byCategory[cat]) byCategory[cat] = []
                   byCategory[cat].push(pa)
                 }
+                // Parse custom amenities (CUSTOM::category::name format)
+                const customByCategory: Record<string, string[]> = {}
+                for (const n of (property.amenities ?? [])) {
+                  if (!n.startsWith('CUSTOM::')) continue
+                  const parts = n.split('::')
+                  const cat = parts[1] ?? 'Extras'
+                  if (!customByCategory[cat]) customByCategory[cat] = []
+                  customByCategory[cat].push(parts.slice(2).join('::'))
+                }
+                const allCategories = Array.from(new Set([...Object.keys(byCategory), ...Object.keys(customByCategory)]))
                 return (
                   <div className="space-y-5">
-                    {Object.entries(byCategory).map(([category, items]) => (
+                    {allCategories.map(category => (
                       <div key={category}>
                         <h3 className="text-xs font-bold text-[#555] uppercase tracking-wider mb-3">{category}</h3>
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-                          {items.map(pa => (
+                          {(byCategory[category] ?? []).map(pa => (
                             <div key={pa.amenity_id} className="flex items-center gap-2 text-sm text-[#B3B3B3]">
                               <AmenityIcon name={pa.amenity?.icon ?? null} className="text-[#46D369] flex-shrink-0" />
                               <span className="truncate">{pa.amenity?.name ?? ''}</span>
+                            </div>
+                          ))}
+                          {(customByCategory[category] ?? []).map(name => (
+                            <div key={name} className="flex items-center gap-2 text-sm text-[#B3B3B3]">
+                              <PlusCircle size={15} className="text-[#46D369] flex-shrink-0" />
+                              <span className="truncate">{name}</span>
                             </div>
                           ))}
                         </div>

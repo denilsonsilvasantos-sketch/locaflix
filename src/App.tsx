@@ -21,6 +21,11 @@ import { CancellationPolicy } from './pages/CancellationPolicy'
 import { BecomeOwner } from './pages/BecomeOwner'
 import { AuthCallback } from './pages/AuthCallback'
 import { HelpCenter } from './components/ui/HelpCenter'
+import { HowItWorks } from './pages/HowItWorks'
+import { HelpPage } from './pages/HelpPage'
+import { HostTerms } from './pages/HostTerms'
+import { Privacy } from './pages/Privacy'
+import { TermsOfUse } from './pages/TermsOfUse'
 
 function AppLayout({ children, noFooter }: { children: React.ReactNode; noFooter?: boolean }) {
   return (
@@ -48,6 +53,11 @@ export default function App() {
             <Route path="/imovel/:id" element={<AppLayout><PropertyDetails /></AppLayout>} />
             <Route path="/politica-cancelamento" element={<AppLayout><CancellationPolicy /></AppLayout>} />
             <Route path="/tornar-anfitriao" element={<AppLayout><BecomeOwner /></AppLayout>} />
+            <Route path="/como-funciona" element={<AppLayout><HowItWorks /></AppLayout>} />
+            <Route path="/central-ajuda" element={<AppLayout><HelpPage /></AppLayout>} />
+            <Route path="/termos-anfitriao" element={<AppLayout><HostTerms /></AppLayout>} />
+            <Route path="/privacidade" element={<AppLayout><Privacy /></AppLayout>} />
+            <Route path="/termos-uso" element={<AppLayout><TermsOfUse /></AppLayout>} />
 
             {/* Auth required — any role */}
             <Route path="/reservar/:id" element={
