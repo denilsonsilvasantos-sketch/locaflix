@@ -49,11 +49,20 @@ interface StatePoint  { state: string; value: number }
 type BookingRow = Booking & { property?: Property; guest?: UserProfile; owner?: UserProfile }
 type InstallRow  = Installment & { booking?: BookingRow }
 
+interface IncidentBookingInfo {
+  id: string
+  guest_id: string | null
+  owner_id: string | null
+  guest?: { id: string; name: string | null; email: string } | null
+  owner?: { id: string; name: string | null; email: string } | null
+}
+
 interface IncidentRow extends IncidentForChat {
   reporter_role: string
   created_at: string
   reporter?: { name: string | null; email: string } | null
   property?: { name: string } | null
+  booking?: IncidentBookingInfo | null
 }
 
 interface PlatformSettings {
@@ -199,7 +208,7 @@ export function AdminDashboard() {
     try {
       if (t === 'imoveis') {
         const { data } = await supabase
-          .from('properties').select('*, owner:users!owner_id(id,name,email)')
+          .from('properties').select('*')
           .order('created_at', { ascending: false }).limit(200)
         setProperties((data ?? []) as Property[])
 
@@ -230,7 +239,7 @@ export function AdminDashboard() {
       } else if (t === 'sinistros') {
         const { data } = await supabase
           .from('incidents')
-          .select('*, reporter:users!reporter_id(name,email), property:properties!property_id(name)')
+          .select('*, reporter:users!reporter_id(name,email), property:properties!property_id(name), booking:bookings!booking_id(id,guest_id,owner_id,guest:guest_id(id,name,email),owner:owner_id(id,name,email))')
           .order('created_at', { ascending: false })
           .limit(200)
         setSinistros((data ?? []) as IncidentRow[])
@@ -1057,6 +1066,10 @@ export function AdminDashboard() {
                         onClose={() => setChatIncident(null)}
                         currentUserId={user.id}
                         isAdmin
+                        guestId={chatIncident.booking?.guest_id ?? undefined}
+                        guestName={chatIncident.booking?.guest?.name ?? undefined}
+                        ownerId={chatIncident.booking?.owner_id ?? undefined}
+                        ownerName={chatIncident.booking?.owner?.name ?? undefined}
                       />
                     )}
                   </>

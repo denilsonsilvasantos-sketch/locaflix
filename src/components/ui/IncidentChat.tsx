@@ -6,6 +6,7 @@ interface IncidentMessage {
   id: string
   incident_id: string
   sender_id: string
+  recipient_id: string | null
   content: string
   created_at: string
 }
@@ -38,11 +39,19 @@ export function IncidentChat({
   onClose,
   currentUserId,
   isAdmin = false,
+  guestId,
+  guestName,
+  ownerId,
+  ownerName,
 }: {
   incident: IncidentForChat
   onClose: () => void
   currentUserId: string
   isAdmin?: boolean
+  guestId?: string
+  guestName?: string
+  ownerId?: string
+  ownerName?: string
 }) {
   const [messages, setMessages] = useState<IncidentMessage[]>([])
   const [text, setText] = useState('')
@@ -50,9 +59,11 @@ export function IncidentChat({
   const [adminNotes, setAdminNotes] = useState(incident.admin_notes ?? '')
   const [savingNotes, setSavingNotes] = useState(false)
   const [lightbox, setLightbox] = useState<string | null>(null)
+  const [partyTab, setPartyTab] = useState<'guest' | 'owner'>('guest')
   const bottomRef = useRef<HTMLDivElement>(null)
 
   const photos = (incident.photos ?? []).filter(Boolean)
+  const hasTwoParties = isAdmin && !!guestId && !!ownerId
 
   useEffect(() => { void load() }, [incident.id])
 
@@ -69,7 +80,7 @@ export function IncidentChat({
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+  }, [messages, partyTab])
 
   async function load() {
     const { data } = await supabase
@@ -80,14 +91,29 @@ export function IncidentChat({
     setMessages((data ?? []) as IncidentMessage[])
   }
 
+  // Admin: filter messages by the active party tab
+  // Non-admin: RLS already restricts what they can see, show all
+  const displayedMessages = hasTwoParties
+    ? messages.filter(m => {
+        const targetId = partyTab === 'guest' ? guestId! : ownerId!
+        return m.sender_id === targetId || m.recipient_id === targetId
+      })
+    : messages
+
   async function send(content?: string) {
     const msg = (content ?? text).trim()
     if (!msg || sending) return
     setSending(true)
+
+    const recipientId = isAdmin
+      ? (partyTab === 'guest' ? guestId : ownerId)
+      : undefined
+
     await supabase.from('incident_messages').insert({
       incident_id: incident.id,
       sender_id: currentUserId,
       content: msg,
+      ...(recipientId ? { recipient_id: recipientId } : {}),
     })
     setText('')
     setSending(false)
@@ -103,6 +129,7 @@ export function IncidentChat({
   }
 
   const colorCls = STATUS_COLORS[incident.status] ?? 'bg-[#333]/40 text-[#B3B3B3] border-[#333]'
+  const activeName = partyTab === 'guest' ? (guestName ?? 'Hóspede') : (ownerName ?? 'Anfitrião')
 
   return (
     <>
@@ -129,6 +156,32 @@ export function IncidentChat({
               <X size={16} />
             </button>
           </div>
+
+          {/* Admin: party tabs (only when incident has a booking with both parties) */}
+          {hasTwoParties && (
+            <div className="flex border-b border-[#333] flex-shrink-0">
+              <button
+                onClick={() => setPartyTab('guest')}
+                className={`flex-1 py-2.5 text-xs font-semibold transition-colors ${
+                  partyTab === 'guest'
+                    ? 'text-white border-b-2 border-[#E50914]'
+                    : 'text-[#666] hover:text-[#B3B3B3]'
+                }`}
+              >
+                {guestName ?? 'Hóspede'}
+              </button>
+              <button
+                onClick={() => setPartyTab('owner')}
+                className={`flex-1 py-2.5 text-xs font-semibold transition-colors ${
+                  partyTab === 'owner'
+                    ? 'text-white border-b-2 border-[#E50914]'
+                    : 'text-[#666] hover:text-[#B3B3B3]'
+                }`}
+              >
+                {ownerName ?? 'Anfitrião'}
+              </button>
+            </div>
+          )}
 
           {/* Photos */}
           {photos.length > 0 && (
@@ -183,12 +236,14 @@ export function IncidentChat({
 
           {/* Messages */}
           <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-0">
-            {messages.length === 0 && (
+            {displayedMessages.length === 0 && (
               <p className="text-center text-xs text-[#555] py-8">
-                Nenhuma mensagem ainda. Envie uma mensagem para nossa equipe.
+                {isAdmin
+                  ? `Nenhuma mensagem com ${activeName} ainda.`
+                  : 'Nenhuma mensagem ainda. Envie uma mensagem para nossa equipe.'}
               </p>
             )}
-            {messages.map(m => {
+            {displayedMessages.map(m => {
               const isOwn = m.sender_id === currentUserId
               return (
                 <div key={m.id} className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}>
@@ -226,7 +281,11 @@ export function IncidentChat({
                 onKeyDown={e => {
                   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void send() }
                 }}
-                placeholder="Digite uma mensagem..."
+                placeholder={
+                  isAdmin
+                    ? `Mensagem para ${activeName}...`
+                    : 'Digite uma mensagem...'
+                }
                 rows={1}
                 className="flex-1 bg-[#2A2A2A] border border-[#333] rounded-xl px-3 py-2 text-sm text-white placeholder-[#666] outline-none focus:ring-2 focus:ring-[#E50914] resize-none"
               />

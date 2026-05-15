@@ -1,15 +1,47 @@
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { supabase } from '../lib/supabase'
 import { APP_ROUTES } from '../constants'
 
-function Section({ emoji, color, title, subtitle, children }: {
+interface PolicyRule {
+  days_before: number
+  refund_percentage: number
+  description: string
+}
+
+interface PolicyData {
+  id: string
+  policy_name: string
+  rules: PolicyRule[]
+}
+
+const POLICY_META: Record<string, { emoji: string; borderColor: string; subtitle: string }> = {
+  LEVE: {
+    emoji: '🟢',
+    borderColor: 'border-green-500',
+    subtitle: 'Indicada para imóveis com alta procura e facilidade de nova locação.',
+  },
+  MODERADA: {
+    emoji: '🟠',
+    borderColor: 'border-orange-500',
+    subtitle: 'Indicada para datas concorridas e imóveis com planejamento financeiro maior.',
+  },
+  FIRME: {
+    emoji: '🔴',
+    borderColor: 'border-red-500',
+    subtitle: 'Indicada para alta temporada, feriados, imóveis premium e períodos especiais.',
+  },
+}
+
+function Section({ emoji, borderColor, title, subtitle, children }: {
   emoji: string
-  color: string
+  borderColor: string
   title: string
   subtitle: string
   children: React.ReactNode
 }) {
   return (
-    <div className={`border-l-4 ${color} bg-[#1A1A1A] rounded-r-xl p-6 mb-6`}>
+    <div className={`border-l-4 ${borderColor} bg-[#1A1A1A] rounded-r-xl p-6 mb-6`}>
       <div className="flex items-center gap-3 mb-1">
         <span className="text-2xl">{emoji}</span>
         <h2 className="font-display text-xl font-bold text-white">{title}</h2>
@@ -36,7 +68,58 @@ function Rule({ title, items }: { title: string; items: string[] }) {
   )
 }
 
+const STATIC_POLICIES: PolicyData[] = [
+  {
+    id: 'leve',
+    policy_name: 'LEVE',
+    rules: [
+      { days_before: 2, refund_percentage: 100, description: 'O hóspede pode cancelar gratuitamente até 48 horas antes do check-in.' },
+      { days_before: 0, refund_percentage: 0, description: 'Sem reembolso. Anfitrião recebe normalmente. Locaflix mantém as taxas operacionais.' },
+    ],
+  },
+  {
+    id: 'moderada',
+    policy_name: 'MODERADA',
+    rules: [
+      { days_before: 15, refund_percentage: 100, description: 'O hóspede pode cancelar gratuitamente até 15 dias antes do check-in.' },
+      { days_before: 0, refund_percentage: 0, description: 'Sem reembolso. Anfitrião recebe normalmente. Locaflix mantém as taxas operacionais.' },
+    ],
+  },
+  {
+    id: 'firme',
+    policy_name: 'FIRME',
+    rules: [
+      { days_before: 30, refund_percentage: 100, description: 'O hóspede pode cancelar gratuitamente até 30 dias antes do check-in.' },
+      { days_before: 0, refund_percentage: 0, description: 'Sem reembolso. Anfitrião recebe normalmente. Locaflix mantém as taxas operacionais.' },
+    ],
+  },
+]
+
+function renderRuleTitle(rule: PolicyRule): string {
+  if (rule.refund_percentage === 100 && rule.days_before > 0) {
+    return 'Cancelamento gratuito'
+  }
+  if (rule.refund_percentage === 0) {
+    return 'Cancelamento sem reembolso'
+  }
+  return `Cancelamento com ${rule.refund_percentage}% de reembolso`
+}
+
 export function CancellationPolicy() {
+  const [policies, setPolicies] = useState<PolicyData[]>(STATIC_POLICIES)
+
+  useEffect(() => {
+    supabase
+      .from('cancellation_policies_config')
+      .select('*')
+      .order('policy_name')
+      .then(({ data, error }) => {
+        if (!error && data && data.length > 0) {
+          setPolicies(data as PolicyData[])
+        }
+      })
+  }, [])
+
   return (
     <div className="min-h-screen bg-[#141414] pt-28 pb-20">
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -54,44 +137,34 @@ export function CancellationPolicy() {
           </p>
         </div>
 
-        {/* LEVE */}
-        <Section emoji="🟢" color="border-green-500" title="LEVE" subtitle="Indicada para imóveis com alta procura e facilidade de nova locação.">
-          <Rule
-            title="Cancelamento gratuito"
-            items={['O hóspede pode cancelar gratuitamente até 48 horas antes do check-in.']}
-          />
-          <Rule
-            title="Cancelamento menos de 48h antes do check-in"
-            items={['Sem reembolso.', 'Anfitrião recebe normalmente.', 'Locaflix mantém as taxas operacionais.']}
-          />
-          <Rule title="Não comparecimento (No-show)" items={['Sem reembolso.']} />
-        </Section>
-
-        {/* MODERADA */}
-        <Section emoji="🟠" color="border-orange-500" title="MODERADA" subtitle="Indicada para datas concorridas e imóveis com planejamento financeiro maior.">
-          <Rule
-            title="Cancelamento gratuito"
-            items={['O hóspede pode cancelar gratuitamente até 15 dias antes do check-in.']}
-          />
-          <Rule
-            title="Cancelamento menos de 15 dias antes do check-in"
-            items={['Sem reembolso.', 'Anfitrião recebe normalmente.', 'Locaflix mantém as taxas operacionais.']}
-          />
-          <Rule title="Não comparecimento (No-show)" items={['Sem reembolso.']} />
-        </Section>
-
-        {/* FIRME */}
-        <Section emoji="🔴" color="border-red-500" title="FIRME" subtitle="Indicada para alta temporada, feriados, imóveis premium e períodos especiais.">
-          <Rule
-            title="Cancelamento gratuito"
-            items={['O hóspede pode cancelar gratuitamente até 30 dias antes do check-in.']}
-          />
-          <Rule
-            title="Cancelamento menos de 30 dias antes do check-in"
-            items={['Sem reembolso.', 'Anfitrião recebe normalmente.', 'Locaflix mantém as taxas operacionais.']}
-          />
-          <Rule title="Não comparecimento (No-show)" items={['Sem reembolso.']} />
-        </Section>
+        {/* Dynamic policy sections */}
+        {policies.map(policy => {
+          const meta = POLICY_META[policy.policy_name] ?? {
+            emoji: '⚪',
+            borderColor: 'border-[#555]',
+            subtitle: '',
+          }
+          return (
+            <Section
+              key={policy.id}
+              emoji={meta.emoji}
+              borderColor={meta.borderColor}
+              title={policy.policy_name}
+              subtitle={meta.subtitle}
+            >
+              {policy.rules.map((rule, i) => (
+                <Rule
+                  key={i}
+                  title={renderRuleTitle(rule)}
+                  items={[
+                    rule.description,
+                    ...(rule.days_before === 0 ? ['Não comparecimento (No-show): sem reembolso.'] : []),
+                  ]}
+                />
+              ))}
+            </Section>
+          )
+        })}
 
         {/* Direito de Arrependimento — CDC Art. 49 */}
         <div className="bg-[#1A1A1A] border border-[#333] rounded-xl p-6 mb-6">

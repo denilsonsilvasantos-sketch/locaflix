@@ -240,7 +240,7 @@ export function MessagesPage() {
     const receiverId = activeContact?.pairIds
       ? (activeContact.pairIds.find(id => id !== user.id) ?? activeContact.pairIds[0])
       : activeContactId
-    const { data: newMsg } = await supabase
+    const { data: newMsg, error } = await supabase
       .from('messages')
       .insert({
         booking_id: null,
@@ -248,10 +248,17 @@ export function MessagesPage() {
         receiver_id: receiverId,
         content: text.trim(),
         subject: null,
+        is_read: false,
       })
       .select('*, sender:users!sender_id(id,name,avatar_url)')
       .single()
 
+    if (error) {
+      console.error('sendMessage error:', error)
+      toast('error', 'Erro ao enviar mensagem', error.message)
+      setSending(false)
+      return
+    }
     if (newMsg) setMessages(prev => [...prev, newMsg as Message])
     setContacts(prev => prev.map(c =>
       c.id === activeContactId
@@ -266,13 +273,20 @@ export function MessagesPage() {
     if (!composeText.trim() || !composeRecipientId || !user) return
     setComposeSending(true)
     try {
-      await supabase.from('messages').insert({
+      const { error } = await supabase.from('messages').insert({
         booking_id: null,
         sender_id: user.id,
         receiver_id: composeRecipientId,
         content: composeText.trim(),
         subject: composeSubject.trim() || null,
+        is_read: false,
       })
+
+      if (error) {
+        console.error('sendCompose error:', error)
+        toast('error', 'Erro ao enviar mensagem', error.message)
+        return
+      }
 
       setComposeOpen(false)
       setComposeRecipientId('')
