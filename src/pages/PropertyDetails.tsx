@@ -465,7 +465,7 @@ export function PropertyDetails() {
         )}
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-28 lg:pb-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Left column */}
           <div className="lg:col-span-2 space-y-8">
@@ -558,7 +558,7 @@ export function PropertyDetails() {
                     {allCategories.map(category => (
                       <div key={category}>
                         <h3 className="text-xs font-bold text-[#555] uppercase tracking-wider mb-3">{category}</h3>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                           {(byCategory[category] ?? []).map(pa => (
                             <div key={pa.amenity_id} className="flex items-center gap-2 text-sm text-[#B3B3B3]">
                               <AmenityIcon name={pa.amenity?.icon ?? null} className="text-[#46D369] flex-shrink-0" />
@@ -578,7 +578,7 @@ export function PropertyDetails() {
                 )
               })() : property.amenities.length > 0 ? (
                 // Fallback: legacy amenities[]
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {property.amenities.map(a => (
                     <div key={a} className="flex items-center gap-2 text-sm text-[#B3B3B3]">
                       <Check size={14} className="text-[#46D369] flex-shrink-0" />
@@ -638,8 +638,8 @@ export function PropertyDetails() {
             )}
           </div>
 
-          {/* Booking card (right column) */}
-          <div className="lg:col-span-1">
+          {/* Booking card (right column — hidden on mobile, shown on lg+) */}
+          <div className="hidden lg:block lg:col-span-1">
             <div className="sticky top-24">
               <motion.div
                 initial={{ opacity: 0, x: 20 }}
@@ -802,6 +802,29 @@ export function PropertyDetails() {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Mobile fixed booking bar */}
+      <div className="fixed bottom-0 left-0 right-0 z-40 lg:hidden bg-[#141414] border-t border-[#333] px-4 py-3 flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          {nights > 0 ? (
+            <>
+              <p className="text-xs text-[#B3B3B3]">{nights} {nights === 1 ? 'noite' : 'noites'}</p>
+              <p className="text-base font-bold text-white">{formatCurrency(subtotal + fee)}</p>
+            </>
+          ) : (
+            <>
+              <p className="text-xs text-[#B3B3B3]">a partir de</p>
+              <p className="text-base font-bold text-white">
+                {formatCurrency(property.price_per_night)}
+                <span className="text-xs font-normal text-[#666]"> /noite</span>
+              </p>
+            </>
+          )}
+        </div>
+        <Button onClick={handleReserve} size="sm" className="flex-shrink-0">
+          {user ? 'Reservar agora' : 'Entrar'}
+        </Button>
       </div>
     </div>
   )

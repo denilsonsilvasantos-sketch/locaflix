@@ -187,7 +187,7 @@ export function Home() {
     <div className="min-h-screen bg-[#141414]">
       {/* HERO */}
       {!isSearching && heroProperties.length > 0 && currentHero && (
-        <section className="relative h-[85vh] min-h-[500px]">
+        <section className="relative h-[70vh] sm:h-[85vh] min-h-[500px]">
           {/* Background — overflow-hidden only on this inner wrapper so dropdowns não ficam cortados */}
           <div className="absolute inset-0 overflow-hidden">
             <AnimatePresence mode="wait">
