@@ -3,7 +3,6 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Home as HouseIcon, Info, SlidersHorizontal, X, Star, MapPin } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { PROPERTY_TYPES } from '../constants'
-import { MOCK_PROPERTIES } from '../constants/mocks'
 import type { Property, SearchFilters, PropertyType, AmenityCatalog } from '../types'
 import { PropertyRow, PropertyGrid } from '../components/property/PropertyGrid'
 import { SearchBar } from '../components/property/SearchBar'
@@ -90,7 +89,7 @@ export function Home() {
 
   async function toggleFavorite(propertyId: string) {
     if (!user) { navigate(APP_ROUTES.LOGIN); return }
-    const isMock = MOCK_PROPERTIES.some(p => p.id === propertyId)
+    const isMock = propertyId.startsWith('mock-')
     if (isMock) {
       toast('info', 'Imóvel de demonstração', 'Faça login e explore imóveis reais para salvar favoritos.')
       return
@@ -112,17 +111,15 @@ export function Home() {
     setLoading(true)
     const { data, error } = await supabase
       .from('properties')
-      .select('*, owner:users(id, name, avatar_url)')
+      .select('*')
       .eq('status', 'ATIVO')
       .order('plan', { ascending: false })
       .order('rating', { ascending: false })
       .limit(500)
 
-    if (error || !data) {
-      setProperties(MOCK_PROPERTIES)
-    } else {
-      setProperties(data.length > 0 ? (data as Property[]) : MOCK_PROPERTIES)
-    }
+    console.log('[loadProperties]', { count: data?.length, error })
+
+    setProperties(error ? [] : (data as Property[]) ?? [])
     setLoading(false)
   }
 
@@ -524,15 +521,22 @@ export function Home() {
           />
         ) : (
           <div className="flex flex-col gap-12">
-            {rows.map(row => (
-              <PropertyRow
-                key={row.id}
-                title={row.label}
-                properties={row.items}
-                favoritedIds={favoritedIds}
-                onFavoriteToggle={toggleFavorite}
-              />
-            ))}
+            {!loading && properties.length === 0 ? (
+              <div className="text-center py-20 text-[#666]">
+                <p className="text-lg">Nenhum imóvel disponível no momento.</p>
+                <p className="text-sm mt-2 text-[#444]">Volte em breve para ver novidades.</p>
+              </div>
+            ) : (
+              rows.map(row => (
+                <PropertyRow
+                  key={row.id}
+                  title={row.label}
+                  properties={row.items}
+                  favoritedIds={favoritedIds}
+                  onFavoriteToggle={toggleFavorite}
+                />
+              ))
+            )}
           </div>
         )}
       </div>
