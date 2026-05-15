@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useSearchParams, Link } from 'react-router-dom'
 import {
   Home, Calendar, DollarSign, Star, Plus, Eye, Pencil,
-  ToggleLeft, ToggleRight, ShieldCheck, Check, X, AlertCircle,
+  ToggleLeft, ToggleRight, ShieldCheck, Check, X, AlertCircle, AlertTriangle,
   ChevronDown, ChevronUp, Trash2, LogOut, MessageSquare,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
@@ -29,13 +29,24 @@ const KINSHIP_LABELS: Record<KinshipType, string> = {
 }
 
 const NAV = [
-  { label: 'Imóveis',    icon: <Home size={16} />,          href: '/anfitriao',                tabKey: 'imoveis' },
-  { label: 'Reservas',   icon: <Calendar size={16} />,      href: '/anfitriao?tab=reservas',   tabKey: 'reservas' },
-  { label: 'Financeiro', icon: <DollarSign size={16} />,    href: '/anfitriao?tab=financeiro', tabKey: 'financeiro' },
-  { label: 'Avaliações', icon: <Star size={16} />,          href: '/anfitriao?tab=avaliacoes', tabKey: 'avaliacoes' },
-  { label: 'Documentos', icon: <ShieldCheck size={16} />,   href: '/anfitriao?tab=documentos', tabKey: 'documentos' },
-  { label: 'Mensagens',  icon: <MessageSquare size={16} />, href: '/mensagens',                tabKey: 'mensagens' },
+  { label: 'Imóveis',    icon: <Home size={16} />,           href: '/anfitriao',                 tabKey: 'imoveis' },
+  { label: 'Reservas',   icon: <Calendar size={16} />,       href: '/anfitriao?tab=reservas',    tabKey: 'reservas' },
+  { label: 'Financeiro', icon: <DollarSign size={16} />,     href: '/anfitriao?tab=financeiro',  tabKey: 'financeiro' },
+  { label: 'Avaliações', icon: <Star size={16} />,           href: '/anfitriao?tab=avaliacoes',  tabKey: 'avaliacoes' },
+  { label: 'Documentos', icon: <ShieldCheck size={16} />,    href: '/anfitriao?tab=documentos',  tabKey: 'documentos' },
+  { label: 'Sinistros',  icon: <AlertTriangle size={16} />,  href: '/anfitriao?tab=sinistros',   tabKey: 'sinistros' },
+  { label: 'Mensagens',  icon: <MessageSquare size={16} />,  href: '/mensagens',                 tabKey: 'mensagens' },
 ]
+
+interface Incident {
+  id: string
+  title: string
+  description: string
+  status: string
+  admin_notes: string | null
+  created_at: string
+  property_id: string | null
+}
 
 interface KycForm {
   document_url: string
@@ -59,6 +70,14 @@ export function OwnerDashboard() {
   const [reviews, setReviews] = useState<Review[]>([])
   const [loading, setLoading] = useState(true)
   const [submittingKyc, setSubmittingKyc] = useState(false)
+
+  // Sinistros
+  const [incidents, setIncidents] = useState<Incident[]>([])
+  const [loadingIncidents, setLoadingIncidents] = useState(false)
+  const [showIncidentForm, setShowIncidentForm] = useState(false)
+  const [incidentForm, setIncidentForm] = useState({ title: '', description: '', property_id: '' })
+  const [submittingIncident, setSubmittingIncident] = useState(false)
+
   const [kycForm, setKycForm] = useState<KycForm>({
     document_url: '', address_proof_url: '', ownership_type: 'PROPRIO',
     actual_owner_name: '', actual_owner_cpf: '', actual_owner_document_url: '',
@@ -68,6 +87,11 @@ export function OwnerDashboard() {
   useEffect(() => {
     if (user) loadData()
   }, [user])
+
+  useEffect(() => {
+    if (tab === 'sinistros' && user?.id) void loadIncidents()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, user?.id])
 
   useEffect(() => {
     if (profile) {
@@ -110,6 +134,35 @@ export function OwnerDashboard() {
     }
 
     setLoading(false)
+  }
+
+  async function loadIncidents() {
+    if (!user?.id) return
+    setLoadingIncidents(true)
+    const { data } = await supabase.from('incidents').select('*').eq('reporter_id', user.id).order('created_at', { ascending: false })
+    setIncidents((data ?? []) as Incident[])
+    setLoadingIncidents(false)
+  }
+
+  async function submitIncident() {
+    if (!user || !incidentForm.title.trim() || !incidentForm.description.trim()) return
+    setSubmittingIncident(true)
+    const { error } = await supabase.from('incidents').insert({
+      reporter_id: user.id,
+      property_id: incidentForm.property_id || null,
+      reporter_role: 'OWNER',
+      title: incidentForm.title.trim(),
+      description: incidentForm.description.trim(),
+    })
+    if (error) {
+      toast('error', 'Erro', error.message)
+    } else {
+      toast('success', 'Incidente reportado', 'Nossa equipe analisará em breve.')
+      setIncidentForm({ title: '', description: '', property_id: '' })
+      setShowIncidentForm(false)
+      void loadIncidents()
+    }
+    setSubmittingIncident(false)
   }
 
   async function toggleStatus(property: Property) {
@@ -462,6 +515,98 @@ export function OwnerDashboard() {
                                 <p className="text-sm text-[#B3B3B3] mt-2 leading-relaxed">{r.comment}</p>
                               )}
                             </div>
+                          </div>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ── SINISTROS ──────────────────────────────────── */}
+              {tab === 'sinistros' && (
+                <div>
+                  <div className="flex items-center justify-between mb-5">
+                    <h2 className="font-display text-xl font-bold text-white">Sinistros</h2>
+                    <button
+                      onClick={() => setShowIncidentForm(v => !v)}
+                      className="flex items-center gap-1.5 px-3 py-2 bg-[#E50914] text-white text-xs font-semibold rounded-lg hover:bg-[#F40612] transition-colors"
+                    >
+                      <AlertTriangle size={13} />
+                      Relatar incidente
+                    </button>
+                  </div>
+
+                  {showIncidentForm && (
+                    <Card className="p-5 mb-5 space-y-4">
+                      <h3 className="text-sm font-semibold text-white">Novo incidente</h3>
+                      <Input
+                        label="Título"
+                        value={incidentForm.title}
+                        onChange={e => setIncidentForm(f => ({ ...f, title: e.target.value }))}
+                        placeholder="Descreva brevemente o problema"
+                      />
+                      <div>
+                        <label className="block text-xs text-[#B3B3B3] mb-1.5 font-medium">Descrição</label>
+                        <textarea
+                          value={incidentForm.description}
+                          onChange={e => setIncidentForm(f => ({ ...f, description: e.target.value }))}
+                          placeholder="Detalhe o ocorrido..."
+                          rows={4}
+                          className="w-full bg-[#2A2A2A] border border-[#333] rounded-xl px-3 py-2.5 text-sm text-white placeholder-[#666] outline-none focus:ring-2 focus:ring-[#E50914] resize-none"
+                        />
+                      </div>
+                      {properties.length > 0 && (
+                        <div>
+                          <label className="block text-xs text-[#B3B3B3] mb-1.5 font-medium">Imóvel relacionado (opcional)</label>
+                          <select
+                            value={incidentForm.property_id}
+                            onChange={e => setIncidentForm(f => ({ ...f, property_id: e.target.value }))}
+                            className="w-full bg-[#2A2A2A] border border-[#333] rounded-xl px-3 py-2.5 text-sm text-white outline-none focus:ring-2 focus:ring-[#E50914]"
+                          >
+                            <option value="">Nenhum</option>
+                            {properties.map(p => (
+                              <option key={p.id} value={p.id}>{p.name}</option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+                      <div className="flex gap-2">
+                        <Button
+                          onClick={submitIncident}
+                          loading={submittingIncident}
+                          disabled={!incidentForm.title.trim() || !incidentForm.description.trim()}
+                        >
+                          Enviar
+                        </Button>
+                        <Button variant="ghost" onClick={() => setShowIncidentForm(false)}>Cancelar</Button>
+                      </div>
+                    </Card>
+                  )}
+
+                  {loadingIncidents ? (
+                    <div className="flex justify-center py-12">
+                      <div className="w-6 h-6 border-4 border-[#E50914] border-t-transparent rounded-full animate-spin" />
+                    </div>
+                  ) : incidents.length === 0 ? (
+                    <div className="text-center py-16 text-[#555]">
+                      <AlertTriangle size={48} className="mx-auto mb-4" />
+                      <p className="text-sm">Nenhum sinistro registrado.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {incidents.map(inc => (
+                        <Card key={inc.id} className="p-4">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-semibold text-white">{inc.title}</p>
+                              <p className="text-xs text-[#B3B3B3] mt-1 line-clamp-2">{inc.description}</p>
+                              {inc.admin_notes && (
+                                <p className="text-xs text-[#46D369] mt-2 italic">Resposta: {inc.admin_notes}</p>
+                              )}
+                              <p className="text-[11px] text-[#555] mt-2">{formatShortDate(inc.created_at)}</p>
+                            </div>
+                            <OwnerIncidentBadge status={inc.status} />
                           </div>
                         </Card>
                       ))}
@@ -924,6 +1069,23 @@ function PropertyStatusBadge({ status }: { status: string }) {
     REPROVADO: 'bg-[#E50914]/20 text-[#E50914]',
   }
   return <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${map[status] ?? map.PENDENTE}`}>{status}</span>
+}
+
+function OwnerIncidentBadge({ status }: { status: string }) {
+  const map: Record<string, string> = {
+    ABERTO:     'bg-[#F5A623]/10 text-[#F5A623]',
+    EM_ANALISE: 'bg-blue-500/10 text-blue-400',
+    RESOLVIDO:  'bg-[#46D369]/10 text-[#46D369]',
+    FECHADO:    'bg-[#333] text-[#666]',
+  }
+  const labels: Record<string, string> = {
+    ABERTO: 'Aberto', EM_ANALISE: 'Em Análise', RESOLVIDO: 'Resolvido', FECHADO: 'Fechado',
+  }
+  return (
+    <span className={`text-[10px] font-bold px-2 py-0.5 rounded flex-shrink-0 ${map[status] ?? map.ABERTO}`}>
+      {labels[status] ?? status}
+    </span>
+  )
 }
 
 function StatusBadge({ status }: { status: string }) {

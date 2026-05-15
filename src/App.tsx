@@ -19,6 +19,7 @@ import { MessagesPage } from './pages/MessagesPage'
 import { CancellationPolicy } from './pages/CancellationPolicy'
 import { BecomeOwner } from './pages/BecomeOwner'
 import { AuthCallback } from './pages/AuthCallback'
+import { HelpCenter } from './components/ui/HelpCenter'
 
 function AppLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -89,6 +90,7 @@ export default function App() {
             <Route path="*" element={<AppLayout><Home /></AppLayout>} />
           </Routes>
           <ToastContainer />
+          <HelpCenter />
         </ToastProvider>
       </AuthProvider>
     </BrowserRouter>

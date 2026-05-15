@@ -48,6 +48,18 @@ interface StatePoint  { state: string; value: number }
 type BookingRow = Booking & { property?: Property; guest?: UserProfile; owner?: UserProfile }
 type InstallRow  = Installment & { booking?: BookingRow }
 
+interface IncidentRow {
+  id: string
+  reporter_role: string
+  title: string
+  description: string
+  status: string
+  admin_notes: string | null
+  created_at: string
+  reporter?: { name: string | null; email: string } | null
+  property?: { name: string } | null
+}
+
 interface PlatformSettings {
   host_fee_split: string
   guest_fee_split: string
@@ -95,7 +107,11 @@ export function AdminDashboard() {
   const [installments, setInstallments] = useState<InstallRow[]>([])
   const [installFilter, setInstallFilter] = useState('todos')
   const [repasses, setRepasses]     = useState<BookingRow[]>([])
-  const [sinistros, setSinistros]   = useState<Record<string, unknown>[]>([])
+  const [sinistros, setSinistros]     = useState<IncidentRow[]>([])
+  const [sinistrosFilter, setSinistrosFilter] = useState('todos')
+  const [expandedIncident, setExpandedIncident] = useState<string | null>(null)
+  const [incidentNotes, setIncidentNotes] = useState<Record<string, string>>({})
+  const [savingIncident, setSavingIncident] = useState<string | null>(null)
   const [loadingTab, setLoadingTab] = useState(false)
 
   // Config tab
@@ -218,10 +234,16 @@ export function AdminDashboard() {
         setRepasses((data ?? []) as unknown as BookingRow[])
 
       } else if (t === 'sinistros') {
-        try {
-          const { data, error } = await supabase.from('sinistros').select('*').order('created_at', { ascending: false })
-          if (!error) setSinistros(data ?? [])
-        } catch { /* table may not exist */ }
+        const { data } = await supabase
+          .from('incidents')
+          .select('*, reporter:users!reporter_id(name,email), property:properties!property_id(name)')
+          .order('created_at', { ascending: false })
+          .limit(200)
+        const rows = (data ?? []) as IncidentRow[]
+        setSinistros(rows)
+        const notesMap: Record<string, string> = {}
+        for (const r of rows) notesMap[r.id] = r.admin_notes ?? ''
+        setIncidentNotes(notesMap)
 
       } else if (t === 'config') {
         const [{ data: ps }, { data: cp }] = await Promise.all([
@@ -245,6 +267,21 @@ export function AdminDashboard() {
     } finally {
       setLoadingTab(false)
     }
+  }
+
+  async function updateIncidentStatus(id: string, status: string) {
+    const { error } = await supabase.from('incidents').update({ status, updated_at: new Date().toISOString() }).eq('id', id)
+    if (error) { toast('error', 'Erro', error.message); return }
+    setSinistros(prev => prev.map(s => s.id === id ? { ...s, status } : s))
+    toast('success', 'Status atualizado')
+  }
+
+  async function saveIncidentNotes(id: string) {
+    setSavingIncident(id)
+    const notes = incidentNotes[id] ?? ''
+    const { error } = await supabase.from('incidents').update({ admin_notes: notes || null, updated_at: new Date().toISOString() }).eq('id', id)
+    if (error) { toast('error', 'Erro', error.message) } else { toast('success', 'Notas salvas') }
+    setSavingIncident(null)
   }
 
   async function saveSettings() {
@@ -969,42 +1006,94 @@ export function AdminDashboard() {
           {/* ─────────────── SINISTROS ─────────────── */}
           {tab === 'sinistros' && (
             <div className="space-y-4">
-              <h2 className="text-sm font-semibold text-white">Sinistros / Reclamações</h2>
-              {loadingTab ? <Skeleton /> : sinistros.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-24">
-                  <FileWarning size={48} className="text-[#2A2A2A] mb-4" />
-                  <p className="text-[#444] text-sm">Nenhum sinistro registrado</p>
-                  <p className="text-[#333] text-xs mt-1">Sinistros reportados pelos hóspedes aparecerão aqui</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {sinistros.map((s, i) => (
-                    <div key={String(s.id ?? i)} className="bg-[#1A1A1A] border border-[#222] rounded-xl p-5 flex gap-4">
-                      {s.photo ? (
-                        <img src={String(s.photo)} alt="" className="w-16 h-16 rounded-xl object-cover flex-shrink-0 bg-[#222]" />
-                      ) : null}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-3 flex-wrap">
-                          <div>
-                            <p className="text-white font-medium text-sm">{String(s.property_name ?? '—')}</p>
-                            <p className="text-[#444] text-xs">Reserva #{String(s.booking_number ?? '—')}</p>
+              {/* Filtros */}
+              <div className="flex gap-2 flex-wrap">
+                {['todos','ABERTO','EM_ANALISE','RESOLVIDO','FECHADO'].map(f => (
+                  <button key={f} onClick={() => setSinistrosFilter(f)}
+                    className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors
+                      ${sinistrosFilter === f ? 'bg-[#E50914] text-white' : 'bg-[#1A1A1A] text-[#777] hover:text-white border border-[#222]'}`}
+                  >
+                    {f === 'todos' ? 'Todos' : f === 'EM_ANALISE' ? 'Em Análise' : f.charAt(0) + f.slice(1).toLowerCase()}
+                  </button>
+                ))}
+              </div>
+
+              {loadingTab ? <Skeleton /> : (() => {
+                const filtered = sinistros.filter(s => sinistrosFilter === 'todos' || s.status === sinistrosFilter)
+                if (filtered.length === 0) return (
+                  <div className="flex flex-col items-center justify-center py-24">
+                    <FileWarning size={48} className="text-[#2A2A2A] mb-4" />
+                    <p className="text-[#444] text-sm">Nenhum sinistro encontrado</p>
+                  </div>
+                )
+                return (
+                  <div className="space-y-3">
+                    {filtered.map(s => {
+                      const isExpanded = expandedIncident === s.id
+                      return (
+                        <div key={s.id} className="bg-[#1A1A1A] border border-[#222] rounded-xl overflow-hidden">
+                          <div
+                            className="p-4 flex items-start gap-3 cursor-pointer hover:bg-[#1F1F1F] transition-colors"
+                            onClick={() => setExpandedIncident(isExpanded ? null : s.id)}
+                          >
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap mb-1">
+                                <p className="text-sm font-semibold text-white">{s.title}</p>
+                                <AdminIncidentBadge status={s.status} />
+                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${s.reporter_role === 'GUEST' ? 'bg-blue-500/10 text-blue-400' : 'bg-[#F5A623]/10 text-[#F5A623]'}`}>
+                                  {s.reporter_role === 'GUEST' ? 'HÓSPEDE' : 'ANFITRIÃO'}
+                                </span>
+                              </div>
+                              <p className="text-xs text-[#555]">
+                                {s.reporter?.name ?? s.reporter?.email ?? '—'}
+                                {s.property?.name ? ` · ${s.property.name}` : ''}
+                                {' · '}{new Date(s.created_at).toLocaleDateString('pt-BR')}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              <select
+                                value={s.status}
+                                onClick={e => e.stopPropagation()}
+                                onChange={e => updateIncidentStatus(s.id, e.target.value)}
+                                className="bg-[#111] border border-[#333] rounded-lg px-2 py-1 text-xs text-white outline-none focus:border-[#E50914]"
+                              >
+                                <option value="ABERTO">Aberto</option>
+                                <option value="EM_ANALISE">Em Análise</option>
+                                <option value="RESOLVIDO">Resolvido</option>
+                                <option value="FECHADO">Fechado</option>
+                              </select>
+                            </div>
                           </div>
-                          <div className="flex gap-2">
-                            <button className="text-[10px] font-bold px-2 py-1 border border-[#333] text-[#666] rounded hover:text-white hover:border-[#555] transition-colors">
-                              VER DETALHES
-                            </button>
-                            <button className="text-[10px] font-bold px-2 py-1 bg-[#46D369]/10 border border-[#46D369]/30 text-[#46D369] rounded hover:bg-[#46D369]/20 transition-colors">
-                              APROVAR
-                            </button>
-                          </div>
+
+                          {isExpanded && (
+                            <div className="px-4 pb-4 border-t border-[#222] pt-3 space-y-3">
+                              <p className="text-sm text-[#B3B3B3]">{s.description}</p>
+                              <div>
+                                <label className="block text-xs text-[#555] mb-1.5">Notas internas</label>
+                                <textarea
+                                  value={incidentNotes[s.id] ?? ''}
+                                  onChange={e => setIncidentNotes(prev => ({ ...prev, [s.id]: e.target.value }))}
+                                  rows={3}
+                                  placeholder="Adicione notas visíveis ao usuário..."
+                                  className="w-full bg-[#111] border border-[#333] rounded-lg px-3 py-2 text-xs text-white placeholder-[#444] outline-none focus:border-[#E50914] resize-none"
+                                />
+                              </div>
+                              <button
+                                onClick={() => saveIncidentNotes(s.id)}
+                                disabled={savingIncident === s.id}
+                                className="flex items-center gap-1.5 px-3 py-1.5 bg-[#46D369]/10 border border-[#46D369]/30 text-[#46D369] text-xs font-semibold rounded-lg hover:bg-[#46D369]/20 transition-colors disabled:opacity-50"
+                              >
+                                {savingIncident === s.id ? <RefreshCw size={11} className="animate-spin" /> : <Check size={11} />}
+                                Salvar notas
+                              </button>
+                            </div>
+                          )}
                         </div>
-                        <p className="text-[#666] text-xs mt-2 line-clamp-2">{String(s.description ?? '')}</p>
-                        <p className="text-[#F5A623] text-xs font-semibold mt-1">{formatCurrency(Number(s.amount ?? 0))}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+                      )
+                    })}
+                  </div>
+                )
+              })()}
             </div>
           )}
 
@@ -1250,18 +1339,20 @@ function InstallBadge({ status }: { status: string }) {
   return <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${m[status] ?? 'bg-[#2A2A2A] text-[#555]'}`}>{status}</span>
 }
 
-function CfgRow({ label, desc, val }: { label: string; desc: string; val: string }) {
+function AdminIncidentBadge({ status }: { status: string }) {
+  const map: Record<string, string> = {
+    ABERTO:     'bg-[#F5A623]/10 text-[#F5A623]',
+    EM_ANALISE: 'bg-blue-500/10 text-blue-400',
+    RESOLVIDO:  'bg-[#46D369]/10 text-[#46D369]',
+    FECHADO:    'bg-[#333] text-[#666]',
+  }
+  const labels: Record<string, string> = {
+    ABERTO: 'Aberto', EM_ANALISE: 'Em Análise', RESOLVIDO: 'Resolvido', FECHADO: 'Fechado',
+  }
   return (
-    <div className="flex items-center justify-between py-3 border-b border-[#1F1F1F] last:border-0">
-      <div>
-        <p className="text-sm font-medium text-white">{label}</p>
-        <p className="text-xs text-[#444] mt-0.5">{desc}</p>
-      </div>
-      <div className="flex items-center gap-3 flex-shrink-0">
-        <span className="text-sm font-semibold text-[#E50914]">{val}</span>
-        <button className="text-xs text-[#444] hover:text-white transition-colors">Editar</button>
-      </div>
-    </div>
+    <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${map[status] ?? map.ABERTO}`}>
+      {labels[status] ?? status}
+    </span>
   )
 }
 
