@@ -155,11 +155,20 @@ export function Checkout() {
   }, [installmentCount, property, checkIn, checkOut, nights, pricePeriods])
 
   async function loadProperty(pid: string) {
-    const [{ data }, { data: periodsData }] = await Promise.all([
-      supabase.from('properties').select('*, owner:users(id,name)').eq('id', pid).single(),
+    const [{ data: propData }, { data: periodsData }] = await Promise.all([
+      supabase.from('properties').select('*').eq('id', pid).single(),
       supabase.from('price_periods').select('*').eq('property_id', pid).eq('active', true).order('priority', { ascending: false }),
     ])
-    setProperty(data ? (data as Property) : (MOCK_PROPERTIES.find(p => p.id === pid) ?? null))
+    // Fetch owner separately using owner_id
+    let ownerData = null
+    if (propData?.owner_id) {
+      const { data } = await supabase.from('users').select('id, name').eq('id', propData.owner_id).single()
+      ownerData = data
+    }
+    const resolved = propData
+      ? ({ ...propData, owner: ownerData ?? undefined } as Property)
+      : (MOCK_PROPERTIES.find(p => p.id === pid) ?? null)
+    setProperty(resolved)
     setPricePeriods((periodsData ?? []) as PricePeriod[])
     setLoading(false)
   }

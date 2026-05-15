@@ -97,12 +97,17 @@ export function PropertyDetails() {
   }, [id, user?.id])
 
   const loadProperty = useCallback(async (propertyId: string) => {
-    const [propRes, revRes, photoRes, periodsRes, amenitiesRes] = await Promise.all([
-      supabase
-        .from('properties')
-        .select('*, owner:users(id, name, avatar_url, created_at)')
-        .eq('id', propertyId)
-        .single(),
+    // Step 1: fetch property first to get owner_id
+    const propRes = await supabase
+      .from('properties')
+      .select('*')
+      .eq('id', propertyId)
+      .single()
+
+    const ownerId = (propRes.data as Property | null)?.owner_id
+
+    // Step 2: fetch everything else + owner in parallel
+    const [revRes, photoRes, periodsRes, amenitiesRes, ownerRes] = await Promise.all([
       supabase
         .from('reviews')
         .select('*, reviewer:users(id, name, avatar_url)')
@@ -125,10 +130,13 @@ export function PropertyDetails() {
         .from('property_amenities')
         .select('property_id, amenity_id, amenity:amenities_catalog(id, category, name, icon, display_order)')
         .eq('property_id', propertyId),
+      ownerId
+        ? supabase.from('users').select('id, name, avatar_url, created_at').eq('id', ownerId).single()
+        : Promise.resolve({ data: null, error: null }),
     ])
 
     if (propRes.data) {
-      setProperty(propRes.data as Property)
+      setProperty({ ...propRes.data, owner: ownerRes.data ?? undefined } as Property)
     } else {
       const mock = MOCK_PROPERTIES.find(p => p.id === propertyId)
       setProperty(mock ?? null)
