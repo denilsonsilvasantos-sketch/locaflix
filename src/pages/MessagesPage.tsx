@@ -68,7 +68,7 @@ export function MessagesPage() {
       }, payload => {
         const m = payload.new as Message
         if (m.sender_id === activeContactIdRef.current) {
-          setMessages(prev => [...prev, m])
+          setMessages(prev => prev.some(x => x.id === m.id) ? prev : [...prev, m])
         }
         setContacts(prev => {
           const exists = prev.find(c => c.id === m.sender_id)
@@ -239,9 +239,15 @@ export function MessagesPage() {
     if (!text.trim() || !activeContactId || !user) return
     setSending(true)
     const activeContact = contacts.find(c => c.id === activeContactId)
-    const receiverId = activeContact?.pairIds
-      ? (activeContact.pairIds.find(id => id !== user.id) ?? activeContact.pairIds[0])
-      : activeContactId
+    let receiverId: string
+    if (activeContact?.pairIds) {
+      const myIndex = activeContact.pairIds.findIndex(id => id === user.id)
+      receiverId = myIndex !== -1
+        ? activeContact.pairIds[1 - myIndex]
+        : (activeContact.pairIds.find(id => id !== SUPPORT_ID) ?? activeContact.pairIds[0])
+    } else {
+      receiverId = activeContactId
+    }
 
     console.log('sendMessage attempting:', {
       sender_id: user.id,
