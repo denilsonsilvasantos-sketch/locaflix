@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import type { Message } from '../types'
 import { useAuth } from '../hooks/useAuth'
+import { useToast } from '../hooks/useToast'
 import { Button } from '../components/ui/Button'
 import { getInitials } from '../lib/utils'
 
@@ -28,6 +29,7 @@ type Recipient = {
 
 export function MessagesPage() {
   const { user, profile } = useAuth()
+  const { toast } = useToast()
   const [contacts, setContacts] = useState<Contact[]>([])
   const [activeContactId, setActiveContactId] = useState<string | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
@@ -240,10 +242,17 @@ export function MessagesPage() {
     const receiverId = activeContact?.pairIds
       ? (activeContact.pairIds.find(id => id !== user.id) ?? activeContact.pairIds[0])
       : activeContactId
+
+    console.log('sendMessage attempting:', {
+      sender_id: user.id,
+      receiver_id: receiverId,
+      activeContactId,
+      hasPairIds: !!activeContact?.pairIds,
+    })
+
     const { data: newMsg, error } = await supabase
       .from('messages')
       .insert({
-        booking_id: null,
         sender_id: user.id,
         receiver_id: receiverId,
         content: text.trim(),
@@ -253,9 +262,11 @@ export function MessagesPage() {
       .select('*, sender:users!sender_id(id,name,avatar_url)')
       .single()
 
+    console.log('sendMessage result:', { data: !!newMsg, error })
+
     if (error) {
       console.error('sendMessage error:', error)
-      toast('error', 'Erro ao enviar mensagem', error.message)
+      toast('error', 'Erro ao enviar', error.message)
       setSending(false)
       return
     }
@@ -273,14 +284,15 @@ export function MessagesPage() {
     if (!composeText.trim() || !composeRecipientId || !user) return
     setComposeSending(true)
     try {
+      console.log('sendCompose attempting:', { sender_id: user.id, receiver_id: composeRecipientId })
       const { error } = await supabase.from('messages').insert({
-        booking_id: null,
         sender_id: user.id,
         receiver_id: composeRecipientId,
         content: composeText.trim(),
         subject: composeSubject.trim() || null,
         is_read: false,
       })
+      console.log('sendCompose result:', { error })
 
       if (error) {
         console.error('sendCompose error:', error)
@@ -389,7 +401,7 @@ export function MessagesPage() {
         </aside>
       )}
 
-      <div className={`flex-1 flex flex-col lg:flex-row w-full px-4 py-6 gap-4${isNonAdmin ? ' lg:ml-56' : ' max-w-6xl mx-auto'}`}
+      <div className={`flex-1 flex flex-col lg:flex-row w-full py-6 gap-4${isNonAdmin ? ' px-4 lg:pl-60' : ' px-4 max-w-6xl mx-auto'}`}
         style={{ minHeight: 'calc(100vh - 80px)' }}
       >
         {/* ── Contact list ─────────────────────────────── */}
