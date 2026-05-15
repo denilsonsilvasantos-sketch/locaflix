@@ -136,14 +136,23 @@ export function OwnerDashboard() {
     setBookings((bks ?? []) as Booking[])
 
     if (propList.length > 0) {
-      const { data: revs } = await supabase
+      const { data: rawRevs } = await supabase
         .from('reviews')
-        .select('*, reviewer:users(id, name, avatar_url)')
+        .select('*')
         .in('target_property_id', propList.map(p => p.id))
         .eq('visible', true)
         .order('created_at', { ascending: false })
         .limit(50)
-      setReviews((revs ?? []) as Review[])
+
+      const revList = (rawRevs ?? []) as Review[]
+      if (revList.length > 0) {
+        const rIds = [...new Set(revList.map(r => r.reviewer_id).filter(Boolean))]
+        const { data: rUsers } = await supabase.from('users').select('id, name, avatar_url').in('id', rIds)
+        const rMap = Object.fromEntries((rUsers ?? []).map((u: { id: string; name: string | null; avatar_url: string | null }) => [u.id, u]))
+        setReviews(revList.map(r => ({ ...r, reviewer: rMap[r.reviewer_id] ?? null })))
+      } else {
+        setReviews([])
+      }
     }
 
     setLoading(false)
