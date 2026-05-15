@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   Calendar, Heart, Bell, ShieldCheck, User,
   AlertTriangle, CheckCircle, XCircle, Star,
   BedDouble, MapPin, CreditCard, LogOut, Clock,
-  RefreshCw, Layers,
+  RefreshCw, Layers, X,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import type { Booking, Favorite, Installment, Notification, KYCStatus, Property } from '../types'
@@ -19,6 +19,7 @@ import { ReviewModal } from '../components/ui/ReviewModal'
 import { formatCurrency, formatShortDate, daysUntil } from '../lib/utils'
 import { calcularValorAtualizado } from '../lib/financeiro'
 import { PixModal } from '../components/ui/PixModal'
+import { IncidentChat, type IncidentForChat } from '../components/ui/IncidentChat'
 import { APP_ROUTES } from '../constants'
 import type { PixPaymentResponse } from '../types'
 
@@ -31,13 +32,7 @@ const TABS = [
   { key: 'sinistros',    label: 'Sinistros',     icon: <AlertTriangle  size={16} />, href: '/minha-conta?tab=sinistros' },
 ]
 
-interface Incident {
-  id: string
-  title: string
-  description: string
-  status: string
-  admin_notes: string | null
-  created_at: string
+interface Incident extends IncidentForChat {
   booking_id: string | null
 }
 
@@ -72,6 +67,11 @@ export function GuestDashboard() {
   const [showIncidentForm, setShowIncidentForm] = useState(false)
   const [incidentForm, setIncidentForm] = useState({ title: '', description: '', booking_id: '' })
   const [submittingIncident, setSubmittingIncident] = useState(false)
+  const [incidentPhotos, setIncidentPhotos] = useState<string[]>([])
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null)
+  const fileRef = useRef<HTMLInputElement>(null)
+  const cameraRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (profile) {
@@ -215,6 +215,25 @@ export function GuestDashboard() {
     setLoadingIncidents(false)
   }
 
+  async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? [])
+    if (files.length === 0) return
+    setUploadingPhoto(true)
+    const urls: string[] = []
+    for (const file of files) {
+      const ext = file.name.split('.').pop() ?? 'jpg'
+      const path = `${user!.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+      const { error } = await supabase.storage.from('incident-photos').upload(path, file, { upsert: true })
+      if (!error) {
+        const { data } = supabase.storage.from('incident-photos').getPublicUrl(path)
+        urls.push(data.publicUrl)
+      }
+    }
+    setIncidentPhotos(prev => [...prev, ...urls])
+    e.target.value = ''
+    setUploadingPhoto(false)
+  }
+
   async function submitIncident() {
     if (!user || !incidentForm.title.trim() || !incidentForm.description.trim()) return
     setSubmittingIncident(true)
@@ -224,12 +243,14 @@ export function GuestDashboard() {
       reporter_role: 'GUEST',
       title: incidentForm.title.trim(),
       description: incidentForm.description.trim(),
+      photos: incidentPhotos,
     })
     if (error) {
       toast('error', 'Erro', error.message)
     } else {
       toast('success', 'Incidente reportado', 'Nossa equipe analisará em breve.')
       setIncidentForm({ title: '', description: '', booking_id: '' })
+      setIncidentPhotos([])
       setShowIncidentForm(false)
       void loadIncidents()
     }
@@ -573,6 +594,53 @@ export function GuestDashboard() {
                       </select>
                     </div>
                   )}
+                  {/* Photo upload */}
+                  <div>
+                    <label className="block text-xs text-[#B3B3B3] mb-1.5 font-medium">Fotos (opcional)</label>
+                    <div className="flex gap-2 flex-wrap mb-3">
+                      <button
+                        type="button"
+                        onClick={() => fileRef.current?.click()}
+                        disabled={uploadingPhoto}
+                        className="flex items-center gap-1.5 px-3 py-2 text-xs bg-[#2A2A2A] border border-[#333] text-[#B3B3B3] hover:text-white hover:border-[#555] rounded-lg transition-colors disabled:opacity-50"
+                      >
+                        📁 Escolher arquivo
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => cameraRef.current?.click()}
+                        disabled={uploadingPhoto}
+                        className="flex items-center gap-1.5 px-3 py-2 text-xs bg-[#2A2A2A] border border-[#333] text-[#B3B3B3] hover:text-white hover:border-[#555] rounded-lg transition-colors disabled:opacity-50"
+                      >
+                        📷 Tirar foto
+                      </button>
+                      {uploadingPhoto && (
+                        <span className="flex items-center gap-1.5 text-xs text-[#666]">
+                          <span className="w-3 h-3 border-2 border-[#E50914] border-t-transparent rounded-full animate-spin" />
+                          Enviando...
+                        </span>
+                      )}
+                    </div>
+                    <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={handlePhotoUpload} />
+                    <input ref={cameraRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handlePhotoUpload} />
+                    {incidentPhotos.length > 0 && (
+                      <div className="grid grid-cols-3 gap-2">
+                        {incidentPhotos.map((url, i) => (
+                          <div key={i} className="relative aspect-square rounded-lg overflow-hidden border border-[#333]">
+                            <img src={url} alt="" className="w-full h-full object-cover" />
+                            <button
+                              type="button"
+                              onClick={() => setIncidentPhotos(prev => prev.filter((_, j) => j !== i))}
+                              className="absolute top-1 right-1 w-5 h-5 bg-black/70 rounded-full flex items-center justify-center text-white hover:bg-black transition-colors"
+                            >
+                              <X size={10} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
                   <div className="flex gap-2">
                     <Button
                       onClick={submitIncident}
@@ -595,7 +663,11 @@ export function GuestDashboard() {
               ) : (
                 <div className="space-y-3">
                   {incidents.map(inc => (
-                    <Card key={inc.id} className="p-4">
+                    <Card
+                      key={inc.id}
+                      className="p-4 hover:border-[#E50914]/30 transition-colors"
+                      onClick={() => setSelectedIncident(inc)}
+                    >
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-semibold text-white">{inc.title}</p>
@@ -605,11 +677,22 @@ export function GuestDashboard() {
                           )}
                           <p className="text-[11px] text-[#555] mt-2">{formatShortDate(inc.created_at)}</p>
                         </div>
-                        <IncidentBadge status={inc.status} />
+                        <div className="flex flex-col items-end gap-2">
+                          <IncidentBadge status={inc.status} />
+                          <span className="text-[10px] text-[#555]">Clique para abrir</span>
+                        </div>
                       </div>
                     </Card>
                   ))}
                 </div>
+              )}
+
+              {selectedIncident && user && (
+                <IncidentChat
+                  incident={selectedIncident}
+                  onClose={() => setSelectedIncident(null)}
+                  currentUserId={user.id}
+                />
               )}
             </section>
           )}

@@ -10,6 +10,7 @@ import {
   Banknote, AlertTriangle, UserPlus, Ban, Search, Bell, RefreshCw, Plus, Eye, MessageSquare, Trash2,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { IncidentChat, type IncidentForChat } from '../components/ui/IncidentChat'
 import { Logo } from '../components/layout/Logo'
 import { useAuth } from '../hooks/useAuth'
 import { useToast } from '../hooks/useToast'
@@ -48,13 +49,8 @@ interface StatePoint  { state: string; value: number }
 type BookingRow = Booking & { property?: Property; guest?: UserProfile; owner?: UserProfile }
 type InstallRow  = Installment & { booking?: BookingRow }
 
-interface IncidentRow {
-  id: string
+interface IncidentRow extends IncidentForChat {
   reporter_role: string
-  title: string
-  description: string
-  status: string
-  admin_notes: string | null
   created_at: string
   reporter?: { name: string | null; email: string } | null
   property?: { name: string } | null
@@ -109,9 +105,7 @@ export function AdminDashboard() {
   const [repasses, setRepasses]     = useState<BookingRow[]>([])
   const [sinistros, setSinistros]     = useState<IncidentRow[]>([])
   const [sinistrosFilter, setSinistrosFilter] = useState('todos')
-  const [expandedIncident, setExpandedIncident] = useState<string | null>(null)
-  const [incidentNotes, setIncidentNotes] = useState<Record<string, string>>({})
-  const [savingIncident, setSavingIncident] = useState<string | null>(null)
+  const [chatIncident, setChatIncident] = useState<IncidentRow | null>(null)
   const [loadingTab, setLoadingTab] = useState(false)
 
   // Config tab
@@ -239,11 +233,7 @@ export function AdminDashboard() {
           .select('*, reporter:users!reporter_id(name,email), property:properties!property_id(name)')
           .order('created_at', { ascending: false })
           .limit(200)
-        const rows = (data ?? []) as IncidentRow[]
-        setSinistros(rows)
-        const notesMap: Record<string, string> = {}
-        for (const r of rows) notesMap[r.id] = r.admin_notes ?? ''
-        setIncidentNotes(notesMap)
+        setSinistros((data ?? []) as IncidentRow[])
 
       } else if (t === 'config') {
         const [{ data: ps }, { data: cp }] = await Promise.all([
@@ -276,13 +266,6 @@ export function AdminDashboard() {
     toast('success', 'Status atualizado')
   }
 
-  async function saveIncidentNotes(id: string) {
-    setSavingIncident(id)
-    const notes = incidentNotes[id] ?? ''
-    const { error } = await supabase.from('incidents').update({ admin_notes: notes || null, updated_at: new Date().toISOString() }).eq('id', id)
-    if (error) { toast('error', 'Erro', error.message) } else { toast('success', 'Notas salvas') }
-    setSavingIncident(null)
-  }
 
   async function saveSettings() {
     setSavingSettings(true)
@@ -1027,15 +1010,15 @@ export function AdminDashboard() {
                   </div>
                 )
                 return (
-                  <div className="space-y-3">
-                    {filtered.map(s => {
-                      const isExpanded = expandedIncident === s.id
-                      return (
-                        <div key={s.id} className="bg-[#1A1A1A] border border-[#222] rounded-xl overflow-hidden">
-                          <div
-                            className="p-4 flex items-start gap-3 cursor-pointer hover:bg-[#1F1F1F] transition-colors"
-                            onClick={() => setExpandedIncident(isExpanded ? null : s.id)}
-                          >
+                  <>
+                    <div className="space-y-3">
+                      {filtered.map(s => (
+                        <div
+                          key={s.id}
+                          className="bg-[#1A1A1A] border border-[#222] rounded-xl overflow-hidden hover:border-[#333] transition-colors cursor-pointer"
+                          onClick={() => setChatIncident(s)}
+                        >
+                          <div className="p-4 flex items-start gap-3">
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 flex-wrap mb-1">
                                 <p className="text-sm font-semibold text-white">{s.title}</p>
@@ -1054,7 +1037,7 @@ export function AdminDashboard() {
                               <select
                                 value={s.status}
                                 onClick={e => e.stopPropagation()}
-                                onChange={e => updateIncidentStatus(s.id, e.target.value)}
+                                onChange={e => { e.stopPropagation(); updateIncidentStatus(s.id, e.target.value) }}
                                 className="bg-[#111] border border-[#333] rounded-lg px-2 py-1 text-xs text-white outline-none focus:border-[#E50914]"
                               >
                                 <option value="ABERTO">Aberto</option>
@@ -1064,34 +1047,19 @@ export function AdminDashboard() {
                               </select>
                             </div>
                           </div>
-
-                          {isExpanded && (
-                            <div className="px-4 pb-4 border-t border-[#222] pt-3 space-y-3">
-                              <p className="text-sm text-[#B3B3B3]">{s.description}</p>
-                              <div>
-                                <label className="block text-xs text-[#555] mb-1.5">Notas internas</label>
-                                <textarea
-                                  value={incidentNotes[s.id] ?? ''}
-                                  onChange={e => setIncidentNotes(prev => ({ ...prev, [s.id]: e.target.value }))}
-                                  rows={3}
-                                  placeholder="Adicione notas visíveis ao usuário..."
-                                  className="w-full bg-[#111] border border-[#333] rounded-lg px-3 py-2 text-xs text-white placeholder-[#444] outline-none focus:border-[#E50914] resize-none"
-                                />
-                              </div>
-                              <button
-                                onClick={() => saveIncidentNotes(s.id)}
-                                disabled={savingIncident === s.id}
-                                className="flex items-center gap-1.5 px-3 py-1.5 bg-[#46D369]/10 border border-[#46D369]/30 text-[#46D369] text-xs font-semibold rounded-lg hover:bg-[#46D369]/20 transition-colors disabled:opacity-50"
-                              >
-                                {savingIncident === s.id ? <RefreshCw size={11} className="animate-spin" /> : <Check size={11} />}
-                                Salvar notas
-                              </button>
-                            </div>
-                          )}
                         </div>
-                      )
-                    })}
-                  </div>
+                      ))}
+                    </div>
+
+                    {chatIncident && user && (
+                      <IncidentChat
+                        incident={chatIncident}
+                        onClose={() => setChatIncident(null)}
+                        currentUserId={user.id}
+                        isAdmin
+                      />
+                    )}
+                  </>
                 )
               })()}
             </div>

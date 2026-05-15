@@ -16,6 +16,8 @@ import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { supabase } from '../lib/supabase'
 import type { Property, PropertyPhoto, PricePeriod, Review, PropertyAmenity } from '../types'
+
+type ReviewWithProperty = Review & { property?: { id: string; name: string } | null }
 import { getMinPrice, PERIOD_TYPE_LABELS } from '../lib/pricing'
 import { MOCK_PROPERTIES } from '../constants/mocks'
 import { APP_ROUTES } from '../constants'
@@ -65,7 +67,7 @@ export function PropertyDetails() {
   const { toast } = useToast()
 
   const [property, setProperty] = useState<Property | null>(null)
-  const [reviews, setReviews] = useState<Review[]>([])
+  const [reviews, setReviews] = useState<ReviewWithProperty[]>([])
   const [roomGroups, setRoomGroups] = useState<RoomGroup[]>([])
   const [pricePeriods, setPricePeriods] = useState<PricePeriod[]>([])
   const [propertyAmenities, setPropertyAmenities] = useState<PropertyAmenity[]>([])
@@ -91,15 +93,27 @@ export function PropertyDetails() {
 
     const ownerId = (propRes.data as Property | null)?.owner_id
 
+    // Step 1.5: fetch all property IDs of this owner for cross-property reviews
+    let ownerPropertyIds: string[] = [propertyId]
+    if (ownerId) {
+      const { data: ownerProps } = await supabase
+        .from('properties')
+        .select('id')
+        .eq('owner_id', ownerId)
+      if (ownerProps && ownerProps.length > 0) {
+        ownerPropertyIds = ownerProps.map((p: { id: string }) => p.id)
+      }
+    }
+
     // Step 2: fetch everything else + owner in parallel
     const [revRes, photoRes, periodsRes, amenitiesRes, ownerRes] = await Promise.all([
       supabase
         .from('reviews')
-        .select('*, reviewer:users(id, name, avatar_url)')
-        .eq('target_property_id', propertyId)
+        .select('*, reviewer:users(id, name, avatar_url), property:properties!target_property_id(id, name)')
+        .in('target_property_id', ownerPropertyIds)
         .eq('visible', true)
         .order('created_at', { ascending: false })
-        .limit(20),
+        .limit(50),
       supabase
         .from('property_photos')
         .select('*, room:property_rooms(id, name, display_order)')
@@ -126,7 +140,7 @@ export function PropertyDetails() {
       const mock = MOCK_PROPERTIES.find(p => p.id === propertyId)
       setProperty(mock ?? null)
     }
-    setReviews((revRes.data ?? []) as Review[])
+    setReviews((revRes.data ?? []) as ReviewWithProperty[])
 
     const photosData = (photoRes.data ?? []) as (PropertyPhoto & { room: { id: string; name: string; display_order: number } | null })[]
     const groups: RoomGroup[] = []
@@ -587,19 +601,19 @@ export function PropertyDetails() {
             {reviews.length > 0 && (
               <section>
                 <div className="flex items-center gap-4 mb-6 flex-wrap">
-                  <h2 className="font-display text-xl font-bold text-white">Avaliações</h2>
-                  {property.rating && (
+                  <h2 className="font-display text-xl font-bold text-white">Avaliações do Anfitrião</h2>
+                  {reviews.length > 0 && (
                     <div className="flex items-center gap-2">
-                      <RatingStars value={property.rating} size={15} />
-                      <span className="text-sm font-bold text-white">{property.rating.toFixed(1)}</span>
+                      {property.rating && <RatingStars value={property.rating} size={15} />}
+                      {property.rating && <span className="text-sm font-bold text-white">{property.rating.toFixed(1)}</span>}
                       <span className="text-sm text-[#B3B3B3]">
-                        · {property.reviews_count} avaliação{property.reviews_count !== 1 ? 'ões' : ''}
+                        · {reviews.length} avaliação{reviews.length !== 1 ? 'ões' : ''}
                       </span>
                     </div>
                   )}
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {reviews.map(r => <ReviewCard key={r.id} review={r} />)}
+                  {reviews.map(r => <ReviewCard key={r.id} review={r} currentPropertyId={property.id} />)}
                 </div>
               </section>
             )}
@@ -860,9 +874,10 @@ function formatReviewDate(dateStr: string): string {
   return `há ${years} ano${years > 1 ? 's' : ''}`
 }
 
-function ReviewCard({ review }: { review: Review }) {
+function ReviewCard({ review, currentPropertyId }: { review: ReviewWithProperty; currentPropertyId: string }) {
   const name = review.reviewer?.name ?? 'Hóspede verificado'
   const initial = name[0].toUpperCase()
+  const showProperty = review.property && review.target_property_id !== currentPropertyId
   return (
     <div className="bg-[#1F1F1F] border border-[#2A2A2A] rounded-xl p-4 flex flex-col gap-3">
       {/* Header: avatar + nome + data + estrelas */}
@@ -879,6 +894,9 @@ function ReviewCard({ review }: { review: Review }) {
             <RatingStars value={review.rating} size={12} />
           </div>
           <p className="text-xs text-[#555] mt-0.5">{formatReviewDate(review.created_at)}</p>
+          {showProperty && (
+            <p className="text-[11px] text-[#666] mt-0.5 truncate">Imóvel: {review.property!.name}</p>
+          )}
         </div>
       </div>
       {/* Comment */}
