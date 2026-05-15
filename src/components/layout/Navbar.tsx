@@ -140,7 +140,7 @@ export function Navbar() {
                           </div>
                         ) : (
                           <div className="py-1">
-                            {/* Mobile: include main nav links */}
+                            {/* Mobile only: exploration links */}
                             <div className="lg:hidden border-b border-[#2A2A2A] pb-1 mb-1">
                               <MenuLink to={APP_ROUTES.HOME} icon={<Home size={14} />} label="Início" />
                               <MenuLink to={`${APP_ROUTES.HOME}?tipo=praia`} icon={<span className="text-[10px]">🏖</span>} label="Praia" />
@@ -148,32 +148,44 @@ export function Navbar() {
                               <MenuLink to={`${APP_ROUTES.HOME}?tipo=cidade`} icon={<span className="text-[10px]">🏙</span>} label="Cidade" />
                             </div>
 
-                            {/* Guest items */}
-                            <MenuLink to={`${APP_ROUTES.GUEST_DASHBOARD}?tab=reservas`} icon={<Calendar size={14} />} label="Reservas" />
-                            <MenuLink to={APP_ROUTES.MESSAGES} icon={<MessageSquare size={14} />} label="Mensagens" />
-                            <MenuLink to={`${APP_ROUTES.GUEST_DASHBOARD}?tab=favoritos`} icon={<Heart size={14} />} label="Favoritos" />
-                            <MenuLink
-                              to={`${APP_ROUTES.GUEST_DASHBOARD}?tab=notificacoes`}
-                              icon={<Bell size={14} />}
-                              label="Notificações"
-                              badge={unreadCount}
-                            />
-                            <MenuLink to={`${APP_ROUTES.GUEST_DASHBOARD}?tab=documentos`} icon={<ShieldCheck size={14} />} label="Documentos" />
-                            <MenuLink to={`${APP_ROUTES.GUEST_DASHBOARD}?tab=perfil`} icon={<User size={14} />} label="Perfil" />
-
-                            {/* Owner extras */}
-                            {profile?.role === 'OWNER' && (
-                              <>
-                                <div className="mx-4 my-1 h-px bg-[#333]" />
+                            {/* Mobile only: single account link (tabs are in DashboardLayout) */}
+                            <div className="lg:hidden border-b border-[#2A2A2A] pb-1 mb-1">
+                              <MenuLink
+                                to={APP_ROUTES.GUEST_DASHBOARD}
+                                icon={<User size={14} />}
+                                label="Minha Conta"
+                              />
+                              <MenuLink
+                                to={APP_ROUTES.MESSAGES}
+                                icon={<MessageSquare size={14} />}
+                                label="Mensagens"
+                              />
+                              {profile?.role === 'OWNER' && (
                                 <MenuLink to={APP_ROUTES.OWNER_DASHBOARD} icon={<Home size={14} className="text-[#F5A623]" />} label="Painel Anfitrião" />
-                                <MenuLink to={APP_ROUTES.NEW_PROPERTY} icon={<FileText size={14} className="text-[#F5A623]" />} label="Cadastrar imóvel" />
-                              </>
-                            )}
+                              )}
+                            </div>
 
-                            {/* Mobile: anunciar */}
-                            <div className="lg:hidden mx-4 my-1 h-px bg-[#333]" />
-                            <div className="lg:hidden">
-                              <MenuLink to={APP_ROUTES.NEW_PROPERTY} icon={<span className="text-[#F5A623] font-bold text-sm">+</span>} label="Anuncie seu imóvel" />
+                            {/* Desktop only: full item list */}
+                            <div className="hidden lg:block">
+                              <MenuLink to={`${APP_ROUTES.GUEST_DASHBOARD}?tab=reservas`} icon={<Calendar size={14} />} label="Reservas" />
+                              <MenuLink to={APP_ROUTES.MESSAGES} icon={<MessageSquare size={14} />} label="Mensagens" />
+                              <MenuLink to={`${APP_ROUTES.GUEST_DASHBOARD}?tab=favoritos`} icon={<Heart size={14} />} label="Favoritos" />
+                              <MenuLink
+                                to={`${APP_ROUTES.GUEST_DASHBOARD}?tab=notificacoes`}
+                                icon={<Bell size={14} />}
+                                label="Notificações"
+                                badge={unreadCount}
+                              />
+                              <MenuLink to={`${APP_ROUTES.GUEST_DASHBOARD}?tab=documentos`} icon={<ShieldCheck size={14} />} label="Documentos" />
+                              <MenuLink to={`${APP_ROUTES.GUEST_DASHBOARD}?tab=perfil`} icon={<User size={14} />} label="Perfil" />
+
+                              {profile?.role === 'OWNER' && (
+                                <>
+                                  <div className="mx-4 my-1 h-px bg-[#333]" />
+                                  <MenuLink to={APP_ROUTES.OWNER_DASHBOARD} icon={<Home size={14} className="text-[#F5A623]" />} label="Painel Anfitrião" />
+                                  <MenuLink to={APP_ROUTES.NEW_PROPERTY} icon={<FileText size={14} className="text-[#F5A623]" />} label="Cadastrar imóvel" />
+                                </>
+                              )}
                             </div>
                           </div>
                         )}

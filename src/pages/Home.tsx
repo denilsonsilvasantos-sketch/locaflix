@@ -114,7 +114,7 @@ export function Home() {
       .select('*')
       .eq('status', 'ATIVO')
       .order('plan', { ascending: false })
-      .order('rating', { ascending: false })
+      .order('created_at', { ascending: false })
       .limit(500)
 
     console.log('[loadProperties]', { count: data?.length, error })
