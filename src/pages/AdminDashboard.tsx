@@ -412,8 +412,9 @@ export function AdminDashboard() {
                         <XAxis dataKey="month" tick={{ fill:'#444', fontSize:11 }} axisLine={false} tickLine={false} />
                         <YAxis tick={{ fill:'#444', fontSize:11 }} axisLine={false} tickLine={false} tickFormatter={v => `R$${(v/1000).toFixed(0)}k`} />
                         <Tooltip
-                          contentStyle={{ background:'#1F1F1F', border:'1px solid #2A2A2A', borderRadius:8 }}
-                          labelStyle={{ color:'#fff', fontSize:12 }}
+                          contentStyle={{ backgroundColor:'#1F1F1F', border:'1px solid #333', borderRadius:'8px', color:'#fff' }}
+                          labelStyle={{ color:'#B3B3B3' }}
+                          itemStyle={{ color:'#fff' }}
                           formatter={(val) => [formatCurrency(Number(val ?? 0)), '']}
                         />
                         <Bar dataKey="gmv"     name="GMV"     fill="#E50914" radius={[4,4,0,0]} maxBarSize={28} />

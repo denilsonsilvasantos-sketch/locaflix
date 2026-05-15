@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { ChevronDown, ChevronLeft, Edit, Headphones, MessageSquare, Send, X } from 'lucide-react'
+import { Bell, Calendar, ChevronDown, ChevronLeft, DollarSign, Edit, Headphones, Heart, Home, MessageSquare, Send, ShieldCheck, Star, User, X } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import type { Message } from '../types'
 import { useAuth } from '../hooks/useAuth'
@@ -256,10 +257,71 @@ export function MessagesPage() {
   const activeContact = contacts.find(c => c.id === activeContactId)
   const activeContactName = activeContact?.id === SUPPORT_ID ? 'Suporte LOCAFLIX' : (activeContact?.name ?? 'Usuário')
 
+  const isNonAdmin = profile?.role !== 'ADMIN'
+  const navItems = profile?.role === 'OWNER'
+    ? [
+        { key: 'imoveis',    label: 'Imóveis',    icon: <Home size={16} />,          href: '/anfitriao' },
+        { key: 'reservas',   label: 'Reservas',   icon: <Calendar size={16} />,      href: '/anfitriao?tab=reservas' },
+        { key: 'financeiro', label: 'Financeiro', icon: <DollarSign size={16} />,    href: '/anfitriao?tab=financeiro' },
+        { key: 'avaliacoes', label: 'Avaliações', icon: <Star size={16} />,          href: '/anfitriao?tab=avaliacoes' },
+        { key: 'documentos', label: 'Documentos', icon: <ShieldCheck size={16} />,   href: '/anfitriao?tab=documentos' },
+        { key: 'mensagens',  label: 'Mensagens',  icon: <MessageSquare size={16} />, href: '/mensagens' },
+      ]
+    : [
+        { key: 'reservas',     label: 'Reservas',     icon: <Calendar size={16} />,      href: '/minha-conta' },
+        { key: 'favoritos',    label: 'Favoritos',    icon: <Heart size={16} />,          href: '/minha-conta?tab=favoritos' },
+        { key: 'notificacoes', label: 'Notificações', icon: <Bell size={16} />,           href: '/minha-conta?tab=notificacoes' },
+        { key: 'documentos',   label: 'Documentos',   icon: <ShieldCheck size={16} />,   href: '/minha-conta?tab=documentos' },
+        { key: 'perfil',       label: 'Perfil',       icon: <User size={16} />,           href: '/minha-conta?tab=perfil' },
+        { key: 'mensagens',    label: 'Mensagens',    icon: <MessageSquare size={16} />, href: '/mensagens' },
+      ]
+
   return (
-    <div className="min-h-screen bg-[#141414] pt-24 flex flex-col">
-      <div className="flex-1 flex flex-col lg:flex-row max-w-6xl mx-auto w-full px-4 py-6 gap-4"
-        style={{ minHeight: 'calc(100vh - 96px)' }}
+    <div className="min-h-screen bg-[#141414] pt-20 flex flex-col">
+      {/* Mobile tab bar — non-ADMIN */}
+      {isNonAdmin && (
+        <div className="lg:hidden sticky top-20 z-30 bg-[#0F0F0F] border-b border-[#333] overflow-x-auto">
+          <nav className="flex">
+            {navItems.map(item => (
+              <Link
+                key={item.href}
+                to={item.href}
+                className={`flex flex-col items-center gap-0.5 px-4 py-2.5 text-[10px] font-medium whitespace-nowrap transition-colors flex-shrink-0 ${
+                  item.key === 'mensagens' ? 'text-[#E50914] border-b-2 border-[#E50914]' : 'text-[#666] hover:text-white'
+                }`}
+              >
+                {item.icon}
+                {item.label}
+              </Link>
+            ))}
+          </nav>
+        </div>
+      )}
+
+      {/* Fixed sidebar — non-ADMIN */}
+      {isNonAdmin && (
+        <aside className="hidden lg:flex flex-col fixed left-0 top-20 w-56 h-[calc(100vh-5rem)] bg-[#0F0F0F] border-r border-[#1F1F1F] z-30">
+          <nav className="flex-1 py-4 space-y-1 px-3 overflow-y-auto">
+            {navItems.map(item => (
+              <Link
+                key={item.href}
+                to={item.href}
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                  item.key === 'mensagens'
+                    ? 'bg-[#1F1F1F] text-white'
+                    : 'text-[#B3B3B3] hover:bg-[#1A1A1A] hover:text-white'
+                }`}
+              >
+                {item.icon}
+                {item.label}
+              </Link>
+            ))}
+          </nav>
+        </aside>
+      )}
+
+      <div className={`flex-1 flex flex-col lg:flex-row w-full px-4 py-6 gap-4${isNonAdmin ? ' lg:ml-56' : ' max-w-6xl mx-auto'}`}
+        style={{ minHeight: 'calc(100vh - 80px)' }}
       >
         {/* ── Contact list ─────────────────────────────── */}
         <div className={`
@@ -325,14 +387,16 @@ export function MessagesPage() {
             )}
           </div>
 
-          {/* Support button */}
-          <button
-            onClick={openSupport}
-            className="flex items-center gap-3 px-4 py-3 border-t border-[#333] text-[#E50914] hover:bg-[#252525] transition-colors w-full text-left flex-shrink-0"
-          >
-            <Headphones size={16} />
-            <span className="text-sm font-medium">Falar com suporte</span>
-          </button>
+          {/* Support button — non-ADMIN only */}
+          {isNonAdmin && (
+            <button
+              onClick={openSupport}
+              className="flex items-center gap-3 px-4 py-3 border-t border-[#333] text-[#E50914] hover:bg-[#252525] transition-colors w-full text-left flex-shrink-0"
+            >
+              <Headphones size={16} />
+              <span className="text-sm font-medium">Falar com suporte</span>
+            </button>
+          )}
         </div>
 
         {/* ── Chat window ──────────────────────────────── */}

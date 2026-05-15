@@ -125,12 +125,19 @@ export function Navbar() {
                         className="absolute right-0 mt-2 w-60 bg-[#1F1F1F] border border-[#333] rounded-xl shadow-2xl overflow-hidden z-50"
                       >
                         {/* User info */}
-                        <div className="px-4 py-3 border-b border-[#333]">
-                          <p className="text-sm font-semibold text-white truncate">{profile?.name ?? 'Usuário'}</p>
-                          <p className="text-xs text-[#B3B3B3] truncate">{user.email}</p>
-                          {profile?.role === 'ADMIN' && (
-                            <span className="inline-block mt-1 text-[10px] font-bold text-[#E50914] bg-[#E50914]/10 px-2 py-0.5 rounded">ADMIN</span>
-                          )}
+                        <div className="px-4 py-3 border-b border-[#333] flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-full bg-[#E50914] flex items-center justify-center text-sm font-bold text-white flex-shrink-0 overflow-hidden">
+                            {profile?.avatar_url
+                              ? <img src={profile.avatar_url} alt="" className="w-full h-full object-cover" />
+                              : getInitials(profile?.name ?? user.email ?? '?')}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold text-white truncate">{profile?.name ?? 'Usuário'}</p>
+                            <p className="text-xs text-[#B3B3B3] truncate">{user.email}</p>
+                            {profile?.role === 'ADMIN' && (
+                              <span className="inline-block mt-1 text-[10px] font-bold text-[#E50914] bg-[#E50914]/10 px-2 py-0.5 rounded">ADMIN</span>
+                            )}
+                          </div>
                         </div>
 
                         {/* Admin */}
