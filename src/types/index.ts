@@ -375,6 +375,20 @@ export interface PixPaymentResponse {
   value: number
 }
 
+export interface BoletoPaymentResponse {
+  payment_id: string
+  status: string
+  boleto_url: string
+  boleto_barcode: string
+  due_date: string
+  value: number
+}
+
+export interface InstallmentPaymentResponse {
+  pix: PixPaymentResponse
+  boleto: BoletoPaymentResponse
+}
+
 // ---- Toast ----
 export type ToastType = 'success' | 'error' | 'warning' | 'info'
 export interface Toast {

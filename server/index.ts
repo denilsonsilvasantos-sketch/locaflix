@@ -138,6 +138,81 @@ app.post('/api/payments/create-boleto', requireAuth, async (req: Request, res: R
   }
 })
 
+// ---- POST /api/payments/create-installments ----
+// Creates both a Pix and a Boleto for one installment in parallel
+app.post('/api/payments/create-installments', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { customer, value, dueDate, description, externalReference, installment_id } = req.body
+
+    if (!ASAAS_API_KEY) {
+      res.status(503).json({ error: 'Integração Asaas não configurada. Defina ASAAS_API_KEY no servidor.' })
+      return
+    }
+
+    if (!customer || !value || !dueDate) {
+      res.status(400).json({ error: 'customer, value and dueDate are required' })
+      return
+    }
+
+    const customerRes = await asaasRequest('POST', '/customers', {
+      name: customer.name,
+      cpfCnpj: customer.cpf?.replace(/\D/g, ''),
+      email: customer.email,
+      mobilePhone: customer.phone?.replace(/\D/g, ''),
+    })
+
+    const basePayload = {
+      customer: customerRes.id,
+      value,
+      dueDate,
+      description,
+      externalReference,
+      fine:     { value: 2.00, type: 'PERCENTAGE' },
+      interest: { value: 1.00, type: 'MONTHLY' },
+    }
+
+    const [pixPayment, boletoPayment] = await Promise.all([
+      asaasRequest('POST', '/payments', { ...basePayload, billingType: 'PIX' }),
+      asaasRequest('POST', '/payments', { ...basePayload, billingType: 'BOLETO' }),
+    ])
+
+    const pixQr = await asaasRequest('GET', `/payments/${pixPayment.id}/pixQrCode`)
+
+    if (installment_id) {
+      const { createClient } = await import('@supabase/supabase-js')
+      const supabase = createClient(
+        process.env.SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      )
+      await supabase.from('installments')
+        .update({ asaas_payment_id: pixPayment.id })
+        .eq('id', installment_id)
+    }
+
+    res.json({
+      pix: {
+        payment_id: pixPayment.id,
+        status:     pixPayment.status,
+        pix_key:    pixQr.payload,
+        pix_qr_code: pixQr.encodedImage,
+        due_date:   pixPayment.dueDate,
+        value:      pixPayment.value,
+      },
+      boleto: {
+        payment_id:    boletoPayment.id,
+        status:        boletoPayment.status,
+        boleto_url:    boletoPayment.bankSlipUrl ?? '',
+        boleto_barcode: boletoPayment.identificationField ?? boletoPayment.nossoNumero ?? '',
+        due_date:      boletoPayment.dueDate,
+        value:         boletoPayment.value,
+      },
+    })
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Internal error'
+    res.status(500).json({ error: msg })
+  }
+})
+
 // ---- GET /api/payments/:id ----
 app.get('/api/payments/:id', requireAuth, async (req: Request, res: Response) => {
   try {

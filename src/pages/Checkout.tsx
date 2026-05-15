@@ -3,13 +3,13 @@ import { useParams, useSearchParams, useNavigate, Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Check, ChevronRight, FileText, CreditCard, User, AlertTriangle, ShieldCheck, Calendar, MessageSquare } from 'lucide-react'
 import { supabase } from '../lib/supabase'
-import type { Property, CheckoutFormData, InstallmentPreview, PixPaymentResponse, CancellationPolicy, PricePeriod } from '../types'
+import type { Property, CheckoutFormData, InstallmentPreview, InstallmentPaymentResponse, CancellationPolicy, PricePeriod } from '../types'
 import { CANCELLATION_POLICIES, APP_ROUTES } from '../constants'
 import { MOCK_PROPERTIES } from '../constants/mocks'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
-import { PixModal } from '../components/ui/PixModal'
+import { PaymentModal } from '../components/ui/PaymentModal'
 import { useAuth } from '../hooks/useAuth'
 import { useToast } from '../hooks/useToast'
 import {
@@ -80,8 +80,8 @@ export function Checkout() {
   const [ipAddress, setIpAddress] = useState('0.0.0.0')
   const [installmentCount, setInstallmentCount] = useState(1)
   const [installmentPreviews, setInstallmentPreviews] = useState<InstallmentPreview[]>([])
-  const [pixData, setPixData] = useState<PixPaymentResponse | null>(null)
-  const [pixModalOpen, setPixModalOpen] = useState(false)
+  const [paymentData, setPaymentData] = useState<InstallmentPaymentResponse | null>(null)
+  const [paymentModalOpen2, setPaymentModalOpen2] = useState(false)
   const [checkingPayment, setCheckingPayment] = useState(false)
   const [paid, setPaid] = useState(false)
 
@@ -306,7 +306,7 @@ export function Checkout() {
       const session = await supabase.auth.getSession()
       const token = session.data.session?.access_token ?? ''
 
-      const pixRes = await fetch('/api/payments/create-pix', {
+      const payRes = await fetch('/api/payments/create-installments', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -327,23 +327,23 @@ export function Checkout() {
         }),
       })
 
-      if (!pixRes.ok) {
-        const err = await pixRes.json()
-        const msg = err.error ?? 'Erro ao gerar Pix'
+      if (!payRes.ok) {
+        const err = await payRes.json()
+        const msg = err.error ?? 'Erro ao gerar cobrança'
         if (isMock) {
           toast('error', 'Erro Asaas (sandbox)', msg)
         } else {
-          toast('warning', 'Reserva criada, mas Pix falhou', `${msg}. Acesse "Minhas reservas" para tentar novamente.`)
+          toast('warning', 'Reserva criada, mas pagamento falhou', `${msg}. Acesse "Minhas reservas" para tentar novamente.`)
           navigate(APP_ROUTES.GUEST_DASHBOARD + '?tab=reservas', { replace: true })
         }
         setPaymentModalOpen(false)
         return
       }
 
-      const pix: PixPaymentResponse = await pixRes.json()
-      setPixData(pix)
+      const paymentResult: InstallmentPaymentResponse = await payRes.json()
+      setPaymentData(paymentResult)
       setPaymentModalOpen(false)
-      setPixModalOpen(true)
+      setPaymentModalOpen2(true)
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Erro ao processar reserva.'
       toast('error', 'Erro', msg)
@@ -353,13 +353,13 @@ export function Checkout() {
   }
 
   async function handleCheckPayment() {
-    if (!pixData) return
+    if (!paymentData) return
     setCheckingPayment(true)
     try {
       const session = await supabase.auth.getSession()
       const token = session.data.session?.access_token ?? ''
 
-      const res = await fetch(`/api/payments/${pixData.payment_id}`, {
+      const res = await fetch(`/api/payments/${paymentData.pix.payment_id}`, {
         headers: { 'Authorization': `Bearer ${token}` },
       })
       const payment = await res.json()
@@ -640,7 +640,7 @@ export function Checkout() {
                 {/* STEP 4 — Payment */}
                 {step === 4 && (
                   <div>
-                    <h2 className="font-display text-xl font-bold text-white mb-4">Pagamento via Pix</h2>
+                    <h2 className="font-display text-xl font-bold text-white mb-4">Pagamento</h2>
 
                     <div className="mb-6">
                       <p className="text-sm font-medium text-[#B3B3B3] mb-3">Número de parcelas</p>
@@ -665,7 +665,7 @@ export function Checkout() {
                       <div className="bg-[#0A0A0A] border border-[#333] rounded-xl overflow-hidden mb-5">
                         <div className="px-4 py-2 border-b border-[#333] flex items-center justify-between">
                           <p className="text-xs font-semibold text-[#B3B3B3] uppercase tracking-wide">Calendário de pagamentos</p>
-                          <p className="text-xs text-[#666]">Pix / QR Code</p>
+                          <p className="text-xs text-[#666]">Pix ou Boleto</p>
                         </div>
                         <div className="divide-y divide-[#1F1F1F]">
                           {installmentPreviews.map(p => (
@@ -740,7 +740,7 @@ export function Checkout() {
                 </div>
                 {installmentCount > 1 && (
                   <p className="text-xs text-center text-[#46D369]">
-                    {installmentCount}x de {formatCurrency(total / installmentCount)} via Pix
+                    {installmentCount}x de {formatCurrency(total / installmentCount)} via Pix ou Boleto
                   </p>
                 )}
               </div>
@@ -753,7 +753,7 @@ export function Checkout() {
       <Modal open={paymentModalOpen} onClose={() => setPaymentModalOpen(false)} title="Confirmar reserva" size="sm">
         <div className="space-y-4">
           <p className="text-[#B3B3B3] text-sm">
-            Você está prestes a criar esta reserva. O pagamento será enviado via Pix.
+            Você está prestes a criar esta reserva. Na próxima tela, escolha pagar via Pix ou Boleto.
           </p>
           <div className="bg-[#0A0A0A] rounded-xl p-4 space-y-2 text-sm">
             <Row label="Imóvel" value={property.name} />
@@ -772,12 +772,12 @@ export function Checkout() {
         </div>
       </Modal>
 
-      {/* Pix payment modal */}
-      <PixModal
-        open={pixModalOpen}
-        onClose={() => setPixModalOpen(false)}
-        pix={pixData}
-        onConfirm={handleCheckPayment}
+      {/* Payment modal — Pix + Boleto */}
+      <PaymentModal
+        open={paymentModalOpen2}
+        onClose={() => setPaymentModalOpen2(false)}
+        payment={paymentData}
+        onCheckPayment={handleCheckPayment}
         loading={checkingPayment}
       />
     </div>
