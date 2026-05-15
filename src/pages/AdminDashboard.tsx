@@ -237,12 +237,50 @@ export function AdminDashboard() {
         setRepasses((data ?? []) as unknown as BookingRow[])
 
       } else if (t === 'sinistros') {
-        const { data } = await supabase
+        const { data: rawInc } = await supabase
           .from('incidents')
-          .select('*, reporter:users!reporter_id(name,email), property:properties!property_id(name), booking:bookings!booking_id(id,guest_id,owner_id,guest:guest_id(id,name,email),owner:owner_id(id,name,email))')
+          .select('*')
           .order('created_at', { ascending: false })
           .limit(200)
-        setSinistros((data ?? []) as IncidentRow[])
+
+        if (!rawInc || rawInc.length === 0) {
+          setSinistros([])
+        } else {
+          type RawInc = { id: string; reporter_id: string | null; property_id: string | null; booking_id: string | null; [k: string]: unknown }
+          const incs = rawInc as RawInc[]
+          const reporterIds = [...new Set(incs.map(i => i.reporter_id).filter(Boolean))] as string[]
+          const propertyIds = [...new Set(incs.map(i => i.property_id).filter(Boolean))] as string[]
+          const bookingIds  = [...new Set(incs.map(i => i.booking_id).filter(Boolean))]  as string[]
+
+          const [{ data: reps }, { data: props }, { data: bks }] = await Promise.all([
+            reporterIds.length ? supabase.from('users').select('id,name,email').in('id', reporterIds) : Promise.resolve({ data: [] }),
+            propertyIds.length ? supabase.from('properties').select('id,name').in('id', propertyIds) : Promise.resolve({ data: [] }),
+            bookingIds.length  ? supabase.from('bookings').select('id,guest_id,owner_id').in('id', bookingIds) : Promise.resolve({ data: [] }),
+          ])
+
+          const bkPartyIds = [...new Set([
+            ...(bks ?? []).map((b: { guest_id: string | null }) => b.guest_id),
+            ...(bks ?? []).map((b: { owner_id: string | null }) => b.owner_id),
+          ].filter(Boolean))] as string[]
+          const { data: bkUsers } = bkPartyIds.length
+            ? await supabase.from('users').select('id,name,email').in('id', bkPartyIds)
+            : { data: [] }
+
+          const repMap  = Object.fromEntries((reps ?? []).map((u: { id: string }) => [u.id, u]))
+          const propMap = Object.fromEntries((props ?? []).map((p: { id: string }) => [p.id, p]))
+          const bkUMap  = Object.fromEntries((bkUsers ?? []).map((u: { id: string }) => [u.id, u]))
+          const bkMap   = Object.fromEntries((bks ?? []).map((b: { id: string; guest_id: string | null; owner_id: string | null }) => [
+            b.id,
+            { ...b, guest: b.guest_id ? bkUMap[b.guest_id] ?? null : null, owner: b.owner_id ? bkUMap[b.owner_id] ?? null : null },
+          ]))
+
+          setSinistros(incs.map(inc => ({
+            ...inc,
+            reporter: inc.reporter_id ? repMap[inc.reporter_id]  ?? null : null,
+            property: inc.property_id ? propMap[inc.property_id] ?? null : null,
+            booking:  inc.booking_id  ? bkMap[inc.booking_id]    ?? null : null,
+          })) as IncidentRow[])
+        }
 
       } else if (t === 'config') {
         const [{ data: ps }, { data: cp }] = await Promise.all([

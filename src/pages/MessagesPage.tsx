@@ -162,21 +162,32 @@ export function MessagesPage() {
     if (!msgs || msgs.length === 0) return
 
     const allIds = [...new Set([...msgs.map(m => m.sender_id), ...msgs.map(m => m.receiver_id)].filter(Boolean))]
-    const { data: usersData } = await supabase.from('users').select('id, name, avatar_url').in('id', allIds)
+    const { data: usersData } = await supabase.from('users').select('id, name, avatar_url, role').in('id', allIds)
     const userMap: Record<string, { name: string | null; avatar_url: string | null }> = {}
-    for (const u of usersData ?? []) userMap[u.id] = u
+    // All IDs that belong to admin accounts (normalised to SUPPORT_ID in pairs)
+    const adminIdSet = new Set<string>([SUPPORT_ID])
+    for (const u of usersData ?? []) {
+      userMap[u.id] = u
+      if ((u as { role?: string }).role === 'ADMIN') adminIdSet.add(u.id)
+    }
+    // Keep non-SUPPORT admins in the shared ref so loadMessages can include them
+    adminIdsRef.current = [...adminIdSet].filter(id => id !== SUPPORT_ID)
 
     const map: Record<string, Contact> = {}
     for (const m of msgs) {
       if (!m.sender_id || !m.receiver_id) continue
-      const pair = [m.sender_id, m.receiver_id].sort() as [string, string]
+      // Normalise: any admin account → SUPPORT_ID
+      const sid = adminIdSet.has(m.sender_id)   ? SUPPORT_ID : m.sender_id
+      const rid = adminIdSet.has(m.receiver_id) ? SUPPORT_ID : m.receiver_id
+      if (sid === rid) continue // skip admin↔admin messages
+      const pair = [sid, rid].sort() as [string, string]
       const pairKey = pair.join('__')
       if (!map[pairKey]) {
-        const n1 = pair[0] === SUPPORT_ID ? 'Suporte LOCAFLIX' : (userMap[pair[0]]?.name ?? 'Usuário')
-        const n2 = pair[1] === SUPPORT_ID ? 'Suporte LOCAFLIX' : (userMap[pair[1]]?.name ?? 'Usuário')
+        const nonAdminId = pair.find(id => id !== SUPPORT_ID) ?? pair[0]
+        const displayName = userMap[nonAdminId]?.name ?? 'Usuário'
         map[pairKey] = {
           id: pairKey,
-          name: `${n1} ↔ ${n2}`,
+          name: `Suporte LOCAFLIX ↔ ${displayName}`,
           avatar_url: null,
           lastMessage: m.content,
           lastAt: m.created_at,
