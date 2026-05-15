@@ -195,9 +195,9 @@ export function GuestDashboard() {
 
   return (
     <div className="min-h-screen bg-[#141414] pt-20">
-      {/* Horizontal tab bar */}
-      <div className="border-b border-[#333] bg-[#141414]/95 backdrop-blur-sm sticky top-20 z-30">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 flex overflow-x-auto scrollbar-hide">
+      {/* Mobile tab bar — hidden on desktop */}
+      <div className="lg:hidden border-b border-[#333] bg-[#141414]/95 backdrop-blur-sm sticky top-20 z-30">
+        <div className="flex overflow-x-auto scrollbar-hide px-2">
           {TABS.map(t => {
             const active = t.key === tab
             return (
@@ -221,7 +221,42 @@ export function GuestDashboard() {
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="flex gap-8">
+          {/* Desktop sidebar — hidden on mobile */}
+          <aside className="hidden lg:block w-56 flex-shrink-0">
+            <div className="sticky top-24 bg-[#1F1F1F] border border-[#333] rounded-xl overflow-hidden">
+              <div className="px-4 py-4 border-b border-[#333]">
+                <h2 className="font-display text-lg font-bold text-white">Minha Conta</h2>
+              </div>
+              <nav className="flex flex-col gap-1 p-4">
+                {TABS.map(t => {
+                  const active = t.key === tab
+                  return (
+                    <Link
+                      key={t.key}
+                      to={t.href}
+                      className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                        active
+                          ? 'bg-[#E50914] text-white'
+                          : 'text-[#B3B3B3] hover:text-white hover:bg-[#2A2A2A]'
+                      }`}
+                    >
+                      <span className="w-4 h-4 flex-shrink-0">{t.icon}</span>
+                      <span className="flex-1">{t.label}</span>
+                      {t.key === 'notificacoes' && unreadCount > 0 && (
+                        <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${active ? 'bg-white/20 text-white' : 'bg-[#E50914] text-white'}`}>
+                          {unreadCount > 9 ? '9+' : unreadCount}
+                        </span>
+                      )}
+                    </Link>
+                  )
+                })}
+              </nav>
+            </div>
+          </aside>
+
+          <main className="flex-1 min-w-0">
 
       {/* Banner boas-vindas Google */}
       {isWelcome && tab === 'perfil' && (
@@ -503,6 +538,8 @@ export function GuestDashboard() {
           )}
         </>
       )}
+          </main>
+        </div>
       </div>
     </div>
   )

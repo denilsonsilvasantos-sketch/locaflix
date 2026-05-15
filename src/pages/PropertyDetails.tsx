@@ -80,24 +80,8 @@ export function PropertyDetails() {
   const [calendarOpen, setCalendarOpen] = useState(false)
   const calendarRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => {
-    if (!id) return
-    loadProperty(id)
-  }, [id, loadProperty])
-
-  useEffect(() => {
-    if (!id || !user) return
-    supabase
-      .from('favorites')
-      .select('id')
-      .eq('user_id', user.id)
-      .eq('property_id', id)
-      .maybeSingle()
-      .then(({ data }) => setIsFavorited(!!data))
-  }, [id, user?.id])
-
   const loadProperty = useCallback(async (propertyId: string) => {
-    // Step 1: fetch property first to get owner_id
+    // Step 1: fetch property to get owner_id
     const propRes = await supabase
       .from('properties')
       .select('*')
@@ -143,7 +127,6 @@ export function PropertyDetails() {
     }
     setReviews((revRes.data ?? []) as Review[])
 
-    // Group photos by room
     const photosData = (photoRes.data ?? []) as (PropertyPhoto & { room: { id: string; name: string; display_order: number } | null })[]
     const groups: RoomGroup[] = []
     for (const photo of photosData) {
@@ -161,6 +144,22 @@ export function PropertyDetails() {
     setPropertyAmenities((amenitiesRes.data ?? []) as PropertyAmenity[])
     setLoading(false)
   }, [])
+
+  useEffect(() => {
+    if (!id) return
+    loadProperty(id)
+  }, [id, loadProperty])
+
+  useEffect(() => {
+    if (!id || !user) return
+    supabase
+      .from('favorites')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('property_id', id)
+      .maybeSingle()
+      .then(({ data }) => setIsFavorited(!!data))
+  }, [id, user?.id])
 
   function calcNights() {
     if (!checkIn || !checkOut) return 0
