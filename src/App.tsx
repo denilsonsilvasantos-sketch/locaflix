@@ -15,18 +15,19 @@ import { GuestDashboard } from './pages/GuestDashboard'
 import { OwnerDashboard } from './pages/OwnerDashboard'
 import { AdminDashboard } from './pages/AdminDashboard'
 import { NewProperty } from './pages/NewProperty'
+import { EditProperty } from './pages/EditProperty'
 import { MessagesPage } from './pages/MessagesPage'
 import { CancellationPolicy } from './pages/CancellationPolicy'
 import { BecomeOwner } from './pages/BecomeOwner'
 import { AuthCallback } from './pages/AuthCallback'
 import { HelpCenter } from './components/ui/HelpCenter'
 
-function AppLayout({ children }: { children: React.ReactNode }) {
+function AppLayout({ children, noFooter }: { children: React.ReactNode; noFooter?: boolean }) {
   return (
     <>
       <Navbar />
       <main>{children}</main>
-      <Footer />
+      {!noFooter && <Footer />}
     </>
   )
 }
@@ -56,26 +57,31 @@ export default function App() {
             } />
             <Route path={APP_ROUTES.MESSAGES} element={
               <ProtectedRoute>
-                <AppLayout><MessagesPage /></AppLayout>
+                <AppLayout noFooter><MessagesPage /></AppLayout>
               </ProtectedRoute>
             } />
 
             {/* GUEST dashboard */}
             <Route path={APP_ROUTES.GUEST_DASHBOARD} element={
               <ProtectedRoute roles={['GUEST', 'OWNER', 'ADMIN']}>
-                <AppLayout><GuestDashboard /></AppLayout>
+                <AppLayout noFooter><GuestDashboard /></AppLayout>
               </ProtectedRoute>
             } />
 
             {/* OWNER dashboard */}
             <Route path={`${APP_ROUTES.OWNER_DASHBOARD}/*`} element={
               <ProtectedRoute roles={['OWNER', 'ADMIN']}>
-                <AppLayout><OwnerDashboard /></AppLayout>
+                <AppLayout noFooter><OwnerDashboard /></AppLayout>
               </ProtectedRoute>
             } />
             <Route path={APP_ROUTES.NEW_PROPERTY} element={
               <ProtectedRoute roles={['OWNER', 'ADMIN']}>
-                <AppLayout><NewProperty /></AppLayout>
+                <AppLayout noFooter><NewProperty /></AppLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/editar-imovel/:id" element={
+              <ProtectedRoute roles={['OWNER', 'ADMIN']}>
+                <AppLayout noFooter><EditProperty /></AppLayout>
               </ProtectedRoute>
             } />
 

@@ -805,9 +805,11 @@ function PropertyRow({ property, onToggle }: { property: Property; onToggle: (p:
               <Eye size={14} />
             </button>
           </Link>
-          <button className="w-8 h-8 rounded-lg bg-[#2A2A2A] flex items-center justify-center text-[#B3B3B3] hover:text-white transition-colors">
-            <Pencil size={14} />
-          </button>
+          <Link to={APP_ROUTES.EDIT_PROPERTY(property.id)}>
+            <button className="w-8 h-8 rounded-lg bg-[#2A2A2A] flex items-center justify-center text-[#B3B3B3] hover:text-white transition-colors">
+              <Pencil size={14} />
+            </button>
+          </Link>
           <button
             onClick={() => onToggle(property)}
             className="w-8 h-8 rounded-lg bg-[#2A2A2A] flex items-center justify-center transition-colors"

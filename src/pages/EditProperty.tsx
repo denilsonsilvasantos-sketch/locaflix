@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { X, Plus, Upload, Trash2, Image, Link, DollarSign } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
@@ -46,10 +46,12 @@ function uid() {
   return Math.random().toString(36).slice(2)
 }
 
-export function NewProperty() {
+export function EditProperty() {
+  const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { user } = useAuth()
   const { toast } = useToast()
+  const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [rooms, setRooms] = useState<RoomDraft[]>([])
   const [periods, setPeriods] = useState<PeriodDraft[]>([])
@@ -84,21 +86,106 @@ export function NewProperty() {
       .then(({ data }) => { if (data) setCatalog(data as AmenityCatalog[]) })
   }, [])
 
+  useEffect(() => {
+    if (!id) return
+    void loadProperty()
+  }, [id])
+
+  async function loadProperty() {
+    setLoading(true)
+
+    const { data: prop } = await supabase
+      .from('properties')
+      .select('*')
+      .eq('id', id!)
+      .single()
+
+    if (!prop) {
+      toast('error', 'Imóvel não encontrado', '')
+      navigate(APP_ROUTES.OWNER_DASHBOARD)
+      return
+    }
+
+    setForm({
+      name: prop.name ?? '',
+      description: prop.description ?? '',
+      type: prop.type ?? 'CASA',
+      city: prop.city ?? '',
+      state: prop.state ?? 'SP',
+      neighborhood: prop.neighborhood ?? '',
+      address: prop.address ?? '',
+      number: prop.number ?? '',
+      complement: prop.complement ?? '',
+      cep: prop.cep ?? '',
+      price_per_night: String(prop.price_per_night ?? ''),
+      min_price: prop.min_price ? String(prop.min_price) : '',
+      bedrooms: String(prop.bedrooms ?? 1),
+      bathrooms: String(prop.bathrooms ?? 1),
+      max_guests: String(prop.max_guests ?? 4),
+      cancellation_policy: prop.cancellation_policy ?? 'MODERADO',
+    })
+
+    const { data: amenities } = await supabase
+      .from('property_amenities')
+      .select('amenity_id')
+      .eq('property_id', id!)
+    if (amenities) {
+      setSelectedAmenityIds(new Set(amenities.map((a: { amenity_id: string }) => a.amenity_id)))
+    }
+
+    const { data: roomsData } = await supabase
+      .from('property_rooms')
+      .select('*, property_photos(*)')
+      .eq('property_id', id!)
+      .order('display_order')
+    if (roomsData) {
+      setRooms(roomsData.map((r: { name: string; description: string | null; property_photos: { url: string; caption: string | null }[] }) => ({
+        id: uid(),
+        name: r.name,
+        description: r.description ?? '',
+        photos: (r.property_photos ?? []).map((p) => ({
+          id: uid(),
+          url: p.url,
+          caption: p.caption ?? '',
+          uploading: false,
+        })),
+      })))
+    }
+
+    const { data: periodsData } = await supabase
+      .from('price_periods')
+      .select('*')
+      .eq('property_id', id!)
+      .order('priority')
+    if (periodsData) {
+      setPeriods(periodsData.map((p: { period_type: PeriodType; name: string; price_per_night: number; start_date: string | null; end_date: string | null; priority: number }) => ({
+        id: uid(),
+        period_type: p.period_type,
+        name: p.name,
+        price_per_night: String(p.price_per_night),
+        start_date: p.start_date ?? '',
+        end_date: p.end_date ?? '',
+        priority: String(p.priority),
+      })))
+    }
+
+    setLoading(false)
+  }
+
   function upd(k: keyof typeof form, v: unknown) {
     setForm(f => ({ ...f, [k]: v }))
   }
 
-  function toggleAmenity(id: string, name: string) {
+  function toggleAmenity(amenityId: string, name: string) {
     setSelectedAmenityIds(prev => {
       const next = new Set(prev)
-      if (next.has(id)) {
-        next.delete(id)
-        // Unchecking "Piscina" removes all pool subtypes too
+      if (next.has(amenityId)) {
+        next.delete(amenityId)
         if (name === 'Piscina') {
           catalog.filter(c => c.name !== 'Piscina' && c.name.startsWith('Piscina')).forEach(c => next.delete(c.id))
         }
       } else {
-        next.add(id)
+        next.add(amenityId)
       }
       return next
     })
@@ -212,7 +299,7 @@ export function NewProperty() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!user) return
+    if (!user || !id) return
     if (!form.name || !form.city || !form.price_per_night) {
       toast('warning', 'Campos obrigatórios', 'Preencha nome, cidade e preço.')
       return
@@ -220,15 +307,13 @@ export function NewProperty() {
     setSaving(true)
 
     const amenityNames = Array.from(selectedAmenityIds)
-      .map(id => catalog.find(c => c.id === id)?.name ?? '')
+      .map(aId => catalog.find(c => c.id === aId)?.name ?? '')
       .filter(Boolean)
 
-    const { data: prop, error: propErr } = await supabase.from('properties').insert({
-      owner_id: user.id,
+    const { error: propErr } = await supabase.from('properties').update({
       name: form.name,
       description: form.description || null,
       type: form.type,
-      status: 'PENDENTE',
       city: form.city,
       state: form.state,
       neighborhood: form.neighborhood || null,
@@ -242,35 +327,33 @@ export function NewProperty() {
       bathrooms: Number(form.bathrooms),
       max_guests: Number(form.max_guests),
       amenities: amenityNames,
-      photos: [],
       cancellation_policy: form.cancellation_policy,
-    }).select('id').single()
+    }).eq('id', id)
 
-    if (propErr || !prop) {
+    if (propErr) {
       setSaving(false)
-      toast('error', 'Erro ao cadastrar', propErr?.message ?? 'Tente novamente.')
+      toast('error', 'Erro ao salvar', propErr.message)
       return
     }
 
-    const propertyId = prop.id
-
+    await supabase.from('property_amenities').delete().eq('property_id', id)
     if (selectedAmenityIds.size > 0) {
       await supabase.from('property_amenities').insert(
         Array.from(selectedAmenityIds).map(amenityId => ({
-          property_id: propertyId,
+          property_id: id,
           amenity_id: amenityId,
         }))
       )
     }
 
+    await supabase.from('property_rooms').delete().eq('property_id', id)
     const validRooms = rooms.filter(rm => rm.name.trim())
-
     for (let i = 0; i < validRooms.length; i++) {
       const room = validRooms[i]
       const { data: roomRow, error: roomErr } = await supabase
         .from('property_rooms')
         .insert({
-          property_id: propertyId,
+          property_id: id,
           name: room.name.trim(),
           description: room.description.trim() || null,
           display_order: i,
@@ -285,7 +368,7 @@ export function NewProperty() {
 
       await supabase.from('property_photos').insert(
         validPhotos.map((p, j) => ({
-          property_id: propertyId,
+          property_id: id,
           room_id: roomRow.id,
           url: p.url,
           caption: p.caption.trim() || null,
@@ -294,11 +377,12 @@ export function NewProperty() {
       )
     }
 
+    await supabase.from('price_periods').delete().eq('property_id', id)
     const validPeriods = periods.filter(p => p.name.trim() && p.price_per_night)
     if (validPeriods.length > 0) {
       await supabase.from('price_periods').insert(
         validPeriods.map((p, i) => ({
-          property_id: propertyId,
+          property_id: id,
           name: p.name.trim(),
           period_type: p.period_type,
           price_per_night: Number(p.price_per_night),
@@ -311,15 +395,23 @@ export function NewProperty() {
     }
 
     setSaving(false)
-    toast('success', 'Imóvel cadastrado!', 'Aguardando aprovação da equipe LOCAFLIX.')
+    toast('success', 'Imóvel atualizado!', 'As alterações foram salvas com sucesso.')
     navigate(APP_ROUTES.OWNER_DASHBOARD)
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#141414] pt-24 flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-[#E50914] border-t-transparent rounded-full animate-spin" />
+      </div>
+    )
   }
 
   return (
     <div className="min-h-screen bg-[#141414] pt-24 pb-12">
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between mb-6">
-          <h1 className="font-display text-2xl font-bold text-white">Cadastrar imóvel</h1>
+          <h1 className="font-display text-2xl font-bold text-white">Editar imóvel</h1>
           <button
             onClick={() => navigate(APP_ROUTES.OWNER_DASHBOARD)}
             className="text-[#B3B3B3] hover:text-white transition-colors"
@@ -423,7 +515,6 @@ export function NewProperty() {
             {catalog.length === 0 ? (
               <p className="text-xs text-[#555]">Carregando comodidades...</p>
             ) : (() => {
-              // Group by category preserving insertion order
               const byCategory: Record<string, AmenityCatalog[]> = {}
               for (const item of catalog) {
                 if (!byCategory[item.category]) byCategory[item.category] = []
@@ -628,7 +719,7 @@ export function NewProperty() {
               Cancelar
             </Button>
             <Button type="submit" loading={saving} fullWidth>
-              Cadastrar imóvel
+              Salvar alterações
             </Button>
           </div>
         </form>
@@ -680,7 +771,6 @@ function RoomCard({
 
   return (
     <div className="border border-[#2A2A2A] rounded-xl overflow-hidden">
-      {/* Room header */}
       <div className="bg-[#252525] px-4 py-3 flex items-center gap-3">
         <span className="text-xs font-bold text-[#555] w-5 text-center shrink-0">{index + 1}</span>
         <input
@@ -700,7 +790,6 @@ function RoomCard({
       </div>
 
       <div className="p-4 space-y-3">
-        {/* Description */}
         <input
           value={room.description}
           onChange={e => onDescChange(e.target.value)}
@@ -708,7 +797,6 @@ function RoomCard({
           className="w-full bg-[#1A1A1A] border border-[#2A2A2A] rounded-lg px-3 py-2 text-xs text-[#B3B3B3] placeholder-[#444] outline-none focus:border-[#444] transition-colors"
         />
 
-        {/* Photo grid */}
         {room.photos.length > 0 && (
           <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
             {room.photos.map(photo => (
@@ -742,10 +830,8 @@ function RoomCard({
           </div>
         )}
 
-        {/* Add photo form */}
         {canAddMore && (
           <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-lg p-3 space-y-2">
-            {/* Mode toggle */}
             <div className="flex gap-1">
               <button
                 type="button"
@@ -769,7 +855,6 @@ function RoomCard({
               </button>
             </div>
 
-            {/* Caption (shared between modes) */}
             <input
               value={caption}
               onChange={e => setCaption(e.target.value)}
@@ -785,31 +870,34 @@ function RoomCard({
                   onChange={e => setPhotoUrl(e.target.value)}
                   placeholder="https://..."
                   className="flex-1 bg-[#0A0A0A] border border-[#333] rounded-lg px-3 py-2 text-xs text-white placeholder-[#555] outline-none focus:border-[#444] transition-colors"
-                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddUrl() } }}
                 />
                 <button
                   type="button"
                   onClick={handleAddUrl}
                   disabled={!photoUrl.trim()}
-                  className="shrink-0 flex items-center gap-1 px-3 py-2 bg-[#333] hover:bg-[#444] disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs rounded-lg transition-colors"
+                  className="px-3 py-2 bg-[#E50914] hover:bg-[#F40612] disabled:opacity-40 rounded-lg text-xs text-white font-medium transition-colors"
                 >
-                  <Plus size={13} />
                   Adicionar
                 </button>
               </div>
             ) : (
-              <>
-                <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
+              <div>
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleFileChange}
+                />
                 <button
                   type="button"
                   onClick={() => fileRef.current?.click()}
-                  className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-[#333] hover:bg-[#444] text-white text-xs rounded-lg transition-colors"
+                  className="w-full flex items-center justify-center gap-2 px-3 py-2 border-2 border-dashed border-[#333] hover:border-[#555] rounded-lg text-xs text-[#666] hover:text-[#B3B3B3] transition-colors"
                 >
                   <Upload size={13} />
                   Selecionar arquivo
                 </button>
-                <p className="text-[10px] text-[#444] text-center">JPG, PNG, WebP · máx. 10 MB</p>
-              </>
+              </div>
             )}
           </div>
         )}

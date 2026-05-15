@@ -205,7 +205,7 @@ export function AdminDashboard() {
     try {
       if (t === 'imoveis') {
         const { data } = await supabase
-          .from('properties').select('*, owner:owner_id(id,name,email)')
+          .from('properties').select('*, owner:users!owner_id(id,name,email)')
           .order('created_at', { ascending: false }).limit(200)
         setProperties((data ?? []) as Property[])
 

@@ -8,6 +8,7 @@ export const APP_ROUTES = {
   OWNER_DASHBOARD: '/anfitriao',
   ADMIN_DASHBOARD: '/admin',
   NEW_PROPERTY: '/anfitriao/novo-imovel',
+  EDIT_PROPERTY: (id: string) => `/editar-imovel/${id}`,
   MESSAGES: '/mensagens',
   BOOKING: (id: string) => `/reserva/${id}`,
 } as const
