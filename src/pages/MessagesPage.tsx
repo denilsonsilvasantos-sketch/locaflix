@@ -38,6 +38,7 @@ export function MessagesPage() {
   const [mobileView, setMobileView] = useState<'list' | 'chat'>('list')
   const bottomRef = useRef<HTMLDivElement>(null)
   const activeContactIdRef = useRef<string | null>(null)
+  const adminIdsRef = useRef<string[]>([])
 
   // Compose
   const [composeOpen, setComposeOpen] = useState(false)
@@ -67,14 +68,15 @@ export function MessagesPage() {
         filter: `receiver_id=eq.${user.id}`,
       }, payload => {
         const m = payload.new as Message
-        if (m.sender_id === activeContactIdRef.current) {
+        const effectiveSender = adminIdsRef.current.includes(m.sender_id) ? SUPPORT_ID : m.sender_id
+        if (effectiveSender === activeContactIdRef.current) {
           setMessages(prev => prev.some(x => x.id === m.id) ? prev : [...prev, m])
         }
         setContacts(prev => {
-          const exists = prev.find(c => c.id === m.sender_id)
+          const exists = prev.find(c => c.id === effectiveSender)
           if (exists) {
-            return prev.map(c => c.id === m.sender_id
-              ? { ...c, lastMessage: m.content, lastAt: m.created_at, unread: m.sender_id !== activeContactIdRef.current ? c.unread + 1 : c.unread }
+            return prev.map(c => c.id === effectiveSender
+              ? { ...c, lastMessage: m.content, lastAt: m.created_at, unread: effectiveSender !== activeContactIdRef.current ? c.unread + 1 : c.unread }
               : c
             ).sort((a, b) => new Date(b.lastAt).getTime() - new Date(a.lastAt).getTime())
           }
@@ -109,16 +111,23 @@ export function MessagesPage() {
 
     const { data: usersData } = await supabase
       .from('users')
-      .select('id, name, avatar_url')
+      .select('id, name, avatar_url, role')
       .in('id', otherIds)
 
     const userMap: Record<string, { name: string | null; avatar_url: string | null }> = {}
-    for (const u of usersData ?? []) userMap[u.id] = u
+    const newAdminIds: string[] = []
+    for (const u of usersData ?? []) {
+      userMap[u.id] = u
+      if ((u as { role?: string }).role === 'ADMIN') newAdminIds.push(u.id)
+    }
+    adminIdsRef.current = newAdminIds
 
     const map: Record<string, Contact> = {}
     for (const m of msgs) {
-      const otherId = m.sender_id === user.id ? m.receiver_id : m.sender_id
-      if (!otherId) continue
+      const rawOtherId = m.sender_id === user.id ? m.receiver_id : m.sender_id
+      if (!rawOtherId) continue
+      // Normalize: replies from any admin collapse into the SUPPORT_ID conversation
+      const otherId = newAdminIds.includes(rawOtherId) ? SUPPORT_ID : rawOtherId
       if (!map[otherId]) {
         const u = userMap[otherId] ?? { name: null, avatar_url: null }
         map[otherId] = {
@@ -189,6 +198,30 @@ export function MessagesPage() {
 
   async function loadMessages(contactId: string, pairIds?: [string, string]) {
     if (!user?.id) return
+
+    if (!pairIds && contactId === SUPPORT_ID) {
+      // Support conversation: include messages from SUPPORT_ID and from any known admin
+      const adminClauses = adminIdsRef.current
+        .map(aid => `and(sender_id.eq.${aid},receiver_id.eq.${user.id})`)
+        .join(',')
+      const orFilter = [
+        `and(sender_id.eq.${user.id},receiver_id.eq.${SUPPORT_ID})`,
+        `and(sender_id.eq.${SUPPORT_ID},receiver_id.eq.${user.id})`,
+        ...(adminClauses ? [adminClauses] : []),
+      ].join(',')
+
+      const { data } = await supabase
+        .from('messages')
+        .select('*')
+        .or(orFilter)
+        .order('created_at', { ascending: true })
+        .limit(100)
+
+      setMessages((data ?? []) as Message[])
+      setContacts(prev => prev.map(c => c.id === SUPPORT_ID ? { ...c, unread: 0 } : c))
+      return
+    }
+
     const [uid1, uid2] = pairIds ?? [user.id, contactId]
     const { data } = await supabase
       .from('messages')
