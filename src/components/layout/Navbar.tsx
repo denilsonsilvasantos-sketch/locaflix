@@ -157,13 +157,16 @@ export function Navbar() {
                               )}
                             </div>
 
-                            {/* Desktop only: owner shortcuts */}
-                            {profile?.role === 'OWNER' && (
-                              <div className="hidden lg:block border-b border-[#2A2A2A] pb-1 mb-1">
-                                <MenuLink to={APP_ROUTES.OWNER_DASHBOARD} icon={<Home size={14} className="text-[#F5A623]" />} label="Painel Anfitrião" />
-                                <MenuLink to={APP_ROUTES.NEW_PROPERTY} icon={<FileText size={14} className="text-[#F5A623]" />} label="Cadastrar imóvel" />
-                              </div>
-                            )}
+                            {/* Desktop only: account + owner shortcuts */}
+                            <div className="hidden lg:block border-b border-[#2A2A2A] pb-1 mb-1">
+                              <MenuLink to={APP_ROUTES.GUEST_DASHBOARD} icon={<User size={14} />} label="Minha Conta" />
+                              {profile?.role === 'OWNER' && (
+                                <>
+                                  <MenuLink to={APP_ROUTES.OWNER_DASHBOARD} icon={<Home size={14} className="text-[#F5A623]" />} label="Painel Anfitrião" />
+                                  <MenuLink to={APP_ROUTES.NEW_PROPERTY} icon={<FileText size={14} className="text-[#F5A623]" />} label="Cadastrar imóvel" />
+                                </>
+                              )}
+                            </div>
                           </div>
                         )}
 
