@@ -3,7 +3,7 @@ import { useSearchParams, Link } from 'react-router-dom'
 import {
   Home, Calendar, DollarSign, Star, Plus, Eye, Pencil,
   ToggleLeft, ToggleRight, ShieldCheck, Check, X, AlertCircle,
-  ChevronDown, ChevronUp, Trash2, LogOut,
+  ChevronDown, ChevronUp, Trash2, LogOut, MessageSquare,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import type { Property, Booking, Review, KinshipType, OwnershipType, PricePeriod, PeriodType } from '../types'
@@ -29,11 +29,12 @@ const KINSHIP_LABELS: Record<KinshipType, string> = {
 }
 
 const NAV = [
-  { label: 'Imóveis',    icon: <Home size={16} />,       href: '/anfitriao',                  tabKey: 'imoveis' },
-  { label: 'Reservas',   icon: <Calendar size={16} />,   href: '/anfitriao?tab=reservas',     tabKey: 'reservas' },
-  { label: 'Financeiro', icon: <DollarSign size={16} />, href: '/anfitriao?tab=financeiro',   tabKey: 'financeiro' },
-  { label: 'Avaliações', icon: <Star size={16} />,       href: '/anfitriao?tab=avaliacoes',   tabKey: 'avaliacoes' },
-  { label: 'Documentos', icon: <ShieldCheck size={16} />,href: '/anfitriao?tab=documentos',   tabKey: 'documentos' },
+  { label: 'Imóveis',    icon: <Home size={16} />,          href: '/anfitriao',                tabKey: 'imoveis' },
+  { label: 'Reservas',   icon: <Calendar size={16} />,      href: '/anfitriao?tab=reservas',   tabKey: 'reservas' },
+  { label: 'Financeiro', icon: <DollarSign size={16} />,    href: '/anfitriao?tab=financeiro', tabKey: 'financeiro' },
+  { label: 'Avaliações', icon: <Star size={16} />,          href: '/anfitriao?tab=avaliacoes', tabKey: 'avaliacoes' },
+  { label: 'Documentos', icon: <ShieldCheck size={16} />,   href: '/anfitriao?tab=documentos', tabKey: 'documentos' },
+  { label: 'Mensagens',  icon: <MessageSquare size={16} />, href: '/mensagens',                tabKey: 'mensagens' },
 ]
 
 interface KycForm {

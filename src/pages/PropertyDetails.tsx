@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
+import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import {
   Star, MapPin, Users, BedDouble, Bath, ChevronLeft, ChevronRight,
-  Heart, Share2, Check, Calendar, X, Grid2x2,
+  Heart, Share2, Check, Calendar, X, Grid2x2, MessageSquare,
   AirVent, Wind, Wifi, Tv, Shirt, Zap, Car, Accessibility,
   Utensils, UtensilsCrossed, Refrigerator, Snowflake, Flame, Coffee,
   Thermometer, Lock, Baby, Umbrella, Droplets, Dumbbell, Gamepad2, Trees,
@@ -77,6 +77,7 @@ export function PropertyDetails() {
   const [checkOut, setCheckOut] = useState(() => searchParams.get('saida') ?? '')
   const [guests, setGuests] = useState(() => Number(searchParams.get('hospedes') ?? 2))
   const [isFavorited, setIsFavorited] = useState(false)
+  const [hasActiveBooking, setHasActiveBooking] = useState(false)
   const [calendarOpen, setCalendarOpen] = useState(false)
   const calendarRef = useRef<HTMLDivElement>(null)
 
@@ -159,6 +160,18 @@ export function PropertyDetails() {
       .eq('property_id', id)
       .maybeSingle()
       .then(({ data }) => setIsFavorited(!!data))
+  }, [id, user?.id])
+
+  useEffect(() => {
+    if (!id || !user) return
+    supabase
+      .from('bookings')
+      .select('id')
+      .eq('property_id', id)
+      .eq('guest_id', user.id)
+      .in('status', ['PAGO', 'CONCLUIDA'])
+      .limit(1)
+      .then(({ data }) => setHasActiveBooking((data?.length ?? 0) > 0))
   }, [id, user?.id])
 
   function calcNights() {
@@ -725,6 +738,15 @@ export function PropertyDetails() {
                   {user ? 'Reservar agora' : 'Entrar para reservar'}
                 </Button>
                 <p className="text-center text-xs text-[#666] mt-2">Sem cobrança ainda</p>
+
+                {hasActiveBooking && (
+                  <Link to={APP_ROUTES.MESSAGES} className="mt-3 block">
+                    <Button variant="ghost" fullWidth className="gap-2">
+                      <MessageSquare size={15} />
+                      Falar com anfitrião
+                    </Button>
+                  </Link>
+                )}
 
                 {/* Price breakdown */}
                 {nights > 0 && (

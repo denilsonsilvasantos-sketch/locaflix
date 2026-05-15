@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useSearchParams, useNavigate, Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Check, ChevronRight, FileText, CreditCard, User, AlertTriangle, ShieldCheck, Calendar } from 'lucide-react'
+import { Check, ChevronRight, FileText, CreditCard, User, AlertTriangle, ShieldCheck, Calendar, MessageSquare } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import type { Property, CheckoutFormData, InstallmentPreview, PixPaymentResponse, CancellationPolicy, PricePeriod } from '../types'
 import { CANCELLATION_POLICIES, APP_ROUTES } from '../constants'
@@ -83,6 +83,7 @@ export function Checkout() {
   const [pixData, setPixData] = useState<PixPaymentResponse | null>(null)
   const [pixModalOpen, setPixModalOpen] = useState(false)
   const [checkingPayment, setCheckingPayment] = useState(false)
+  const [paid, setPaid] = useState(false)
 
   const checkIn = searchParams.get('entrada') ?? ''
   const checkOut = searchParams.get('saida') ?? ''
@@ -364,9 +365,8 @@ export function Checkout() {
       const payment = await res.json()
 
       if (payment.status === 'CONFIRMED' || payment.status === 'RECEIVED') {
-        toast('success', 'Pagamento confirmado!', 'Sua reserva está confirmada.')
         setPixModalOpen(false)
-        navigate(APP_ROUTES.GUEST_DASHBOARD + '?tab=reservas', { replace: true })
+        setPaid(true)
       } else {
         toast('warning', 'Pagamento pendente', 'Ainda não identificamos o pagamento. Tente novamente em alguns instantes.')
       }
@@ -375,6 +375,35 @@ export function Checkout() {
     } finally {
       setCheckingPayment(false)
     }
+  }
+
+  if (paid) {
+    return (
+      <div className="min-h-screen bg-[#141414] flex items-center justify-center px-4">
+        <div className="max-w-sm w-full text-center">
+          <div className="w-16 h-16 bg-[#46D369]/20 rounded-full flex items-center justify-center mx-auto mb-5">
+            <Check size={32} className="text-[#46D369]" />
+          </div>
+          <h1 className="font-display text-2xl font-bold text-white mb-2">Reserva confirmada!</h1>
+          <p className="text-[#B3B3B3] text-sm mb-8">
+            Pagamento processado com sucesso. Você receberá os detalhes por e-mail.
+          </p>
+          <div className="space-y-3">
+            <Link to={APP_ROUTES.MESSAGES}>
+              <Button fullWidth className="gap-2">
+                <MessageSquare size={16} />
+                Falar com anfitrião
+              </Button>
+            </Link>
+            <Link to={`${APP_ROUTES.GUEST_DASHBOARD}?tab=reservas`}>
+              <Button variant="ghost" fullWidth>
+                Ver minhas reservas
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   if (loading || !property) {

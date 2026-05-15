@@ -168,6 +168,7 @@ export function MessagesPage() {
         .from('bookings')
         .select(col)
         .eq(filter, user.id)
+        .in('status', ['PAGO', 'CONCLUIDA'])
 
       const ids = [...new Set((bks ?? []).map((b: Record<string, string>) => b[col]).filter(Boolean))]
       if (ids.length === 0) { setRecipientList([]); return }

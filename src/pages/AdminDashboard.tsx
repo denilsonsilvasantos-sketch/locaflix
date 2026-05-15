@@ -7,7 +7,7 @@ import {
 import {
   LayoutDashboard, Home, Users, ShieldCheck, DollarSign, Send, FileWarning,
   Settings, Menu, X, LogOut, Check, TrendingUp, Building2, CheckCircle2,
-  Banknote, AlertTriangle, UserPlus, Ban, Search, Bell, RefreshCw, Plus, Eye,
+  Banknote, AlertTriangle, UserPlus, Ban, Search, Bell, RefreshCw, Plus, Eye, MessageSquare,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { Logo } from '../components/layout/Logo'
@@ -337,6 +337,12 @@ export function AdminDashboard() {
               <p className="text-[10px] text-[#444] truncate">{user?.email}</p>
             </div>
           </div>
+          <Link
+            to="/mensagens"
+            className="w-full flex items-center gap-2 px-3 py-2 text-xs text-[#555] hover:text-white hover:bg-[#1A1A1A] rounded-lg transition-colors mb-1"
+          >
+            <MessageSquare size={13} /> Mensagens
+          </Link>
           <button
             onClick={async () => { await signOut() }}
             className="w-full flex items-center gap-2 px-3 py-2 text-xs text-[#555] hover:text-[#E50914] hover:bg-[#1A1A1A] rounded-lg transition-colors"

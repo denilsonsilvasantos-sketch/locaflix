@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
-  Calendar, Heart, Bell, ShieldCheck, User,
+  Calendar, Heart, Bell, ShieldCheck, User, MessageSquare,
   AlertTriangle, CheckCircle, XCircle, Star,
   BedDouble, MapPin, CreditCard, LogOut, Clock,
   RefreshCw, Layers,
@@ -23,11 +23,12 @@ import { APP_ROUTES } from '../constants'
 import type { PixPaymentResponse } from '../types'
 
 const TABS = [
-  { key: 'reservas',     label: 'Reservas',      icon: <Calendar   size={16} />, href: '/minha-conta' },
-  { key: 'favoritos',    label: 'Favoritos',      icon: <Heart      size={16} />, href: '/minha-conta?tab=favoritos' },
-  { key: 'notificacoes', label: 'Notificações',   icon: <Bell       size={16} />, href: '/minha-conta?tab=notificacoes' },
-  { key: 'documentos',   label: 'Documentos',     icon: <ShieldCheck size={16} />, href: '/minha-conta?tab=documentos' },
-  { key: 'perfil',       label: 'Perfil',         icon: <User       size={16} />, href: '/minha-conta?tab=perfil' },
+  { key: 'reservas',     label: 'Reservas',      icon: <Calendar      size={16} />, href: '/minha-conta' },
+  { key: 'favoritos',    label: 'Favoritos',      icon: <Heart         size={16} />, href: '/minha-conta?tab=favoritos' },
+  { key: 'notificacoes', label: 'Notificações',   icon: <Bell          size={16} />, href: '/minha-conta?tab=notificacoes' },
+  { key: 'documentos',   label: 'Documentos',     icon: <ShieldCheck   size={16} />, href: '/minha-conta?tab=documentos' },
+  { key: 'perfil',       label: 'Perfil',         icon: <User          size={16} />, href: '/minha-conta?tab=perfil' },
+  { key: 'mensagens',    label: 'Mensagens',      icon: <MessageSquare size={16} />, href: '/mensagens' },
 ]
 
 export function GuestDashboard() {
