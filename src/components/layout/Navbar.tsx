@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Bell, Calendar, FileText, Heart, HelpCircle, Home, LogOut,
-  Menu, MessageSquare, Settings, ShieldCheck, User, X,
+  Mail, Menu, MessageCircle, MessageSquare, Settings, ShieldCheck, User, X,
 } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 import { useNotifications } from '../../hooks/useNotifications'
@@ -21,7 +21,9 @@ export function Navbar() {
   const [scrolled, setScrolled] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)       // mobile nav (not logged in)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
+  const [helpOpen, setHelpOpen] = useState(false)
   const userMenuRef = useRef<HTMLDivElement>(null)
+  const helpRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20)
@@ -34,6 +36,9 @@ export function Navbar() {
       if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
         setUserMenuOpen(false)
       }
+      if (helpRef.current && !helpRef.current.contains(e.target as Node)) {
+        setHelpOpen(false)
+      }
     }
     document.addEventListener('mousedown', onClickOutside)
     return () => document.removeEventListener('mousedown', onClickOutside)
@@ -42,6 +47,7 @@ export function Navbar() {
   useEffect(() => {
     setMenuOpen(false)
     setUserMenuOpen(false)
+    setHelpOpen(false)
   }, [location.pathname, location.search])
 
   async function handleSignOut() {
@@ -75,6 +81,61 @@ export function Navbar() {
 
           {/* Right side */}
           <div className="flex items-center gap-2">
+            {/* Help button — desktop only */}
+            <div ref={helpRef} className="relative hidden lg:block">
+              <button
+                onClick={() => setHelpOpen(v => !v)}
+                aria-label="Central de Ajuda"
+                className="w-9 h-9 flex items-center justify-center rounded-lg text-[#B3B3B3] hover:text-white hover:bg-[#2A2A2A] transition-colors"
+              >
+                <HelpCircle size={18} />
+              </button>
+              <AnimatePresence>
+                {helpOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 8, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 8, scale: 0.95 }}
+                    transition={{ duration: 0.15 }}
+                    className="absolute right-0 mt-2 w-72 bg-[#1F1F1F] border border-[#333] rounded-2xl shadow-2xl p-5 z-50"
+                  >
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="font-display text-sm font-bold text-white">Central de Ajuda</h3>
+                      <button onClick={() => setHelpOpen(false)} className="text-[#666] hover:text-white transition-colors">
+                        <X size={14} />
+                      </button>
+                    </div>
+                    <p className="text-xs text-[#B3B3B3] mb-3">Precisando de ajuda? Fale conosco:</p>
+                    <div className="space-y-2">
+                      <a
+                        href="mailto:suporte@locaflix.com.br"
+                        className="flex items-center gap-3 p-3 bg-[#2A2A2A] hover:bg-[#333] rounded-xl transition-colors"
+                      >
+                        <Mail size={16} className="text-[#E50914] flex-shrink-0" />
+                        <div>
+                          <p className="text-xs font-semibold text-white">E-mail</p>
+                          <p className="text-[11px] text-[#B3B3B3]">suporte@locaflix.com.br</p>
+                        </div>
+                      </a>
+                      <a
+                        href="https://wa.me/5547992646761"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex items-center gap-3 p-3 bg-[#25D366]/10 hover:bg-[#25D366]/20 border border-[#25D366]/30 rounded-xl transition-colors"
+                      >
+                        <MessageCircle size={16} className="text-[#25D366] flex-shrink-0" />
+                        <div>
+                          <p className="text-xs font-semibold text-white">WhatsApp</p>
+                          <p className="text-[11px] text-[#B3B3B3]">Atendimento rápido</p>
+                        </div>
+                      </a>
+                    </div>
+                    <p className="text-[10px] text-[#555] mt-4 text-center">Atendimento seg-sex, 9h às 18h</p>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
             {user ? (
               <>
                 {/* Messages — desktop only, not admin */}

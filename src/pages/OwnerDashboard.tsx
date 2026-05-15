@@ -3,7 +3,7 @@ import { useSearchParams, Link } from 'react-router-dom'
 import {
   Home, Calendar, DollarSign, Star, Plus, Eye, Pencil,
   ToggleLeft, ToggleRight, ShieldCheck, Check, X, AlertCircle, AlertTriangle,
-  ChevronDown, ChevronUp, Trash2, LogOut, MessageSquare,
+  ChevronDown, ChevronUp, Trash2, LogOut,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import type { Property, Booking, Review, KinshipType, OwnershipType, PricePeriod, PeriodType } from '../types'
@@ -35,7 +35,6 @@ const NAV = [
   { label: 'Avaliações', icon: <Star size={16} />,           href: '/anfitriao?tab=avaliacoes',  tabKey: 'avaliacoes' },
   { label: 'Documentos', icon: <ShieldCheck size={16} />,    href: '/anfitriao?tab=documentos',  tabKey: 'documentos' },
   { label: 'Sinistros',  icon: <AlertTriangle size={16} />,  href: '/anfitriao?tab=sinistros',   tabKey: 'sinistros' },
-  { label: 'Mensagens',  icon: <MessageSquare size={16} />,  href: '/mensagens',                 tabKey: 'mensagens' },
 ]
 
 interface Incident {

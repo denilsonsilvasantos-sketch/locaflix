@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Heart, Star, MapPin, Users, BedDouble, Wifi, Waves, Wind, Car, PawPrint } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Heart, Star, MapPin, Users, BedDouble, Wifi, Waves, Wind, Car, PawPrint } from 'lucide-react'
 import type { Property } from '../../types'
 import { formatCurrency, cn, calculateMaxInstallments, calculatePlatformFee } from '../../lib/utils'
 import { APP_ROUTES } from '../../constants'
@@ -93,6 +93,24 @@ export function PropertyCard({ property, onFavoriteToggle, isFavorited = false, 
               )}
             />
           </button>
+
+          {/* Photo nav arrows */}
+          {photos.length > 1 && (
+            <>
+              <button
+                onClick={e => { e.preventDefault(); e.stopPropagation(); setImgIdx(i => (i - 1 + photos.length) % photos.length) }}
+                className="absolute left-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-black/50 backdrop-blur-sm flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity"
+              >
+                <ChevronLeft size={14} />
+              </button>
+              <button
+                onClick={e => { e.preventDefault(); e.stopPropagation(); setImgIdx(i => (i + 1) % photos.length) }}
+                className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-black/50 backdrop-blur-sm flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity"
+              >
+                <ChevronRight size={14} />
+              </button>
+            </>
+          )}
 
           {/* Photo dots */}
           {photos.length > 1 && (

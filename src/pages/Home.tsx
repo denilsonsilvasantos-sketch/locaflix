@@ -272,33 +272,34 @@ export function Home() {
               </div>
             </motion.div>
 
-            {/* Hero navigation */}
-            {heroProperties.length > 1 && (
-              <div className="absolute right-6 top-1/2 -translate-y-1/2 flex flex-col gap-2">
-                <button
-                  onClick={() => setHeroIdx(i => (i - 1 + heroProperties.length) % heroProperties.length)}
-                  className="w-10 h-10 bg-black/40 border border-white/20 rounded-full flex items-center justify-center text-white hover:bg-black/60 transition-colors"
-                >
-                  <ChevronLeft size={18} />
-                </button>
-                <div className="flex flex-col gap-1.5 items-center py-1">
-                  {heroProperties.map((_, i) => (
-                    <button
-                      key={i}
-                      onClick={() => setHeroIdx(i)}
-                      className={`w-1.5 rounded-full transition-all ${i === heroIdx ? 'h-5 bg-[#E50914]' : 'h-1.5 bg-white/40 hover:bg-white/70'}`}
-                    />
-                  ))}
-                </div>
-                <button
-                  onClick={() => setHeroIdx(i => (i + 1) % heroProperties.length)}
-                  className="w-10 h-10 bg-black/40 border border-white/20 rounded-full flex items-center justify-center text-white hover:bg-black/60 transition-colors"
-                >
-                  <ChevronRight size={18} />
-                </button>
-              </div>
-            )}
           </div>
+
+          {/* Hero navigation — bottom-center */}
+          {heroProperties.length > 1 && (
+            <div className="absolute bottom-5 left-0 right-0 flex justify-center items-center gap-3 z-10">
+              <button
+                onClick={() => setHeroIdx(i => (i - 1 + heroProperties.length) % heroProperties.length)}
+                className="w-7 h-7 bg-black/40 border border-white/10 rounded-full flex items-center justify-center text-white/60 hover:text-white hover:bg-black/60 transition-colors"
+              >
+                <ChevronLeft size={14} />
+              </button>
+              <div className="flex items-center gap-1.5">
+                {heroProperties.map((_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setHeroIdx(i)}
+                    className={`h-1.5 rounded-full transition-all ${i === heroIdx ? 'w-5 bg-[#E50914]' : 'w-1.5 bg-white/40 hover:bg-white/70'}`}
+                  />
+                ))}
+              </div>
+              <button
+                onClick={() => setHeroIdx(i => (i + 1) % heroProperties.length)}
+                className="w-7 h-7 bg-black/40 border border-white/10 rounded-full flex items-center justify-center text-white/60 hover:text-white hover:bg-black/60 transition-colors"
+              >
+                <ChevronRight size={14} />
+              </button>
+            </div>
+          )}
         </section>
       )}
 

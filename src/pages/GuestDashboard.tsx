@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
-  Calendar, Heart, Bell, ShieldCheck, User, MessageSquare,
+  Calendar, Heart, Bell, ShieldCheck, User,
   AlertTriangle, CheckCircle, XCircle, Star,
   BedDouble, MapPin, CreditCard, LogOut, Clock,
   RefreshCw, Layers,
@@ -28,7 +28,6 @@ const TABS = [
   { key: 'notificacoes', label: 'Notificações',  icon: <Bell           size={16} />, href: '/minha-conta?tab=notificacoes' },
   { key: 'documentos',   label: 'Documentos',    icon: <ShieldCheck    size={16} />, href: '/minha-conta?tab=documentos' },
   { key: 'perfil',       label: 'Perfil',        icon: <User           size={16} />, href: '/minha-conta?tab=perfil' },
-  { key: 'mensagens',    label: 'Mensagens',     icon: <MessageSquare  size={16} />, href: '/mensagens' },
   { key: 'sinistros',    label: 'Sinistros',     icon: <AlertTriangle  size={16} />, href: '/minha-conta?tab=sinistros' },
 ]
 

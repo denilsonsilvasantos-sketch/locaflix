@@ -277,7 +277,7 @@ export function MessagesPage() {
       ]
 
   return (
-    <div className="min-h-screen bg-[#141414] pt-20 flex flex-col">
+    <div className="min-h-screen bg-[#141414] pt-20 flex flex-col overflow-x-hidden">
       {/* Mobile tab bar — non-ADMIN */}
       {isNonAdmin && (
         <div className="lg:hidden sticky top-20 z-30 bg-[#0F0F0F] border-b border-[#333] overflow-x-auto">

@@ -20,7 +20,6 @@ import { MessagesPage } from './pages/MessagesPage'
 import { CancellationPolicy } from './pages/CancellationPolicy'
 import { BecomeOwner } from './pages/BecomeOwner'
 import { AuthCallback } from './pages/AuthCallback'
-import { HelpCenter } from './components/ui/HelpCenter'
 import { HowItWorks } from './pages/HowItWorks'
 import { HelpPage } from './pages/HelpPage'
 import { HostTerms } from './pages/HostTerms'
@@ -106,7 +105,6 @@ export default function App() {
             <Route path="*" element={<AppLayout><Home /></AppLayout>} />
           </Routes>
           <ToastContainer />
-          <HelpCenter />
         </ToastProvider>
       </AuthProvider>
     </BrowserRouter>
