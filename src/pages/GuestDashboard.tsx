@@ -87,9 +87,16 @@ export function GuestDashboard() {
       ])
 
       if (bkRes.error) {
+        console.error('[favorites] bookings query error:', bkRes.error)
         setLoadError('Não foi possível carregar suas reservas. Tente novamente.')
-        return
+        // Don't return — continue loading favorites independently
       }
+
+      if (favRes.error) {
+        console.error('[favorites] favorites query error:', favRes.error)
+      }
+
+      console.log('[favorites] GuestDashboard rawFavs:', favRes.data)
 
       const rawBookings = (bkRes.data ?? []) as (Booking & { property_id: string })[]
       const rawFavs = ((favRes.data ?? []) as (Favorite & { property_id: string })[])

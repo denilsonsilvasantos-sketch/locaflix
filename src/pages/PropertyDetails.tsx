@@ -175,12 +175,19 @@ export function PropertyDetails() {
 
   async function toggleFavorite() {
     if (!user) { navigate(APP_ROUTES.LOGIN); return }
+    const isMock = id?.startsWith('mock-')
+    if (isMock) {
+      toast('info', 'Imóvel de demonstração', 'Este imóvel não pode ser favoritado.')
+      return
+    }
     if (isFavorited) {
       const { error } = await supabase.from('favorites').delete().eq('user_id', user.id).eq('property_id', id)
-      if (error) { toast('error', 'Erro', 'Não foi possível remover dos favoritos.'); return }
+      console.log('[favorites] DELETE PropertyDetails', { user_id: user.id, property_id: id, error })
+      if (error) { toast('error', 'Erro ao remover', error.message); return }
     } else {
-      const { error } = await supabase.from('favorites').insert({ user_id: user.id, property_id: id })
-      if (error) { toast('error', 'Erro', 'Não foi possível adicionar aos favoritos.'); return }
+      const result = await supabase.from('favorites').insert({ user_id: user.id, property_id: id })
+      console.log('[favorites] INSERT PropertyDetails', { user_id: user.id, property_id: id, error: result.error, data: result.data })
+      if (result.error) { toast('error', 'Erro ao favoritar', result.error.message); return }
     }
     setIsFavorited(v => !v)
   }
