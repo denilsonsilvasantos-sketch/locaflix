@@ -17,6 +17,7 @@ type Contact = {
   lastAt: string
   unread: number
   lastSubject: string | null
+  pairIds?: [string, string]
 }
 
 type Recipient = {
@@ -47,11 +48,12 @@ export function MessagesPage() {
   useEffect(() => { activeContactIdRef.current = activeContactId }, [activeContactId])
 
   useEffect(() => {
-    if (user?.id) {
-      loadContacts()
-      loadRecipientList()
+    if (user?.id && profile !== null) {
+      void loadContacts()
+      void loadRecipientList()
     }
-  }, [user?.id])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, profile?.role])
 
   // Global realtime: listen for messages received by this user
   useEffect(() => {
@@ -88,6 +90,8 @@ export function MessagesPage() {
 
   async function loadContacts() {
     if (!user?.id) return
+    if (profile?.role === 'ADMIN') { await loadAdminContacts(); return }
+
     const { data: msgs } = await supabase
       .from('messages')
       .select('id, sender_id, receiver_id, content, is_read, created_at, subject')
@@ -101,13 +105,13 @@ export function MessagesPage() {
       msgs.map(m => m.sender_id === user.id ? m.receiver_id : m.sender_id).filter(Boolean)
     )]
 
-    const { data: users } = await supabase
+    const { data: usersData } = await supabase
       .from('users')
       .select('id, name, avatar_url')
       .in('id', otherIds)
 
     const userMap: Record<string, { name: string | null; avatar_url: string | null }> = {}
-    for (const u of users ?? []) userMap[u.id] = u
+    for (const u of usersData ?? []) userMap[u.id] = u
 
     const map: Record<string, Contact> = {}
     for (const m of msgs) {
@@ -137,27 +141,73 @@ export function MessagesPage() {
     }
   }
 
-  async function loadMessages(contactId: string) {
+  async function loadAdminContacts() {
+    const { data: msgs } = await supabase
+      .from('messages')
+      .select('id, sender_id, receiver_id, content, created_at, subject')
+      .order('created_at', { ascending: false })
+      .limit(500)
+
+    if (!msgs || msgs.length === 0) return
+
+    const allIds = [...new Set([...msgs.map(m => m.sender_id), ...msgs.map(m => m.receiver_id)].filter(Boolean))]
+    const { data: usersData } = await supabase.from('users').select('id, name, avatar_url').in('id', allIds)
+    const userMap: Record<string, { name: string | null; avatar_url: string | null }> = {}
+    for (const u of usersData ?? []) userMap[u.id] = u
+
+    const map: Record<string, Contact> = {}
+    for (const m of msgs) {
+      if (!m.sender_id || !m.receiver_id) continue
+      const pair = [m.sender_id, m.receiver_id].sort() as [string, string]
+      const pairKey = pair.join('__')
+      if (!map[pairKey]) {
+        const n1 = pair[0] === SUPPORT_ID ? 'Suporte LOCAFLIX' : (userMap[pair[0]]?.name ?? 'Usuário')
+        const n2 = pair[1] === SUPPORT_ID ? 'Suporte LOCAFLIX' : (userMap[pair[1]]?.name ?? 'Usuário')
+        map[pairKey] = {
+          id: pairKey,
+          name: `${n1} ↔ ${n2}`,
+          avatar_url: null,
+          lastMessage: m.content,
+          lastAt: m.created_at,
+          unread: 0,
+          lastSubject: m.subject ?? null,
+          pairIds: pair,
+        }
+      }
+    }
+
+    const sorted = Object.values(map).sort((a, b) => new Date(b.lastAt).getTime() - new Date(a.lastAt).getTime())
+    setContacts(sorted)
+
+    if (!activeContactIdRef.current && sorted.length > 0) {
+      setActiveContactId(sorted[0].id)
+      await loadMessages(sorted[0].id, sorted[0].pairIds)
+    }
+  }
+
+  async function loadMessages(contactId: string, pairIds?: [string, string]) {
     if (!user?.id) return
+    const [uid1, uid2] = pairIds ?? [user.id, contactId]
     const { data } = await supabase
       .from('messages')
       .select('*, sender:users!sender_id(id,name,avatar_url)')
       .or(
-        `and(sender_id.eq.${user.id},receiver_id.eq.${contactId}),` +
-        `and(sender_id.eq.${contactId},receiver_id.eq.${user.id})`
+        `and(sender_id.eq.${uid1},receiver_id.eq.${uid2}),` +
+        `and(sender_id.eq.${uid2},receiver_id.eq.${uid1})`
       )
       .order('created_at', { ascending: true })
       .limit(100)
 
     setMessages((data ?? []) as Message[])
 
-    await supabase.from('messages')
-      .update({ is_read: true })
-      .eq('receiver_id', user.id)
-      .eq('sender_id', contactId)
-      .eq('is_read', false)
-
-    setContacts(prev => prev.map(c => c.id === contactId ? { ...c, unread: 0 } : c))
+    if (!pairIds) {
+      await supabase.from('messages')
+        .update({ is_read: true })
+        .eq('receiver_id', user.id)
+        .eq('sender_id', contactId)
+        .eq('is_read', false)
+      setContacts(prev => prev.map(c => c.id === contactId ? { ...c, unread: 0 } : c))
+    }
   }
 
   async function loadRecipientList() {
@@ -186,12 +236,16 @@ export function MessagesPage() {
   async function sendMessage() {
     if (!text.trim() || !activeContactId || !user) return
     setSending(true)
+    const activeContact = contacts.find(c => c.id === activeContactId)
+    const receiverId = activeContact?.pairIds
+      ? (activeContact.pairIds.find(id => id !== user.id) ?? activeContact.pairIds[0])
+      : activeContactId
     const { data: newMsg } = await supabase
       .from('messages')
       .insert({
         booking_id: null,
         sender_id: user.id,
-        receiver_id: activeContactId,
+        receiver_id: receiverId,
         content: text.trim(),
         subject: null,
       })
@@ -233,8 +287,9 @@ export function MessagesPage() {
   }
 
   function openConversation(contactId: string) {
+    const contact = contacts.find(c => c.id === contactId)
     setActiveContactId(contactId)
-    void loadMessages(contactId)
+    void loadMessages(contactId, contact?.pairIds)
     setMobileView('chat')
   }
 

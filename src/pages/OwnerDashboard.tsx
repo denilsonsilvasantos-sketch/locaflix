@@ -77,6 +77,13 @@ export function OwnerDashboard() {
   const fileRef = useRef<HTMLInputElement>(null)
   const cameraRef = useRef<HTMLInputElement>(null)
 
+  const [cancelBookingId, setCancelBookingId] = useState<string | null>(null)
+  const [cancellingBooking, setCancellingBooking] = useState(false)
+  const [bankForm, setBankForm] = useState({
+    pix_key: '', bank_name: '', bank_agency: '', bank_account: '', bank_account_type: 'corrente',
+  })
+  const [savingBank, setSavingBank] = useState(false)
+
   const [kycForm, setKycForm] = useState<KycForm>({
     document_url: '', address_proof_url: '', ownership_type: 'PROPRIO',
     actual_owner_name: '', actual_owner_cpf: '', actual_owner_document_url: '',
@@ -103,6 +110,13 @@ export function OwnerDashboard() {
         actual_owner_document_url: profile.actual_owner_document_url ?? '',
         kinship_type: profile.kinship_type ?? '',
         kinship_document_url: profile.kinship_document_url ?? '',
+      })
+      setBankForm({
+        pix_key: profile.pix_key ?? '',
+        bank_name: profile.bank_name ?? '',
+        bank_agency: profile.bank_agency ?? '',
+        bank_account: profile.bank_account ?? '',
+        bank_account_type: profile.bank_account_type ?? 'corrente',
       })
     }
   }, [profile])
@@ -214,6 +228,45 @@ export function OwnerDashboard() {
     await refreshProfile()
     toast('success', 'Documentos enviados', 'Sua análise está em andamento.')
     setSubmittingKyc(false)
+  }
+
+  async function acceptBooking(id: string) {
+    const { error } = await supabase.from('bookings').update({ owner_confirmed: true }).eq('id', id)
+    if (error) { toast('error', 'Erro', error.message); return }
+    setBookings(prev => prev.map(b => b.id === id ? { ...b, owner_confirmed: true } : b))
+    toast('success', 'Reserva aceita', 'O hóspede será notificado.')
+  }
+
+  async function cancelBookingByOwner() {
+    if (!cancelBookingId) return
+    setCancellingBooking(true)
+    const { error } = await supabase.from('bookings')
+      .update({ status: 'CANCELADA', cancellation_reason: 'CANCELAMENTO_ANFITRIAO' })
+      .eq('id', cancelBookingId)
+    if (error) { toast('error', 'Erro', error.message); setCancellingBooking(false); return }
+    setBookings(prev => prev.map(b =>
+      b.id === cancelBookingId ? { ...b, status: 'CANCELADA', cancellation_reason: 'CANCELAMENTO_ANFITRIAO' } : b
+    ))
+    toast('success', 'Reserva cancelada', 'O hóspede será notificado.')
+    setCancelBookingId(null)
+    setCancellingBooking(false)
+  }
+
+  async function saveBankData() {
+    if (!user) return
+    setSavingBank(true)
+    const { error } = await supabase.from('users').update({
+      pix_key: bankForm.pix_key || null,
+      bank_name: bankForm.bank_name || null,
+      bank_agency: bankForm.bank_agency || null,
+      bank_account: bankForm.bank_account || null,
+      bank_account_type: bankForm.bank_account_type || null,
+    }).eq('id', user.id)
+    if (error) { toast('error', 'Erro', error.message) } else {
+      await refreshProfile()
+      toast('success', 'Dados salvos', 'Suas informações bancárias foram atualizadas.')
+    }
+    setSavingBank(false)
   }
 
   const upd = <K extends keyof KycForm>(k: K, v: KycForm[K]) => setKycForm(f => ({ ...f, [k]: v }))
@@ -425,8 +478,27 @@ export function OwnerDashboard() {
                             <div className="text-right flex-shrink-0">
                               <p className="text-sm font-bold text-[#F5A623]">{formatCurrency(b.subtotal - b.platform_fee)}</p>
                               <StatusBadge status={b.status} />
+                              {b.owner_confirmed && (
+                                <p className="text-[10px] text-[#46D369] mt-0.5">Aceita por você</p>
+                              )}
                             </div>
                           </div>
+                          {b.status === 'AGUARDANDO_PAGAMENTO' && !b.owner_confirmed && (
+                            <div className="flex gap-2 mt-3 pt-3 border-t border-[#2A2A2A]">
+                              <button
+                                onClick={() => void acceptBooking(b.id)}
+                                className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold rounded-lg bg-[#46D369]/10 border border-[#46D369]/30 text-[#46D369] hover:bg-[#46D369]/20 transition-colors"
+                              >
+                                <Check size={12} /> Aceitar reserva
+                              </button>
+                              <button
+                                onClick={() => setCancelBookingId(b.id)}
+                                className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold rounded-lg bg-[#E50914]/10 border border-[#E50914]/30 text-[#E50914] hover:bg-[#E50914]/20 transition-colors"
+                              >
+                                <X size={12} /> Cancelar
+                              </button>
+                            </div>
+                          )}
                         </Card>
                       ))}
                     </div>
@@ -485,6 +557,54 @@ export function OwnerDashboard() {
                         </table>
                       </div>
                     )}
+                  </Card>
+
+                  {/* ── Dados para Repasse ── */}
+                  <Card className="p-5 mt-6">
+                    <h3 className="text-sm font-semibold text-white mb-1">Dados para Repasse</h3>
+                    <p className="text-xs text-[#555] mb-4">Informe seus dados bancários para receber os repasses das reservas.</p>
+                    <div className="space-y-4">
+                      <Input
+                        label="Chave Pix"
+                        value={bankForm.pix_key}
+                        onChange={e => setBankForm(f => ({ ...f, pix_key: e.target.value }))}
+                        placeholder="CPF, e-mail, telefone ou chave aleatória"
+                      />
+                      <Input
+                        label="Nome do banco"
+                        value={bankForm.bank_name}
+                        onChange={e => setBankForm(f => ({ ...f, bank_name: e.target.value }))}
+                        placeholder="Ex: Nubank, Itaú, Bradesco"
+                      />
+                      <div className="grid grid-cols-2 gap-4">
+                        <Input
+                          label="Agência"
+                          value={bankForm.bank_agency}
+                          onChange={e => setBankForm(f => ({ ...f, bank_agency: e.target.value }))}
+                          placeholder="0000"
+                        />
+                        <Input
+                          label="Conta"
+                          value={bankForm.bank_account}
+                          onChange={e => setBankForm(f => ({ ...f, bank_account: e.target.value }))}
+                          placeholder="00000-0"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-[#B3B3B3] mb-1.5 font-medium">Tipo de conta</label>
+                        <select
+                          value={bankForm.bank_account_type}
+                          onChange={e => setBankForm(f => ({ ...f, bank_account_type: e.target.value }))}
+                          className="w-full bg-[#2A2A2A] border border-[#333] rounded-xl px-3 py-2.5 text-sm text-white outline-none focus:ring-2 focus:ring-[#E50914]"
+                        >
+                          <option value="corrente">Corrente</option>
+                          <option value="poupança">Poupança</option>
+                        </select>
+                      </div>
+                      <Button onClick={() => void saveBankData()} loading={savingBank}>
+                        Salvar dados bancários
+                      </Button>
+                    </div>
                   </Card>
                 </div>
               )}
@@ -826,6 +946,48 @@ export function OwnerDashboard() {
           )}
         </div>
       </div>
+
+      {/* ── Modal cancelamento pelo anfitrião ── */}
+      {cancelBookingId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+          <div className="bg-[#1F1F1F] border border-[#333] rounded-2xl w-full max-w-md p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-display text-base font-bold text-white">Cancelar reserva</h3>
+              <button onClick={() => setCancelBookingId(null)} className="text-[#666] hover:text-white transition-colors">
+                <X size={18} />
+              </button>
+            </div>
+            <p className="text-sm text-[#B3B3B3] mb-3">Ao cancelar, o hóspede será notificado e poderá escolher:</p>
+            <ul className="space-y-2 mb-5">
+              <li className="flex items-start gap-2 text-sm text-[#B3B3B3]">
+                <span className="text-[#46D369] font-bold mt-0.5">•</span>
+                Reembolso total do valor pago
+              </li>
+              <li className="flex items-start gap-2 text-sm text-[#B3B3B3]">
+                <span className="text-[#46D369] font-bold mt-0.5">•</span>
+                Escolher outro imóvel
+              </li>
+              <li className="flex items-start gap-2 text-sm text-[#B3B3B3]">
+                <span className="text-[#46D369] font-bold mt-0.5">•</span>
+                Manter como crédito na plataforma
+              </li>
+            </ul>
+            <div className="flex gap-3">
+              <Button variant="ghost" onClick={() => setCancelBookingId(null)} fullWidth>
+                Voltar
+              </Button>
+              <Button
+                onClick={() => void cancelBookingByOwner()}
+                loading={cancellingBooking}
+                fullWidth
+                className="!bg-[#E50914] hover:!bg-[#F40612]"
+              >
+                Confirmar cancelamento
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

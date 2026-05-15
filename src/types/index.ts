@@ -49,6 +49,11 @@ export interface UserProfile {
   terms_accepted_at: string | null
   created_at: string
   updated_at: string
+  pix_key?: string | null
+  bank_name?: string | null
+  bank_agency?: string | null
+  bank_account?: string | null
+  bank_account_type?: string | null
 }
 
 // ---- Property ----
@@ -103,6 +108,8 @@ export interface Booking {
   coupon_code: string | null
   status: BookingStatus
   booking_number: string | null
+  owner_confirmed?: boolean
+  cancellation_reason?: string | null
   created_at: string
   updated_at: string
   // joined

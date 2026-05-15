@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { X, Plus, Upload, Trash2, Image, Link, DollarSign } from 'lucide-react'
+import { useNavigate, Link as RouterLink } from 'react-router-dom'
+import { X, Plus, Upload, Trash2, Image, Link, DollarSign, AlertTriangle } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { useToast } from '../hooks/useToast'
@@ -48,7 +48,7 @@ function uid() {
 
 export function NewProperty() {
   const navigate = useNavigate()
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
   const { toast } = useToast()
   const [saving, setSaving] = useState(false)
   const [rooms, setRooms] = useState<RoomDraft[]>([])
@@ -329,9 +329,28 @@ export function NewProperty() {
     navigate(APP_ROUTES.OWNER_DASHBOARD)
   }
 
+  const hasPixKey = !!profile?.pix_key
+
   return (
     <div className="min-h-screen bg-[#141414] pt-24 pb-12">
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+        {!hasPixKey && (
+          <div className="flex items-start gap-3 p-4 rounded-xl border bg-[#F5A623]/10 border-[#F5A623]/30 mb-5">
+            <AlertTriangle size={16} className="text-[#F5A623] flex-shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-[#F5A623]">Chave Pix necessária</p>
+              <p className="text-xs text-[#B3B3B3] mt-0.5">
+                Antes de cadastrar um imóvel, cadastre sua chave Pix para receber os repasses.
+              </p>
+            </div>
+            <RouterLink
+              to="/anfitriao?tab=financeiro"
+              className="flex-shrink-0 text-xs font-semibold text-[#F5A623] border border-[#F5A623]/40 px-3 py-1.5 rounded-lg hover:bg-[#F5A623]/10 transition-colors whitespace-nowrap"
+            >
+              Cadastrar chave Pix
+            </RouterLink>
+          </div>
+        )}
         <div className="flex items-center justify-between mb-6">
           <h1 className="font-display text-2xl font-bold text-white">Cadastrar imóvel</h1>
           <button
@@ -690,7 +709,7 @@ export function NewProperty() {
             <Button type="button" variant="secondary" onClick={() => navigate(APP_ROUTES.OWNER_DASHBOARD)} fullWidth>
               Cancelar
             </Button>
-            <Button type="submit" loading={saving} fullWidth>
+            <Button type="submit" loading={saving} disabled={!hasPixKey} fullWidth>
               Cadastrar imóvel
             </Button>
           </div>
