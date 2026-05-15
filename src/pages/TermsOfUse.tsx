@@ -51,12 +51,12 @@ export function TermsOfUse() {
 
           <section>
             <h2 className="font-display text-lg font-bold text-white mb-3">8. Lei Aplicável</h2>
-            <p>Estes termos são regidos pelas leis brasileiras. Foro eleito: comarca de São Paulo — SP, com exclusão de qualquer outro.</p>
+            <p>Estes termos são regidos pelas leis brasileiras. Foro eleito: comarca de Itajaí — SC, com exclusão de qualquer outro.</p>
           </section>
 
           <section>
             <h2 className="font-display text-lg font-bold text-white mb-3">9. Contato</h2>
-            <p>Dúvidas jurídicas sobre estes termos: <a href="mailto:legal@locaflix.com.br" className="text-[#E50914] hover:underline">legal@locaflix.com.br</a></p>
+            <p>Dúvidas jurídicas sobre estes termos: <a href="mailto:suporte@locaflix.com.br" className="text-[#E50914] hover:underline">suporte@locaflix.com.br</a></p>
           </section>
         </div>
       </div>

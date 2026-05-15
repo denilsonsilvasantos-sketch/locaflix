@@ -111,18 +111,16 @@ MP 2.200-2/2001 e Lei 14.063/2020.
 
 function getCancellationPolicyText(policy: string): string {
   const policies: Record<string, string> = {
-    FLEXIVEL: `POLÍTICA FLEXÍVEL
-• Cancelamento gratuito até 24h antes do check-in.
+    LEVE: `POLÍTICA LEVE
+• Cancelamento gratuito até 48h antes do check-in.
 • Reembolso de 100% do valor pago (exceto taxa de serviço).
-• Após 24h do check-in: sem reembolso.`,
+• Sem reembolso a menos de 48h do check-in.`,
     MODERADO: `POLÍTICA MODERADA
-• Cancelamento gratuito até 5 dias antes do check-in.
-• Reembolso de 50% do valor pago entre 2 e 5 dias antes.
-• Sem reembolso a menos de 2 dias do check-in.`,
+• Cancelamento gratuito até 15 dias antes do check-in.
+• Sem reembolso a menos de 15 dias do check-in.`,
     FIRME: `POLÍTICA FIRME
-• Cancelamento gratuito até 14 dias antes do check-in.
-• Reembolso de 50% entre 7 e 14 dias antes.
-• Sem reembolso a menos de 7 dias do check-in.`,
+• Cancelamento gratuito até 30 dias antes do check-in.
+• Sem reembolso a menos de 30 dias do check-in.`,
   }
   return policies[policy] ?? policies.MODERADO
 }

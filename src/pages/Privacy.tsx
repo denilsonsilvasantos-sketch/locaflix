@@ -73,7 +73,7 @@ export function Privacy() {
 
           <section>
             <h2 className="font-display text-lg font-bold text-white mb-3">7. Contato com o DPO</h2>
-            <p>Para exercer seus direitos ou esclarecer dúvidas sobre privacidade, entre em contato com nosso Encarregado de Dados (DPO) pelo e-mail <a href="mailto:privacidade@locaflix.com.br" className="text-[#E50914] hover:underline">privacidade@locaflix.com.br</a>.</p>
+            <p>Para exercer seus direitos ou esclarecer dúvidas sobre privacidade, entre em contato com nosso Encarregado de Dados (DPO) pelo e-mail <a href="mailto:suporte@locaflix.com.br" className="text-[#E50914] hover:underline">suporte@locaflix.com.br</a>.</p>
           </section>
         </div>
       </div>

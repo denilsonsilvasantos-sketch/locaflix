@@ -804,20 +804,20 @@ function Stat({ icon, label }: { icon: React.ReactNode; label: string }) {
 
 function CancellationInfo({ policy }: { policy: string }) {
   const info: Record<string, { label: string; color: string; details: string }> = {
-    FLEXIVEL: {
-      label: 'Flexível',
+    LEVE: {
+      label: 'Leve',
       color: 'text-[#46D369]',
-      details: 'Cancelamento gratuito até 24h antes do check-in. Após esse prazo, não há reembolso.',
+      details: 'Cancelamento gratuito até 48h antes do check-in. Após esse prazo, não há reembolso.',
     },
     MODERADO: {
-      label: 'Moderado',
+      label: 'Moderada',
       color: 'text-[#F5A623]',
-      details: 'Cancelamento gratuito até 5 dias antes. Reembolso de 50% entre 2 e 5 dias. Sem reembolso a menos de 2 dias.',
+      details: 'Cancelamento gratuito até 15 dias antes do check-in. Sem reembolso após esse prazo.',
     },
     FIRME: {
       label: 'Firme',
       color: 'text-[#E50914]',
-      details: 'Cancelamento gratuito até 14 dias antes. Reembolso de 50% entre 7 e 14 dias. Sem reembolso a menos de 7 dias.',
+      details: 'Cancelamento gratuito até 30 dias antes do check-in. Sem reembolso após esse prazo.',
     },
   }
   const p = info[policy] ?? info.MODERADO

@@ -34,21 +34,19 @@ function calcPolicyDeadlines(policy: CancellationPolicy | undefined, checkIn: st
   const ci = new Date(checkIn + 'T12:00:00')
   const fmt = (d: Date) => d
   switch (policy) {
-    case 'FLEXIVEL':
+    case 'LEVE':
       return [
-        { label: 'Reembolso total', date: fmt(subDays(ci, 1)), refundPercent: 100, color: '#46D369' },
+        { label: 'Reembolso total', date: fmt(subDays(ci, 2)), refundPercent: 100, color: '#46D369' },
         { label: 'Sem reembolso', date: fmt(ci), refundPercent: 0, color: '#E50914' },
       ]
     case 'MODERADO':
       return [
-        { label: 'Reembolso total', date: fmt(subDays(ci, 5)), refundPercent: 100, color: '#46D369' },
-        { label: 'Reembolso de 50%', date: fmt(subDays(ci, 2)), refundPercent: 50, color: '#F5A623' },
+        { label: 'Reembolso total', date: fmt(subDays(ci, 15)), refundPercent: 100, color: '#46D369' },
         { label: 'Sem reembolso', date: fmt(ci), refundPercent: 0, color: '#E50914' },
       ]
     case 'FIRME':
       return [
-        { label: 'Reembolso total', date: fmt(subDays(ci, 14)), refundPercent: 100, color: '#46D369' },
-        { label: 'Reembolso de 50%', date: fmt(subDays(ci, 7)), refundPercent: 50, color: '#F5A623' },
+        { label: 'Reembolso total', date: fmt(subDays(ci, 30)), refundPercent: 100, color: '#46D369' },
         { label: 'Sem reembolso', date: fmt(ci), refundPercent: 0, color: '#E50914' },
       ]
     default:
@@ -491,7 +489,7 @@ export function Checkout() {
                             <div className="flex items-center gap-2 mb-2">
                               <span className="text-white font-semibold">{pol?.label ?? 'Política padrão'}</span>
                               <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                                property.cancellation_policy === 'FLEXIVEL' ? 'bg-[#46D369]/20 text-[#46D369]'
+                                property.cancellation_policy === 'LEVE' ? 'bg-[#46D369]/20 text-[#46D369]'
                                 : property.cancellation_policy === 'MODERADO' ? 'bg-[#F5A623]/20 text-[#F5A623]'
                                 : 'bg-[#E50914]/20 text-[#E50914]'
                               }`}>

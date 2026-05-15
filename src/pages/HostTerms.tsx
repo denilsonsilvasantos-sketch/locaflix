@@ -52,7 +52,7 @@ export function HostTerms() {
 
           <section>
             <h2 className="font-display text-lg font-bold text-white mb-3">7. Contato</h2>
-            <p>Dúvidas sobre estes termos podem ser enviadas para <a href="mailto:anfitrioes@locaflix.com.br" className="text-[#E50914] hover:underline">anfitrioes@locaflix.com.br</a>.</p>
+            <p>Dúvidas sobre estes termos podem ser enviadas para <a href="mailto:suporte@locaflix.com.br" className="text-[#E50914] hover:underline">suporte@locaflix.com.br</a>.</p>
           </section>
         </div>
       </div>

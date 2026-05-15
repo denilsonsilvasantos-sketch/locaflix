@@ -67,19 +67,6 @@ export function CancellationPolicy() {
           <Rule title="Não comparecimento (No-show)" items={['Sem reembolso.']} />
         </Section>
 
-        {/* FLEXÍVEL */}
-        <Section emoji="🔵" color="border-blue-500" title="FLEXÍVEL" subtitle="Indicada para reservas comuns de temporada com equilíbrio entre flexibilidade e segurança.">
-          <Rule
-            title="Cancelamento gratuito"
-            items={['O hóspede pode cancelar gratuitamente até 7 dias antes do check-in.']}
-          />
-          <Rule
-            title="Cancelamento menos de 7 dias antes do check-in"
-            items={['Sem reembolso.', 'Anfitrião recebe normalmente.', 'Locaflix mantém as taxas operacionais.']}
-          />
-          <Rule title="Não comparecimento (No-show)" items={['Sem reembolso.']} />
-        </Section>
-
         {/* MODERADA */}
         <Section emoji="🟠" color="border-orange-500" title="MODERADA" subtitle="Indicada para datas concorridas e imóveis com planejamento financeiro maior.">
           <Rule
@@ -106,19 +93,19 @@ export function CancellationPolicy() {
           <Rule title="Não comparecimento (No-show)" items={['Sem reembolso.']} />
         </Section>
 
-        {/* Regra de arrependimento */}
+        {/* Direito de Arrependimento — CDC Art. 49 */}
         <div className="bg-[#1A1A1A] border border-[#333] rounded-xl p-6 mb-6">
           <h2 className="font-display text-xl font-bold text-white mb-3 flex items-center gap-2">
-            <span>⚖️</span> Regra Geral de Arrependimento (24h)
+            <span>⚖️</span> Direito de Arrependimento — CDC Art. 49
           </h2>
-          <p className="text-sm text-[#B3B3B3] mb-3">Independentemente da política escolhida:</p>
-          <p className="text-sm text-white mb-3">
-            O hóspede poderá cancelar gratuitamente em até 24 horas após a confirmação da reserva, desde que:
+          <p className="text-sm text-[#B3B3B3] mb-4">
+            Independentemente da política escolhida pelo anfitrião, o Código de Defesa do Consumidor (Art. 49)
+            garante ao hóspede o direito de arrependimento nas seguintes condições:
           </p>
-          <ul className="space-y-1">
+          <ul className="space-y-2 mb-4">
             {[
-              'o check-in esteja a pelo menos 7 dias de distância;',
-              'a reserva não esteja em período crítico de ocupação.',
+              'Reembolso total em até 7 dias corridos após a confirmação da reserva, sem necessidade de justificativa.',
+              'Exceção: se a estadia tiver início em menos de 14 dias a partir da data da reserva, o prazo de arrependimento é reduzido para 24 horas após a confirmação.',
             ].map((item, i) => (
               <li key={i} className="text-sm text-[#B3B3B3] flex gap-2">
                 <span className="text-[#555] mt-0.5">•</span>
@@ -126,6 +113,9 @@ export function CancellationPolicy() {
               </li>
             ))}
           </ul>
+          <p className="text-xs text-[#555] italic">
+            O direito de arrependimento prevalece sobre qualquer política de cancelamento. Solicitações fora deste prazo seguem a política do imóvel.
+          </p>
         </div>
 
         {/* Reservas parceladas */}
@@ -192,10 +182,9 @@ export function CancellationPolicy() {
           <h2 className="font-display text-xl font-bold text-white mb-4 flex items-center gap-2">
             <span>📌</span> Recomendação da Locaflix aos Anfitriões
           </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {[
               { emoji: '🟢', policy: 'LEVE', use: 'Imóveis urbanos e alta rotatividade' },
-              { emoji: '🔵', policy: 'FLEXÍVEL', use: 'Modelo padrão recomendado' },
               { emoji: '🟠', policy: 'MODERADA', use: 'Períodos concorridos' },
               { emoji: '🔴', policy: 'FIRME', use: 'Feriados e alta temporada' },
             ].map(({ emoji, policy, use }) => (

@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { Search, CalendarCheck, CreditCard, Key, Star, Shield } from 'lucide-react'
+import { Search, CalendarCheck, CreditCard, Key, Star } from 'lucide-react'
 import { APP_ROUTES } from '../constants'
 
 const STEPS = [
@@ -15,8 +15,8 @@ const STEPS = [
   },
   {
     icon: CreditCard,
-    title: 'Reserve e parcele no Pix',
-    desc: 'Pague com Pix parcelado em até 12x sem juros. Seu dinheiro fica bloqueado até a confirmação do check-in.',
+    title: 'Reserve e pague parcelado',
+    desc: 'Pague parcelado via Pix ou Boleto. As parcelas são geradas automaticamente e você paga cada uma na data de vencimento.',
   },
   {
     icon: Key,
@@ -27,11 +27,6 @@ const STEPS = [
     icon: Star,
     title: 'Avalie sua experiência',
     desc: 'Após o check-out, deixe uma avaliação para ajudar outros hóspedes e dar feedback ao anfitrião.',
-  },
-  {
-    icon: Shield,
-    title: 'Proteção garantida',
-    desc: 'Todas as reservas têm cobertura da LOCAFLIX. Em caso de problema, nossa equipe resolve.',
   },
 ]
 

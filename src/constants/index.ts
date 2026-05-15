@@ -79,19 +79,19 @@ export const BRASIL_STATES = [
 
 export const CANCELLATION_POLICIES = [
   {
-    value: 'FLEXIVEL',
-    label: 'Flexível',
-    description: 'Reembolso total até 24h antes do check-in.',
+    value: 'LEVE',
+    label: 'Leve',
+    description: 'Cancelamento gratuito até 48h antes do check-in.',
   },
   {
     value: 'MODERADO',
-    label: 'Moderado',
-    description: 'Reembolso total até 5 dias antes. 50% entre 2-5 dias.',
+    label: 'Moderada',
+    description: 'Cancelamento gratuito até 15 dias antes do check-in.',
   },
   {
     value: 'FIRME',
     label: 'Firme',
-    description: 'Reembolso total até 14 dias antes. 50% entre 7-14 dias.',
+    description: 'Cancelamento gratuito até 30 dias antes do check-in.',
   },
 ] as const
 

@@ -72,7 +72,7 @@ export function HelpPage() {
           </a>
 
           <a
-            href="https://wa.me/5511999999999"
+            href="https://wa.me/5547992646761"
             target="_blank"
             rel="noreferrer"
             className="flex items-start gap-4 p-5 bg-[#25D366]/5 border border-[#25D366]/30 hover:border-[#25D366]/60 rounded-2xl transition-colors group"
@@ -82,7 +82,7 @@ export function HelpPage() {
             </div>
             <div>
               <p className="font-semibold text-white mb-0.5">WhatsApp</p>
-              <p className="text-sm text-[#B3B3B3]">(11) 99999-9999</p>
+              <p className="text-sm text-[#B3B3B3]">(47) 99264-6761</p>
               <p className="text-xs text-[#555] mt-1">Atendimento rápido</p>
             </div>
           </a>
