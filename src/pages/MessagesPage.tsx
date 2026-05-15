@@ -192,7 +192,7 @@ export function MessagesPage() {
     const [uid1, uid2] = pairIds ?? [user.id, contactId]
     const { data } = await supabase
       .from('messages')
-      .select('*, sender:users!sender_id(id,name,avatar_url)')
+      .select('*')
       .or(
         `and(sender_id.eq.${uid1},receiver_id.eq.${uid2}),` +
         `and(sender_id.eq.${uid2},receiver_id.eq.${uid1})`
@@ -259,7 +259,7 @@ export function MessagesPage() {
         subject: null,
         is_read: false,
       })
-      .select('*, sender:users!sender_id(id,name,avatar_url)')
+      .select('*')
       .single()
 
     console.log('sendMessage result:', { data: !!newMsg, error })

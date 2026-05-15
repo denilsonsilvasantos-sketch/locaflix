@@ -109,7 +109,7 @@ export function PropertyDetails() {
     const [revRes, photoRes, periodsRes, amenitiesRes, ownerRes] = await Promise.all([
       supabase
         .from('reviews')
-        .select('*, reviewer:users(id, name, avatar_url), property:properties!target_property_id(id, name)')
+        .select('*, property:properties!target_property_id(id, name)')
         .in('target_property_id', ownerPropertyIds)
         .eq('visible', true)
         .order('created_at', { ascending: false })
@@ -140,7 +140,15 @@ export function PropertyDetails() {
       const mock = MOCK_PROPERTIES.find(p => p.id === propertyId)
       setProperty(mock ?? null)
     }
-    setReviews((revRes.data ?? []) as ReviewWithProperty[])
+    const rawReviews = (revRes.data ?? []) as (ReviewWithProperty & { reviewer_id: string })[]
+    if (rawReviews.length > 0) {
+      const rIds = [...new Set(rawReviews.map(r => r.reviewer_id).filter(Boolean))]
+      const { data: rUsers } = await supabase.from('users').select('id, name, avatar_url').in('id', rIds)
+      const rMap = Object.fromEntries((rUsers ?? []).map((u: { id: string; name: string | null; avatar_url: string | null }) => [u.id, u]))
+      setReviews(rawReviews.map(r => ({ ...r, reviewer: rMap[r.reviewer_id] ?? null })))
+    } else {
+      setReviews([])
+    }
 
     const photosData = (photoRes.data ?? []) as (PropertyPhoto & { room: { id: string; name: string; display_order: number } | null })[]
     const groups: RoomGroup[] = []
