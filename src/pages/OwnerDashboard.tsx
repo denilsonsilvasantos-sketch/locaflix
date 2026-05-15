@@ -3,7 +3,7 @@ import { useSearchParams, Link } from 'react-router-dom'
 import {
   Home, Calendar, DollarSign, Star, Plus, Eye, Pencil,
   ToggleLeft, ToggleRight, ShieldCheck, Check, X, AlertCircle,
-  ChevronDown, ChevronUp, Trash2, User, LogOut,
+  ChevronDown, ChevronUp, Trash2, LogOut,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import type { Property, Booking, Review, KinshipType, OwnershipType, PricePeriod, PeriodType } from '../types'
@@ -198,14 +198,7 @@ export function OwnerDashboard() {
           })}
         </nav>
 
-        <div className="p-3 border-t border-[#1F1F1F] space-y-0.5">
-          <Link
-            to={APP_ROUTES.GUEST_DASHBOARD}
-            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-[#B3B3B3] hover:text-white hover:bg-[#1F1F1F] transition-all"
-          >
-            <User size={14} className="flex-shrink-0" />
-            Minha Conta
-          </Link>
+        <div className="p-3 border-t border-[#1F1F1F]">
           <button
             onClick={signOut}
             className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-[#B3B3B3] hover:text-[#E50914] hover:bg-[#1F1F1F] transition-all"
@@ -238,7 +231,7 @@ export function OwnerDashboard() {
       </div>
 
       {/* ── Main content ──────────────────────────────────────── */}
-      <div className="lg:ml-56 pt-20 lg:pt-0">
+      <div className="lg:ml-56 pt-20">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
           {loading ? (
