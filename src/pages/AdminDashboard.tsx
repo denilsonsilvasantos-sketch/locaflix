@@ -7,7 +7,7 @@ import {
 import {
   LayoutDashboard, Home, Users, ShieldCheck, DollarSign, Send, FileWarning,
   Settings, Menu, X, LogOut, Check, TrendingUp, Building2, CheckCircle2,
-  Banknote, AlertTriangle, UserPlus, Ban, Search, Bell, RefreshCw, Plus, Eye, MessageSquare,
+  Banknote, AlertTriangle, UserPlus, Ban, Search, Bell, RefreshCw, Plus, Eye, MessageSquare, Trash2,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { Logo } from '../components/layout/Logo'
@@ -48,6 +48,26 @@ interface StatePoint  { state: string; value: number }
 type BookingRow = Booking & { property?: Property; guest?: UserProfile; owner?: UserProfile }
 type InstallRow  = Installment & { booking?: BookingRow }
 
+interface PlatformSettings {
+  host_fee_split: string
+  guest_fee_split: string
+  host_fee_single: string
+  repasse_trigger: string
+  repasse_days: string
+}
+
+interface PolicyRule {
+  days_before: number
+  refund_percentage: number
+  description: string
+}
+
+interface CancellationPolicy {
+  id: string
+  policy_name: string
+  rules: PolicyRule[]
+}
+
 const PIE_COLORS = ['#E50914','#F5A623','#46D369','#1E90FF','#9B59B6','#1ABC9C']
 
 export function AdminDashboard() {
@@ -77,6 +97,16 @@ export function AdminDashboard() {
   const [repasses, setRepasses]     = useState<BookingRow[]>([])
   const [sinistros, setSinistros]   = useState<Record<string, unknown>[]>([])
   const [loadingTab, setLoadingTab] = useState(false)
+
+  // Config tab
+  const [settings, setSettings] = useState<PlatformSettings>({
+    host_fee_split: '4', guest_fee_split: '14', host_fee_single: '16',
+    repasse_trigger: 'after_checkout', repasse_days: '1',
+  })
+  const [feeModel, setFeeModel] = useState<'dividido' | 'unico'>('dividido')
+  const [savingSettings, setSavingSettings] = useState(false)
+  const [cancelPolicies, setCancelPolicies] = useState<CancellationPolicy[]>([])
+  const [savingPolicy, setSavingPolicy] = useState<string | null>(null)
 
   const setTab = (t: TabId) => setSearchParams(t === 'dashboard' ? {} : { tab: t })
 
@@ -192,10 +222,92 @@ export function AdminDashboard() {
           const { data, error } = await supabase.from('sinistros').select('*').order('created_at', { ascending: false })
           if (!error) setSinistros(data ?? [])
         } catch { /* table may not exist */ }
+
+      } else if (t === 'config') {
+        const [{ data: ps }, { data: cp }] = await Promise.all([
+          supabase.from('platform_settings').select('key, value'),
+          supabase.from('cancellation_policies_config').select('*').order('policy_name'),
+        ])
+        if (ps) {
+          const map: Record<string, string> = {}
+          for (const r of ps as { key: string; value: string }[]) map[r.key] = r.value
+          setSettings({
+            host_fee_split:  map.host_fee_split  ?? '4',
+            guest_fee_split: map.guest_fee_split ?? '14',
+            host_fee_single: map.host_fee_single ?? '16',
+            repasse_trigger: map.repasse_trigger ?? 'after_checkout',
+            repasse_days:    map.repasse_days    ?? '1',
+          })
+          setFeeModel(map.fee_model === 'unico' ? 'unico' : 'dividido')
+        }
+        if (cp) setCancelPolicies(cp as CancellationPolicy[])
       }
     } finally {
       setLoadingTab(false)
     }
+  }
+
+  async function saveSettings() {
+    setSavingSettings(true)
+    try {
+      const rows = [
+        { key: 'host_fee_split',  value: settings.host_fee_split },
+        { key: 'guest_fee_split', value: settings.guest_fee_split },
+        { key: 'host_fee_single', value: settings.host_fee_single },
+        { key: 'repasse_trigger', value: settings.repasse_trigger },
+        { key: 'repasse_days',    value: settings.repasse_days },
+        { key: 'fee_model',       value: feeModel },
+      ]
+      await Promise.all(rows.map(r =>
+        supabase.from('platform_settings')
+          .update({ value: r.value, updated_at: new Date().toISOString() })
+          .eq('key', r.key)
+      ))
+      toast('success', 'Configurações salvas')
+    } catch {
+      toast('error', 'Erro ao salvar')
+    } finally {
+      setSavingSettings(false)
+    }
+  }
+
+  async function savePolicy(policyId: string) {
+    setSavingPolicy(policyId)
+    try {
+      const policy = cancelPolicies.find(p => p.id === policyId)
+      if (!policy) return
+      const { error } = await supabase
+        .from('cancellation_policies_config')
+        .update({ rules: policy.rules, updated_at: new Date().toISOString() })
+        .eq('id', policyId)
+      if (error) throw error
+      toast('success', `Política "${policy.policy_name}" salva`)
+    } catch {
+      toast('error', 'Erro ao salvar política')
+    } finally {
+      setSavingPolicy(null)
+    }
+  }
+
+  function addRule(policyId: string) {
+    setCancelPolicies(prev => prev.map(p => p.id === policyId
+      ? { ...p, rules: [...p.rules, { days_before: 0, refund_percentage: 100, description: '' }] }
+      : p
+    ))
+  }
+
+  function removeRule(policyId: string, idx: number) {
+    setCancelPolicies(prev => prev.map(p => p.id === policyId
+      ? { ...p, rules: p.rules.filter((_, i) => i !== idx) }
+      : p
+    ))
+  }
+
+  function updateRule(policyId: string, idx: number, field: keyof PolicyRule, value: string | number) {
+    setCancelPolicies(prev => prev.map(p => p.id === policyId
+      ? { ...p, rules: p.rules.map((r, i) => i === idx ? { ...r, [field]: value } : r) }
+      : p
+    ))
   }
 
   async function approveProperty(id: string) {
@@ -898,31 +1010,170 @@ export function AdminDashboard() {
 
           {/* ─────────────── CONFIGURAÇÕES ─────────────── */}
           {tab === 'config' && (
-            <div className="space-y-5 max-w-2xl">
+            <div className="space-y-6 max-w-2xl">
+
+              {/* ── Taxas ── */}
               <div className="bg-[#1A1A1A] border border-[#222] rounded-xl p-6">
-                <h3 className="text-sm font-semibold text-white mb-4">Configurações da Plataforma</h3>
-                <div className="space-y-1">
-                  <CfgRow label="Taxa da plataforma"    desc="Percentual cobrado sobre cada reserva"    val="5%" />
-                </div>
-              </div>
-              <div className="bg-[#1A1A1A] border border-[#222] rounded-xl p-6">
-                <h3 className="text-sm font-semibold text-white mb-4">Políticas de Cancelamento</h3>
-                <div className="space-y-0">
-                  {[
-                    { name:'Flexível',  desc:'Reembolso total até 24h antes do check-in.' },
-                    { name:'Moderado',  desc:'Reembolso total até 5 dias. 50% entre 2-5 dias.' },
-                    { name:'Firme',     desc:'Reembolso total até 14 dias. 50% entre 7-14 dias.' },
-                  ].map(p => (
-                    <div key={p.name} className="flex items-start justify-between gap-4 py-3 border-b border-[#1F1F1F] last:border-0">
-                      <div>
-                        <p className="text-sm font-medium text-white">{p.name}</p>
-                        <p className="text-xs text-[#444] mt-0.5">{p.desc}</p>
-                      </div>
-                      <span className="text-[10px] font-bold text-[#46D369] bg-[#46D369]/10 px-2 py-0.5 rounded mt-0.5 flex-shrink-0">ATIVO</span>
-                    </div>
+                <h3 className="text-sm font-semibold text-white mb-5">Modelo de Taxação</h3>
+
+                {/* Toggle dividido / único */}
+                <div className="flex gap-1 bg-[#111] border border-[#222] p-1 rounded-lg w-fit mb-5">
+                  {(['dividido', 'unico'] as const).map(m => (
+                    <button key={m} onClick={() => setFeeModel(m)}
+                      className={`px-4 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                        feeModel === m ? 'bg-[#E50914] text-white' : 'text-[#555] hover:text-white'
+                      }`}
+                    >
+                      {m === 'dividido' ? 'Dividido' : 'Único'}
+                    </button>
                   ))}
                 </div>
+
+                {feeModel === 'dividido' ? (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs text-[#777] mb-1.5">Taxa do hóspede (%)</label>
+                      <input type="number" min="0" max="100"
+                        value={settings.guest_fee_split}
+                        onChange={e => setSettings(s => ({ ...s, guest_fee_split: e.target.value }))}
+                        className="w-full bg-[#111] border border-[#333] rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-[#E50914]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-[#777] mb-1.5">Taxa do anfitrião (%)</label>
+                      <input type="number" min="0" max="100"
+                        value={settings.host_fee_split}
+                        onChange={e => setSettings(s => ({ ...s, host_fee_split: e.target.value }))}
+                        className="w-full bg-[#111] border border-[#333] rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-[#E50914]"
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="max-w-[200px]">
+                    <label className="block text-xs text-[#777] mb-1.5">Taxa do anfitrião (%)</label>
+                    <input type="number" min="0" max="100"
+                      value={settings.host_fee_single}
+                      onChange={e => setSettings(s => ({ ...s, host_fee_single: e.target.value }))}
+                      className="w-full bg-[#111] border border-[#333] rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-[#E50914]"
+                    />
+                  </div>
+                )}
+
+                {/* Repasse */}
+                <div className="mt-6 pt-5 border-t border-[#222]">
+                  <h4 className="text-sm font-medium text-white mb-4">Política de Repasse</h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs text-[#777] mb-1.5">Quando repassar</label>
+                      <select
+                        value={settings.repasse_trigger}
+                        onChange={e => setSettings(s => ({ ...s, repasse_trigger: e.target.value }))}
+                        className="w-full bg-[#111] border border-[#333] rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-[#E50914]"
+                      >
+                        <option value="before_checkin">Antes do checkin</option>
+                        <option value="after_checkin">Após checkin</option>
+                        <option value="after_checkout">Após checkout</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs text-[#777] mb-1.5">Quantos dias</label>
+                      <input type="number" min="0"
+                        value={settings.repasse_days}
+                        onChange={e => setSettings(s => ({ ...s, repasse_days: e.target.value }))}
+                        className="w-full bg-[#111] border border-[#333] rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-[#E50914]"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-5 flex justify-end">
+                  <button
+                    onClick={saveSettings}
+                    disabled={savingSettings}
+                    className="flex items-center gap-2 px-4 py-2 bg-[#E50914] hover:bg-[#F40612] text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-50"
+                  >
+                    {savingSettings ? <RefreshCw size={14} className="animate-spin" /> : <Check size={14} />}
+                    Salvar configurações
+                  </button>
+                </div>
               </div>
+
+              {/* ── Políticas de cancelamento ── */}
+              <div>
+                <h3 className="text-sm font-semibold text-white mb-4">Políticas de Cancelamento</h3>
+                {loadingTab ? <Skeleton /> : (
+                  <div className="space-y-4">
+                    {cancelPolicies.map(policy => (
+                      <div key={policy.id} className="bg-[#1A1A1A] border border-[#222] rounded-xl p-5">
+                        <div className="flex items-center justify-between mb-4">
+                          <h4 className="text-sm font-semibold text-white">{policy.policy_name}</h4>
+                          <button
+                            onClick={() => savePolicy(policy.id)}
+                            disabled={savingPolicy === policy.id}
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-[#E50914]/10 border border-[#E50914]/30 text-[#E50914] text-xs font-semibold rounded-lg hover:bg-[#E50914]/20 transition-colors disabled:opacity-50"
+                          >
+                            {savingPolicy === policy.id
+                              ? <RefreshCw size={12} className="animate-spin" />
+                              : <Check size={12} />}
+                            Salvar
+                          </button>
+                        </div>
+
+                        <div className="space-y-3">
+                          {policy.rules.map((rule, idx) => (
+                            <div key={idx} className="flex items-start gap-3 p-3 bg-[#111] border border-[#222] rounded-lg">
+                              <div className="grid grid-cols-2 gap-3 flex-1">
+                                <div>
+                                  <label className="block text-[10px] text-[#555] mb-1">Dias antes checkin</label>
+                                  <input type="number" min="0"
+                                    value={rule.days_before}
+                                    onChange={e => updateRule(policy.id, idx, 'days_before', Number(e.target.value))}
+                                    className="w-full bg-[#1A1A1A] border border-[#333] rounded-lg px-2 py-1.5 text-xs text-white outline-none focus:border-[#E50914]"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-[10px] text-[#555] mb-1">% de reembolso</label>
+                                  <input type="number" min="0" max="100"
+                                    value={rule.refund_percentage}
+                                    onChange={e => updateRule(policy.id, idx, 'refund_percentage', Number(e.target.value))}
+                                    className="w-full bg-[#1A1A1A] border border-[#333] rounded-lg px-2 py-1.5 text-xs text-white outline-none focus:border-[#E50914]"
+                                  />
+                                </div>
+                                <div className="col-span-2">
+                                  <label className="block text-[10px] text-[#555] mb-1">Descrição</label>
+                                  <input type="text"
+                                    value={rule.description}
+                                    onChange={e => updateRule(policy.id, idx, 'description', e.target.value)}
+                                    className="w-full bg-[#1A1A1A] border border-[#333] rounded-lg px-2 py-1.5 text-xs text-white outline-none focus:border-[#E50914]"
+                                  />
+                                </div>
+                              </div>
+                              <button
+                                onClick={() => removeRule(policy.id, idx)}
+                                className="p-1.5 text-[#444] hover:text-[#E50914] hover:bg-[#E50914]/10 rounded-lg transition-colors flex-shrink-0 mt-5"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            </div>
+                          ))}
+
+                          <button
+                            onClick={() => addRule(policy.id)}
+                            className="flex items-center gap-2 w-full py-2.5 border border-dashed border-[#333] text-[#555] hover:text-white hover:border-[#555] rounded-lg text-xs transition-colors justify-center"
+                          >
+                            <Plus size={13} /> Adicionar regra
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                    {cancelPolicies.length === 0 && (
+                      <div className="text-center py-10 text-[#333] text-sm">Nenhuma política encontrada</div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* ── Sistema ── */}
               <div className="bg-[#1A1A1A] border border-[#222] rounded-xl p-6">
                 <h3 className="text-sm font-semibold text-white mb-4">Informações do Sistema</h3>
                 <div className="space-y-0 text-xs">
