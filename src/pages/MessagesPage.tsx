@@ -571,7 +571,9 @@ export function MessagesPage() {
                   </p>
                 )}
                 {messages.map(m => {
-                  const isOwn = m.sender_id === user?.id
+                  const isOwn = profile?.role === 'ADMIN'
+                    ? (m.sender_id === SUPPORT_ID || adminIdsRef.current.includes(m.sender_id) || m.sender_id === user?.id)
+                    : m.sender_id === user?.id
                   return (
                     <div key={m.id} className={`flex flex-col ${isOwn ? 'items-end' : 'items-start'}`}>
                       {m.subject && (

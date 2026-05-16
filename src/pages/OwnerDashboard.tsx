@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useSearchParams, Link } from 'react-router-dom'
+import { useSearchParams, Link, useNavigate } from 'react-router-dom'
 import {
   Home, Calendar, DollarSign, Star, Plus, Eye, Pencil,
   ToggleLeft, ToggleRight, ShieldCheck, Check, X, AlertCircle, AlertTriangle,
@@ -13,7 +13,7 @@ import { Card, StatCard } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { KYCDocumentField } from '../components/ui/KYCDocumentField'
-import { IncidentChat, type IncidentForChat } from '../components/ui/IncidentChat'
+import type { IncidentForChat } from '../components/ui/IncidentChat'
 import { Logo } from '../components/layout/Logo'
 import { formatCurrency, formatShortDate } from '../lib/utils'
 import { APP_ROUTES } from '../constants'
@@ -56,6 +56,7 @@ interface KycForm {
 export function OwnerDashboard() {
   const [searchParams] = useSearchParams()
   const tab = searchParams.get('tab') ?? 'imoveis'
+  const navigate = useNavigate()
   const { user, profile, refreshProfile, signOut } = useAuth()
   const { toast } = useToast()
 
@@ -73,7 +74,6 @@ export function OwnerDashboard() {
   const [submittingIncident, setSubmittingIncident] = useState(false)
   const [incidentPhotos, setIncidentPhotos] = useState<string[]>([])
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
-  const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const cameraRef = useRef<HTMLInputElement>(null)
 
@@ -199,11 +199,18 @@ export function OwnerDashboard() {
     if (error) {
       toast('error', 'Erro', error.message)
     } else {
-      toast('success', 'Incidente reportado', 'Nossa equipe analisará em breve.')
+      await supabase.from('messages').insert({
+        sender_id: user.id,
+        receiver_id: '698e7994-96b4-4295-a72d-ba33497387b2',
+        subject: `Sinistro: ${incidentForm.title.trim()}`,
+        content: incidentForm.description.trim(),
+        is_read: false,
+      })
+      toast('success', 'Sinistro registrado', 'Acompanhe pela aba de Mensagens.')
       setIncidentForm({ title: '', description: '', property_id: '' })
       setIncidentPhotos([])
       setShowIncidentForm(false)
-      void loadIncidents()
+      navigate(APP_ROUTES.MESSAGES)
     }
     setSubmittingIncident(false)
   }
@@ -795,7 +802,7 @@ export function OwnerDashboard() {
                         <Card
                           key={inc.id}
                           className="p-4 hover:border-[#E50914]/30 transition-colors"
-                          onClick={() => setSelectedIncident(inc)}
+                          onClick={() => navigate(APP_ROUTES.MESSAGES)}
                         >
                           <div className="flex items-start justify-between gap-3">
                             <div className="flex-1 min-w-0">
@@ -816,13 +823,6 @@ export function OwnerDashboard() {
                     </div>
                   )}
 
-                  {selectedIncident && user && (
-                    <IncidentChat
-                      incident={selectedIncident}
-                      onClose={() => setSelectedIncident(null)}
-                      currentUserId={user.id}
-                    />
-                  )}
                 </div>
               )}
 
