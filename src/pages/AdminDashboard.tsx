@@ -13,6 +13,7 @@ import { supabase } from '../lib/supabase'
 import { Logo } from '../components/layout/Logo'
 import { useAuth } from '../hooks/useAuth'
 import { useToast } from '../hooks/useToast'
+import { useUnreadMessages } from '../hooks/useUnreadMessages'
 import { formatCurrency, formatShortDate } from '../lib/utils'
 import type { Property, UserProfile, Booking, Installment } from '../types'
 
@@ -72,6 +73,7 @@ const PIE_COLORS = ['#E50914','#F5A623','#46D369','#1E90FF','#9B59B6','#1ABC9C']
 export function AdminDashboard() {
   const { user, profile, signOut } = useAuth()
   const { toast } = useToast()
+  const { unreadCount } = useUnreadMessages()
   const [searchParams, setSearchParams] = useSearchParams()
   const tab = (searchParams.get('tab') ?? 'dashboard') as TabId
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -470,6 +472,14 @@ export function AdminDashboard() {
             <RefreshCw size={13} />
             <span className="hidden sm:inline">Atualizar</span>
           </button>
+          <Link to="/mensagens" className="relative text-[#555] hover:text-white transition-colors">
+            <MessageSquare size={17} />
+            {unreadCount > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 min-w-[14px] h-3.5 bg-[#E50914] rounded-full text-[9px] font-bold text-white flex items-center justify-center px-0.5">
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
+          </Link>
           <div className="flex items-center gap-1.5">
             <div className="w-1.5 h-1.5 rounded-full bg-[#46D369] animate-pulse" />
             <span className="text-[10px] text-[#444] hidden sm:inline">Online</span>

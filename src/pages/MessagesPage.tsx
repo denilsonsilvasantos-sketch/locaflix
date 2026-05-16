@@ -68,50 +68,67 @@ export function MessagesPage() {
   // Global realtime: listen for messages received by this user
   useEffect(() => {
     if (!user?.id) return
-    const channel = supabase
-      .channel(`messages-inbox-${user.id}-${Date.now()}`)
-      .on('postgres_changes', {
-        event: 'INSERT', schema: 'public', table: 'messages',
-        filter: `receiver_id=eq.${user.id}`,
-      }, payload => {
-        const m = payload.new as Message
-        const pair = activePairIdsRef.current
 
-        if (pair) {
-          // Admin pairIds conversation — sender is the non-admin party
-          const allAdminIds = new Set([SUPPORT_ID, ...adminIdsRef.current])
-          const nonAdminId = pair.find(id => !allAdminIds.has(id)) ?? pair[1]
-          if (m.sender_id === nonAdminId) {
-            setMessages(prev => prev.some(x => x.id === m.id) ? prev : [...prev, m])
-          }
-          const pairKey = [...pair].sort().join('__')
-          setContacts(prev =>
-            prev.map(c => c.id === pairKey
-              ? { ...c, lastMessage: m.content, lastAt: m.created_at }
+    function handleIncoming(m: Message) {
+      const pair = activePairIdsRef.current
+
+      if (pair) {
+        const allAdminIds = new Set([SUPPORT_ID, ...adminIdsRef.current])
+        const nonAdminId = pair.find(id => !allAdminIds.has(id)) ?? pair[1]
+        if (m.sender_id === nonAdminId) {
+          setMessages(prev => prev.some(x => x.id === m.id) ? prev : [...prev, m])
+        }
+        const pairKey = [...pair].sort().join('__')
+        setContacts(prev =>
+          prev.map(c => c.id === pairKey
+            ? { ...c, lastMessage: m.content, lastAt: m.created_at }
+            : c
+          ).sort((a, b) => new Date(b.lastAt).getTime() - new Date(a.lastAt).getTime())
+        )
+      } else {
+        const effectiveSender = adminIdsRef.current.includes(m.sender_id) ? SUPPORT_ID : m.sender_id
+        if (effectiveSender === activeContactIdRef.current) {
+          setMessages(prev => prev.some(x => x.id === m.id) ? prev : [...prev, m])
+        }
+        setContacts(prev => {
+          const exists = prev.find(c => c.id === effectiveSender)
+          if (exists) {
+            return prev.map(c => c.id === effectiveSender
+              ? { ...c, lastMessage: m.content, lastAt: m.created_at, unread: effectiveSender !== activeContactIdRef.current ? c.unread + 1 : c.unread }
               : c
             ).sort((a, b) => new Date(b.lastAt).getTime() - new Date(a.lastAt).getTime())
-          )
-        } else {
-          const effectiveSender = adminIdsRef.current.includes(m.sender_id) ? SUPPORT_ID : m.sender_id
-          if (effectiveSender === activeContactIdRef.current) {
-            setMessages(prev => prev.some(x => x.id === m.id) ? prev : [...prev, m])
           }
-          setContacts(prev => {
-            const exists = prev.find(c => c.id === effectiveSender)
-            if (exists) {
-              return prev.map(c => c.id === effectiveSender
-                ? { ...c, lastMessage: m.content, lastAt: m.created_at, unread: effectiveSender !== activeContactIdRef.current ? c.unread + 1 : c.unread }
-                : c
-              ).sort((a, b) => new Date(b.lastAt).getTime() - new Date(a.lastAt).getTime())
-            }
-            void loadContacts()
-            return prev
-          })
-        }
-      })
-      .subscribe()
-    return () => { supabase.removeChannel(channel) }
-  }, [user?.id])
+          void loadContacts()
+          return prev
+        })
+      }
+    }
+
+    const ts = Date.now()
+    const channels = [
+      supabase
+        .channel(`messages-inbox-${user.id}-${ts}`)
+        .on('postgres_changes', {
+          event: 'INSERT', schema: 'public', table: 'messages',
+          filter: `receiver_id=eq.${user.id}`,
+        }, payload => handleIncoming(payload.new as Message))
+        .subscribe(),
+    ]
+
+    if (profile?.role === 'ADMIN') {
+      channels.push(
+        supabase
+          .channel(`messages-inbox-support-${ts}`)
+          .on('postgres_changes', {
+            event: 'INSERT', schema: 'public', table: 'messages',
+            filter: `receiver_id=eq.${SUPPORT_ID}`,
+          }, payload => handleIncoming(payload.new as Message))
+          .subscribe()
+      )
+    }
+
+    return () => { channels.forEach(ch => supabase.removeChannel(ch)) }
+  }, [user?.id, profile?.role])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
