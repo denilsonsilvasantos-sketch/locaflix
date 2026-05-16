@@ -12,6 +12,7 @@ interface DateRangePickerProps {
   to: string     // 'yyyy-MM-dd' or ''
   onChange: (from: string, to: string) => void
   onClose: () => void
+  blockedDates?: string[]  // 'yyyy-MM-dd' dates unavailable for selection
 }
 
 const DAYS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
@@ -26,9 +27,24 @@ function toISO(d: Date): string {
   return format(d, 'yyyy-MM-dd')
 }
 
-export function DateRangePicker({ from, to, onChange, onClose }: DateRangePickerProps) {
+export function DateRangePicker({ from, to, onChange, onClose, blockedDates = [] }: DateRangePickerProps) {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
+
+  const blockedSet = new Set(blockedDates)
+
+  function isBlocked(date: Date): boolean {
+    return blockedSet.has(format(date, 'yyyy-MM-dd'))
+  }
+
+  function rangeHasBlocked(from: Date, to: Date): boolean {
+    if (blockedDates.length === 0) return false
+    const [a, b] = isBefore(from, to) ? [from, to] : [to, from]
+    return blockedDates.some(d => {
+      const bd = new Date(d + 'T00:00:00')
+      return isAfter(bd, a) && isBefore(bd, b)
+    })
+  }
 
   const [leftMonth, setLeftMonth] = useState(() => {
     const f = toDate(from)
@@ -47,13 +63,18 @@ export function DateRangePicker({ from, to, onChange, onClose }: DateRangePicker
       : null
 
   function handleDay(date: Date) {
-    if (isBefore(date, today)) return
+    if (isBefore(date, today) || isBlocked(date)) return
     if (phase === 'from') {
       setDraftFrom(date)
       setDraftTo(null)
       setPhase('to')
     } else {
       if (!draftFrom || isBefore(date, draftFrom) || isSameDay(date, draftFrom)) {
+        setDraftFrom(date)
+        setDraftTo(null)
+        setPhase('to')
+      } else if (rangeHasBlocked(draftFrom, date)) {
+        // Range crosses a blocked date — restart selection from clicked date
         setDraftFrom(date)
         setDraftTo(null)
         setPhase('to')
@@ -102,11 +123,13 @@ export function DateRangePicker({ from, to, onChange, onClose }: DateRangePicker
           {days.map((day, i) => {
             const inMonth = day.getMonth() === month.getMonth()
             const isPast = isBefore(day, today)
+            const isDayBlocked = isBlocked(day)
             const isFrom = draftFrom ? isSameDay(day, draftFrom) : false
             const effectiveTo = phase === 'to' && hover && draftFrom ? hover : draftTo
             const isTo = effectiveTo ? isSameDay(day, effectiveTo) : false
             const ranged = inRange(day)
             const isToday = isSameDay(day, today)
+            const disabled = isPast || isDayBlocked
 
             if (!inMonth) return <div key={i} className="h-9" />
 
@@ -121,20 +144,21 @@ export function DateRangePicker({ from, to, onChange, onClose }: DateRangePicker
               >
                 <button
                   type="button"
-                  disabled={isPast}
+                  disabled={disabled}
                   onClick={() => handleDay(day)}
                   onMouseEnter={() => {
-                    if (phase === 'to' && draftFrom && !isPast) setHover(day)
+                    if (phase === 'to' && draftFrom && !disabled) setHover(day)
                   }}
                   onMouseLeave={() => setHover(null)}
                   className={[
-                    'w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium transition-all',
-                    isPast ? 'text-[#3A3A3A] cursor-not-allowed' : 'cursor-pointer',
+                    'w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium transition-all relative',
+                    disabled ? 'cursor-not-allowed' : 'cursor-pointer',
+                    isDayBlocked ? 'text-[#3A3A3A] line-through' : '',
+                    isPast && !isDayBlocked ? 'text-[#3A3A3A]' : '',
                     isFrom || isTo ? 'bg-[#E50914] text-white font-bold shadow-lg' : '',
-                    !isFrom && !isTo && !isPast ? 'hover:bg-[#2A2A2A] text-white' : '',
+                    !isFrom && !isTo && !disabled ? 'hover:bg-[#2A2A2A] text-white' : '',
                     ranged && !isFrom && !isTo ? 'text-white' : '',
-                    isToday && !isFrom && !isTo ? 'font-bold text-[#E50914]' : '',
-                    isPast && !isFrom && !isTo ? 'text-[#3A3A3A]' : '',
+                    isToday && !isFrom && !isTo && !isDayBlocked ? 'font-bold text-[#E50914]' : '',
                   ].filter(Boolean).join(' ')}
                 >
                   {day.getDate()}

@@ -12,6 +12,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { APP_ROUTES } from '../constants'
 import { useAuth } from '../hooks/useAuth'
 import { useToast } from '../hooks/useToast'
+import { MapView } from './MapView'
 
 export function Home() {
   const [properties, setProperties] = useState<Property[]>([])
@@ -23,6 +24,7 @@ export function Home() {
   const [catalog, setCatalog] = useState<AmenityCatalog[]>([])
   const [amenitiesExpanded, setAmenitiesExpanded] = useState(false)
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set())
+  const [view, setView] = useState<'list' | 'map'>('list')
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const { user } = useAuth()
@@ -511,20 +513,26 @@ export function Home() {
         {/* View toggle */}
         <div className="flex items-center gap-2 mb-4 px-4">
           <div className="flex gap-1 bg-[#1A1A1A] border border-[#222] p-1 rounded-lg">
-            <span className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-[#E50914] text-white">
+            <button
+              onClick={() => setView('list')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${view === 'list' ? 'bg-[#E50914] text-white' : 'text-[#555] hover:text-white'}`}
+            >
               <LayoutList size={12} /> Lista
-            </span>
-            <Link
-              to="/mapa"
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md text-[#555] hover:text-white transition-colors"
+            </button>
+            <button
+              onClick={() => setView('map')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${view === 'map' ? 'bg-[#E50914] text-white' : 'text-[#555] hover:text-white'}`}
             >
               <Map size={12} /> Mapa
-            </Link>
+            </button>
           </div>
         </div>
 
-        {/* Content: search results or Netflix rows */}
-        {isSearching ? (
+        {view === 'map' ? (
+          <div className="px-4 pb-8">
+            <MapView height="500px" />
+          </div>
+        ) : isSearching ? (
           <PropertyGrid
             properties={filteredProperties}
             loading={loading}

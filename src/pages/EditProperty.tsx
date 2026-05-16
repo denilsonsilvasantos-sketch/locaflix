@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { X, Plus, Upload, Trash2, Image, Link, DollarSign } from 'lucide-react'
+import { AvailabilityCalendar } from '../components/ui/AvailabilityCalendar'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { useToast } from '../hooks/useToast'
@@ -515,6 +516,15 @@ export function EditProperty() {
                 placeholder="-46.6333"
               />
             </div>
+          </section>
+
+          {/* Disponibilidade */}
+          <section className="bg-[#1F1F1F] border border-[#333] rounded-2xl p-6 space-y-4">
+            <div>
+              <h2 className="font-display text-lg font-bold text-white">Disponibilidade</h2>
+              <p className="text-xs text-[#666] mt-1">Bloqueie datas indisponíveis. As alterações são salvas automaticamente.</p>
+            </div>
+            <AvailabilityCalendar propertyId={id!} />
           </section>
 
           {/* Capacidade e Preço */}

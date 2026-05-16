@@ -80,6 +80,7 @@ export function PropertyDetails() {
   const [guests, setGuests] = useState(() => Number(searchParams.get('hospedes') ?? 2))
   const [isFavorited, setIsFavorited] = useState(false)
   const [hasActiveBooking, setHasActiveBooking] = useState(false)
+  const [blockedDates, setBlockedDates] = useState<string[]>([])
   const [calendarOpen, setCalendarOpen] = useState(false)
   const calendarRef = useRef<HTMLDivElement>(null)
 
@@ -166,6 +167,14 @@ export function PropertyDetails() {
     setPricePeriods((periodsRes.data ?? []) as PricePeriod[])
     setPropertyAmenities((amenitiesRes.data ?? []) as PropertyAmenity[])
     setLoading(false)
+
+    supabase
+      .from('blocked_dates')
+      .select('date')
+      .eq('property_id', propertyId)
+      .then(({ data }) => {
+        setBlockedDates((data ?? []).map((r: { date: string }) => r.date))
+      })
   }, [])
 
   useEffect(() => {
@@ -744,6 +753,7 @@ export function PropertyDetails() {
                         to={checkOut}
                         onChange={(f, t) => { setCheckIn(f); setCheckOut(t) }}
                         onClose={() => setCalendarOpen(false)}
+                        blockedDates={blockedDates}
                       />
                     </div>
                   )}
