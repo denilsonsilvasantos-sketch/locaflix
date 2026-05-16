@@ -6,6 +6,7 @@ import type { Message } from '../types'
 import { useAuth } from '../hooks/useAuth'
 import { useToast } from '../hooks/useToast'
 import { Button } from '../components/ui/Button'
+import { Lightbox } from '../components/ui/Lightbox'
 import { getInitials } from '../lib/utils'
 
 const SUPPORT_ID = '698e7994-96b4-4295-a72d-ba33497387b2'
@@ -42,6 +43,7 @@ export function MessagesPage() {
   const adminIdsRef = useRef<string[]>([])
   const attachmentRef = useRef<HTMLInputElement>(null)
   const [uploadingAttachment, setUploadingAttachment] = useState(false)
+  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null)
 
   // Compose
   const [composeOpen, setComposeOpen] = useState(false)
@@ -505,6 +507,7 @@ export function MessagesPage() {
       ]
 
   return (
+    <>
     <div className="min-h-screen bg-[#141414] pt-20 flex flex-col overflow-x-hidden">
       {/* Mobile tab bar — non-ADMIN */}
       {isNonAdmin && (
@@ -682,7 +685,7 @@ export function MessagesPage() {
                           : 'bg-[#2A2A2A] text-white rounded-tl-sm'
                       }`}>
                         {/^https?:\/\/.+\.(jpg|jpeg|png|gif|webp|avif|heic)(\?.*)?$/i.test(m.content)
-                          ? <img src={m.content} alt="anexo" className="max-w-full rounded-2xl object-cover cursor-pointer" onClick={() => window.open(m.content, '_blank')} />
+                          ? <img src={m.content} alt="anexo" className="max-w-full rounded-2xl object-cover cursor-zoom-in" onClick={() => setLightboxSrc(m.content)} />
                           : <p className="whitespace-pre-wrap break-words px-4 py-2.5">{m.content}</p>
                         }
                         <p className={`text-[10px] px-4 pb-2 ${isOwn ? 'text-white/60 text-right' : 'text-[#666]'}`}>
@@ -818,5 +821,7 @@ export function MessagesPage() {
         </div>
       )}
     </div>
+    <Lightbox src={lightboxSrc} onClose={() => setLightboxSrc(null)} />
+    </>
   )
 }

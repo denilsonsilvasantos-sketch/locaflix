@@ -1,14 +1,16 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams, Link, useNavigate } from 'react-router-dom'
 import {
   Home, Calendar, DollarSign, Star, Plus, Eye, Pencil,
   ToggleLeft, ToggleRight, ShieldCheck, Check, X, AlertCircle,
-  ChevronDown, ChevronUp, Trash2, LogOut,
+  ChevronDown, ChevronUp, Trash2, LogOut, MessageSquare, TrendingUp,
 } from 'lucide-react'
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 import { supabase } from '../lib/supabase'
 import type { Property, Booking, Review, KinshipType, OwnershipType, PricePeriod, PeriodType } from '../types'
 import { useAuth } from '../hooks/useAuth'
 import { useToast } from '../hooks/useToast'
+import { useUnreadMessages } from '../hooks/useUnreadMessages'
 import { Card, StatCard } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
@@ -34,6 +36,7 @@ const NAV = [
   { label: 'Financeiro', icon: <DollarSign size={16} />,     href: '/anfitriao?tab=financeiro',  tabKey: 'financeiro' },
   { label: 'Avaliações', icon: <Star size={16} />,           href: '/anfitriao?tab=avaliacoes',  tabKey: 'avaliacoes' },
   { label: 'Documentos', icon: <ShieldCheck size={16} />,    href: '/anfitriao?tab=documentos',  tabKey: 'documentos' },
+  { label: 'Mensagens',  icon: <MessageSquare size={16} />,  href: '/mensagens',                 tabKey: 'mensagens' },
 ]
 
 interface KycForm {
@@ -53,6 +56,7 @@ export function OwnerDashboard() {
   const navigate = useNavigate()
   const { user, profile, refreshProfile, signOut } = useAuth()
   const { toast } = useToast()
+  const { unreadCount } = useUnreadMessages()
 
   const [properties, setProperties] = useState<Property[]>([])
   const [bookings, setBookings] = useState<Booking[]>([])
@@ -235,6 +239,40 @@ export function OwnerDashboard() {
     .filter(b => b.status === 'PAGO' || b.status === 'CONCLUIDA')
     .reduce((s, b) => s + b.subtotal - b.platform_fee, 0)
 
+  const cancelRate = bookings.length > 0
+    ? Math.round((bookings.filter(b => b.status === 'CANCELADA').length / bookings.length) * 100)
+    : 0
+
+  const completedWithDates = bookings.filter(b =>
+    ['PAGO', 'CONCLUIDA'].includes(b.status) && b.check_in && b.check_out
+  )
+  const avgNights = completedWithDates.length > 0
+    ? Math.round(
+        completedWithDates.reduce((s, b) => {
+          const diff = new Date(b.check_out).getTime() - new Date(b.check_in).getTime()
+          return s + diff / 86400000
+        }, 0) / completedWithDates.length
+      )
+    : 0
+
+  const occupationChart = useMemo(() => {
+    const n = new Date()
+    return Array.from({ length: 3 }, (_, i) => {
+      const d = new Date(n.getFullYear(), n.getMonth() - (2 - i), 1)
+      const prefix = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+      const label = d.toLocaleString('pt-BR', { month: 'short' })
+      const monthBks = bookings.filter(b =>
+        ['PAGO', 'CONCLUIDA', 'PARCIAL'].includes(b.status) &&
+        (b.created_at ?? '').startsWith(prefix)
+      )
+      return {
+        month: label,
+        reservas: monthBks.length,
+        receita: monthBks.reduce((s, b) => s + b.subtotal - b.platform_fee, 0),
+      }
+    })
+  }, [bookings])
+
   return (
     <div className="min-h-screen bg-[#141414]">
 
@@ -248,6 +286,7 @@ export function OwnerDashboard() {
         <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">
           {NAV.map(item => {
             const active = item.tabKey === tab
+            const badge = item.tabKey === 'mensagens' && unreadCount > 0 ? unreadCount : 0
             return (
               <Link
                 key={item.href}
@@ -257,7 +296,12 @@ export function OwnerDashboard() {
                 }`}
               >
                 <span className="w-4 h-4 flex-shrink-0">{item.icon}</span>
-                {item.label}
+                <span className="flex-1">{item.label}</span>
+                {badge > 0 && (
+                  <span className="min-w-[18px] h-[18px] bg-[#E50914] rounded-full text-[9px] font-bold text-white flex items-center justify-center px-1">
+                    {badge > 9 ? '9+' : badge}
+                  </span>
+                )}
               </Link>
             )
           })}
@@ -279,6 +323,7 @@ export function OwnerDashboard() {
         <div className="flex overflow-x-auto scrollbar-hide px-2">
           {NAV.map(item => {
             const active = item.tabKey === tab
+            const badge = item.tabKey === 'mensagens' && unreadCount > 0 ? unreadCount : 0
             return (
               <Link
                 key={item.href}
@@ -287,7 +332,14 @@ export function OwnerDashboard() {
                   active ? 'border-[#E50914] text-white' : 'border-transparent text-[#B3B3B3] hover:text-white'
                 }`}
               >
-                <span className="w-4 h-4">{item.icon}</span>
+                <span className="relative w-4 h-4">
+                  {item.icon}
+                  {badge > 0 && (
+                    <span className="absolute -top-1 -right-1.5 min-w-[10px] h-2.5 bg-[#E50914] rounded-full text-[7px] font-bold text-white flex items-center justify-center px-0.5">
+                      {badge > 9 ? '9+' : badge}
+                    </span>
+                  )}
+                </span>
                 <span>{item.label}</span>
               </Link>
             )
@@ -321,16 +373,39 @@ export function OwnerDashboard() {
                   </div>
 
                   {/* KPIs */}
-                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
                     <StatCard label="Imóveis ativos" value={activeProperties.length} icon={<Home size={18} />} />
                     <StatCard label="Reservas ativas" value={activeBookings.length} icon={<Calendar size={18} />} />
                     <StatCard label="Receita do mês" value={formatCurrency(monthlyRevenue)} icon={<DollarSign size={18} />} accent />
-                    <StatCard
-                      label="Avaliação média"
-                      value={avgRating}
-                      icon={<Star size={18} />}
-                    />
+                    <StatCard label="Avaliação média" value={avgRating} icon={<Star size={18} />} />
                   </div>
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
+                    <StatCard label="Receita líquida total" value={formatCurrency(totalRevenue)} icon={<DollarSign size={18} />} accent />
+                    <StatCard label="Estadia média" value={avgNights > 0 ? `${avgNights} noites` : '—'} icon={<Calendar size={18} />} />
+                    <StatCard label="Taxa cancelamento" value={`${cancelRate}%`} icon={<TrendingUp size={18} />} />
+                    <StatCard label="Total reservas" value={bookings.length} icon={<Calendar size={18} />} />
+                  </div>
+
+                  {/* Ocupação mensal */}
+                  {bookings.length > 0 && (
+                    <Card className="p-5 mb-10">
+                      <h3 className="text-sm font-semibold text-white mb-4">Ocupação — últimos 3 meses</h3>
+                      <ResponsiveContainer width="100%" height={180}>
+                        <BarChart data={occupationChart} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#222" vertical={false} />
+                          <XAxis dataKey="month" tick={{ fill: '#666', fontSize: 11 }} axisLine={false} tickLine={false} />
+                          <YAxis tick={{ fill: '#666', fontSize: 11 }} axisLine={false} tickLine={false} allowDecimals={false} />
+                          <Tooltip
+                            contentStyle={{ background: '#1A1A1A', border: '1px solid #333', borderRadius: 8 }}
+                            labelStyle={{ color: '#B3B3B3', fontSize: 11 }}
+                            itemStyle={{ color: '#E50914', fontSize: 11 }}
+                            formatter={(v: number) => [v, 'Reservas']}
+                          />
+                          <Bar dataKey="reservas" fill="#E50914" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </Card>
+                  )}
 
                   {/* Reservas recentes */}
                   <section className="mb-10">

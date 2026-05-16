@@ -1,14 +1,39 @@
-import express from "express";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
-import { existsSync } from "node:fs";
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const app = express();
-const PORT = process.env.PORT ?? 3e3;
-const ASAAS_API_KEY = (process.env.ASAAS_API_KEY ?? "").replace(/^\\+/, "").trim();
-const ASAAS_BASE_URL = process.env.ASAAS_ENV === "production" ? "https://api.asaas.com/v3" : "https://sandbox.asaas.com/api/v3";
-const WEBHOOK_SECRET = process.env.ASAAS_WEBHOOK_SECRET ?? "";
-app.use(express.json());
+var __create = Object.create;
+var __defProp = Object.defineProperty;
+var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __getProtoOf = Object.getPrototypeOf;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __copyProps = (to, from, except, desc) => {
+  if (from && typeof from === "object" || typeof from === "function") {
+    for (let key of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(to, key) && key !== except)
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+  }
+  return to;
+};
+var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
+  // If the importer is in node compatibility mode or this is not an ESM
+  // file that has been converted to a CommonJS file using a Babel-
+  // compatible transform (i.e. "__esModule" has not been set), then set
+  // "default" to the CommonJS "module.exports" for node compatibility.
+  isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
+  mod
+));
+
+// server/index.ts
+var import_express = __toESM(require("express"), 1);
+var import_node_path = __toESM(require("node:path"), 1);
+var import_node_url = require("node:url");
+var import_node_fs = require("node:fs");
+var import_meta = {};
+var __dirname = import_node_path.default.dirname((0, import_node_url.fileURLToPath)(import_meta.url));
+var app = (0, import_express.default)();
+var PORT = process.env.PORT ?? 3e3;
+var ASAAS_API_KEY = (process.env.ASAAS_API_KEY ?? "").replace(/^\\+/, "").trim();
+var ASAAS_BASE_URL = process.env.ASAAS_ENV === "production" ? "https://api.asaas.com/v3" : "https://sandbox.asaas.com/api/v3";
+var WEBHOOK_SECRET = process.env.ASAAS_WEBHOOK_SECRET ?? "";
+app.use(import_express.default.json());
 app.set("trust proxy", true);
 function requireAuth(req, res, next) {
   const token = req.headers.authorization?.replace("Bearer ", "");
@@ -267,10 +292,10 @@ async function asaasRequest(method, path2, body) {
 app.get("/auth/callback", (_req, res) => {
   res.sendFile(distIndex);
 });
-const distDir = path.join(__dirname, "..");
-const distIndex = path.join(distDir, "index.html");
-if (existsSync(distIndex)) {
-  app.use(express.static(distDir));
+var distDir = import_node_path.default.join(__dirname, "..");
+var distIndex = import_node_path.default.join(distDir, "index.html");
+if ((0, import_node_fs.existsSync)(distIndex)) {
+  app.use(import_express.default.static(distDir));
   app.use((_req, res) => {
     res.sendFile(distIndex);
   });

@@ -14,6 +14,7 @@ import { Logo } from '../components/layout/Logo'
 import { useAuth } from '../hooks/useAuth'
 import { useToast } from '../hooks/useToast'
 import { useUnreadMessages } from '../hooks/useUnreadMessages'
+import { Lightbox } from '../components/ui/Lightbox'
 import { formatCurrency, formatShortDate } from '../lib/utils'
 import type { Property, UserProfile, Booking, Installment } from '../types'
 
@@ -74,6 +75,7 @@ export function AdminDashboard() {
   const { user, profile, signOut } = useAuth()
   const { toast } = useToast()
   const { unreadCount } = useUnreadMessages()
+  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null)
   const [searchParams, setSearchParams] = useSearchParams()
   const tab = (searchParams.get('tab') ?? 'dashboard') as TabId
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -380,6 +382,7 @@ export function AdminDashboard() {
   const repassesProntos    = repasses.filter(b => b.status === 'CONCLUIDA').reduce((s,b) => s + (b.subtotal - b.platform_fee), 0)
 
   return (
+    <>
     <div className="min-h-screen bg-[#0E0E0E] flex">
       {/* Mobile overlay */}
       {sidebarOpen && (
@@ -787,14 +790,14 @@ export function AdminDashboard() {
                           </p>
                           <div className="flex flex-wrap gap-3 mt-3">
                             {u.document_url && (
-                              <a href={u.document_url} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-xs text-blue-400 hover:underline">
+                              <button onClick={() => setLightboxSrc(u.document_url!)} className="flex items-center gap-1 text-xs text-blue-400 hover:underline">
                                 <ShieldCheck size={11} /> RG / CNH
-                              </a>
+                              </button>
                             )}
                             {u.address_proof_url && (
-                              <a href={u.address_proof_url} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-xs text-blue-400 hover:underline">
+                              <button onClick={() => setLightboxSrc(u.address_proof_url!)} className="flex items-center gap-1 text-xs text-blue-400 hover:underline">
                                 <ShieldCheck size={11} /> Comp. Endereço
-                              </a>
+                              </button>
                             )}
                           </div>
                         </div>
@@ -1156,6 +1159,8 @@ export function AdminDashboard() {
         </main>
       </div>
     </div>
+    <Lightbox src={lightboxSrc} onClose={() => setLightboxSrc(null)} />
+    </>
   )
 }
 
