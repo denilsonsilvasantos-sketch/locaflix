@@ -5,12 +5,11 @@ import {
   PieChart, Pie, Cell,
 } from 'recharts'
 import {
-  LayoutDashboard, Home, Users, ShieldCheck, DollarSign, Send, FileWarning,
+  LayoutDashboard, Home, Users, ShieldCheck, DollarSign, Send,
   Settings, Menu, X, LogOut, Check, TrendingUp, Building2, CheckCircle2,
   Banknote, AlertTriangle, UserPlus, Ban, Search, Bell, RefreshCw, Plus, Eye, MessageSquare, Trash2,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
-import { IncidentChat, type IncidentForChat } from '../components/ui/IncidentChat'
 import { Logo } from '../components/layout/Logo'
 import { useAuth } from '../hooks/useAuth'
 import { useToast } from '../hooks/useToast'
@@ -24,7 +23,6 @@ const NAV_ITEMS = [
   { id: 'kyc',       label: 'KYC / Verificações', icon: ShieldCheck },
   { id: 'pagamentos',label: 'Pagamentos',        icon: DollarSign },
   { id: 'repasses',  label: 'Repasses',          icon: Send },
-  { id: 'sinistros', label: 'Sinistros',         icon: FileWarning },
   { id: 'config',    label: 'Configurações',     icon: Settings },
 ] as const
 
@@ -48,22 +46,6 @@ interface StatePoint  { state: string; value: number }
 
 type BookingRow = Booking & { property?: Property; guest?: UserProfile; owner?: UserProfile }
 type InstallRow  = Installment & { booking?: BookingRow }
-
-interface IncidentBookingInfo {
-  id: string
-  guest_id: string | null
-  owner_id: string | null
-  guest?: { id: string; name: string | null; email: string } | null
-  owner?: { id: string; name: string | null; email: string } | null
-}
-
-interface IncidentRow extends IncidentForChat {
-  reporter_role: string
-  created_at: string
-  reporter?: { name: string | null; email: string } | null
-  property?: { name: string } | null
-  booking?: IncidentBookingInfo | null
-}
 
 interface PlatformSettings {
   host_fee_split: string
@@ -112,9 +94,6 @@ export function AdminDashboard() {
   const [installments, setInstallments] = useState<InstallRow[]>([])
   const [installFilter, setInstallFilter] = useState('todos')
   const [repasses, setRepasses]     = useState<BookingRow[]>([])
-  const [sinistros, setSinistros]     = useState<IncidentRow[]>([])
-  const [sinistrosFilter, setSinistrosFilter] = useState('todos')
-  const [chatIncident, setChatIncident] = useState<IncidentRow | null>(null)
   const [loadingTab, setLoadingTab] = useState(false)
 
   // Config tab
@@ -236,52 +215,6 @@ export function AdminDashboard() {
           .in('status', ['CONCLUIDA','PAGO']).eq('repasse_liberado', false).order('updated_at', { ascending: false }).limit(200)
         setRepasses((data ?? []) as unknown as BookingRow[])
 
-      } else if (t === 'sinistros') {
-        const { data: rawInc } = await supabase
-          .from('incidents')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .limit(200)
-
-        if (!rawInc || rawInc.length === 0) {
-          setSinistros([])
-        } else {
-          type RawInc = { id: string; reporter_id: string | null; property_id: string | null; booking_id: string | null; [k: string]: unknown }
-          const incs = rawInc as RawInc[]
-          const reporterIds = [...new Set(incs.map(i => i.reporter_id).filter(Boolean))] as string[]
-          const propertyIds = [...new Set(incs.map(i => i.property_id).filter(Boolean))] as string[]
-          const bookingIds  = [...new Set(incs.map(i => i.booking_id).filter(Boolean))]  as string[]
-
-          const [{ data: reps }, { data: props }, { data: bks }] = await Promise.all([
-            reporterIds.length ? supabase.from('users').select('id,name,email').in('id', reporterIds) : Promise.resolve({ data: [] }),
-            propertyIds.length ? supabase.from('properties').select('id,name').in('id', propertyIds) : Promise.resolve({ data: [] }),
-            bookingIds.length  ? supabase.from('bookings').select('id,guest_id,owner_id').in('id', bookingIds) : Promise.resolve({ data: [] }),
-          ])
-
-          const bkPartyIds = [...new Set([
-            ...(bks ?? []).map((b: { guest_id: string | null }) => b.guest_id),
-            ...(bks ?? []).map((b: { owner_id: string | null }) => b.owner_id),
-          ].filter(Boolean))] as string[]
-          const { data: bkUsers } = bkPartyIds.length
-            ? await supabase.from('users').select('id,name,email').in('id', bkPartyIds)
-            : { data: [] }
-
-          const repMap  = Object.fromEntries((reps ?? []).map((u: { id: string }) => [u.id, u]))
-          const propMap = Object.fromEntries((props ?? []).map((p: { id: string }) => [p.id, p]))
-          const bkUMap  = Object.fromEntries((bkUsers ?? []).map((u: { id: string }) => [u.id, u]))
-          const bkMap   = Object.fromEntries((bks ?? []).map((b: { id: string; guest_id: string | null; owner_id: string | null }) => [
-            b.id,
-            { ...b, guest: b.guest_id ? bkUMap[b.guest_id] ?? null : null, owner: b.owner_id ? bkUMap[b.owner_id] ?? null : null },
-          ]))
-
-          setSinistros(incs.map(inc => ({
-            ...inc,
-            reporter: inc.reporter_id ? repMap[inc.reporter_id]  ?? null : null,
-            property: inc.property_id ? propMap[inc.property_id] ?? null : null,
-            booking:  inc.booking_id  ? bkMap[inc.booking_id]    ?? null : null,
-          })) as IncidentRow[])
-        }
-
       } else if (t === 'config') {
         const [{ data: ps }, { data: cp }] = await Promise.all([
           supabase.from('platform_settings').select('key, value'),
@@ -305,14 +238,6 @@ export function AdminDashboard() {
       setLoadingTab(false)
     }
   }
-
-  async function updateIncidentStatus(id: string, status: string) {
-    const { error } = await supabase.from('incidents').update({ status, updated_at: new Date().toISOString() }).eq('id', id)
-    if (error) { toast('error', 'Erro', error.message); return }
-    setSinistros(prev => prev.map(s => s.id === id ? { ...s, status } : s))
-    toast('success', 'Status atualizado')
-  }
-
 
   async function saveSettings() {
     setSavingSettings(true)
@@ -1033,89 +958,6 @@ export function AdminDashboard() {
             </div>
           )}
 
-          {/* ─────────────── SINISTROS ─────────────── */}
-          {tab === 'sinistros' && (
-            <div className="space-y-4">
-              {/* Filtros */}
-              <div className="flex gap-2 flex-wrap">
-                {['todos','ABERTO','EM_ANALISE','RESOLVIDO','FECHADO'].map(f => (
-                  <button key={f} onClick={() => setSinistrosFilter(f)}
-                    className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors
-                      ${sinistrosFilter === f ? 'bg-[#E50914] text-white' : 'bg-[#1A1A1A] text-[#777] hover:text-white border border-[#222]'}`}
-                  >
-                    {f === 'todos' ? 'Todos' : f === 'EM_ANALISE' ? 'Em Análise' : f.charAt(0) + f.slice(1).toLowerCase()}
-                  </button>
-                ))}
-              </div>
-
-              {loadingTab ? <Skeleton /> : (() => {
-                const filtered = sinistros.filter(s => sinistrosFilter === 'todos' || s.status === sinistrosFilter)
-                if (filtered.length === 0) return (
-                  <div className="flex flex-col items-center justify-center py-24">
-                    <FileWarning size={48} className="text-[#2A2A2A] mb-4" />
-                    <p className="text-[#444] text-sm">Nenhum sinistro encontrado</p>
-                  </div>
-                )
-                return (
-                  <>
-                    <div className="space-y-3">
-                      {filtered.map(s => (
-                        <div
-                          key={s.id}
-                          className="bg-[#1A1A1A] border border-[#222] rounded-xl overflow-hidden hover:border-[#333] transition-colors cursor-pointer"
-                          onClick={() => setChatIncident(s)}
-                        >
-                          <div className="p-4 flex items-start gap-3">
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 flex-wrap mb-1">
-                                <p className="text-sm font-semibold text-white">{s.title}</p>
-                                <AdminIncidentBadge status={s.status} />
-                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${s.reporter_role === 'GUEST' ? 'bg-blue-500/10 text-blue-400' : 'bg-[#F5A623]/10 text-[#F5A623]'}`}>
-                                  {s.reporter_role === 'GUEST' ? 'HÓSPEDE' : 'ANFITRIÃO'}
-                                </span>
-                              </div>
-                              <p className="text-xs text-[#555]">
-                                {s.reporter?.name ?? s.reporter?.email ?? '—'}
-                                {s.property?.name ? ` · ${s.property.name}` : ''}
-                                {' · '}{new Date(s.created_at).toLocaleDateString('pt-BR')}
-                              </p>
-                            </div>
-                            <div className="flex items-center gap-2 flex-shrink-0">
-                              <select
-                                value={s.status}
-                                onClick={e => e.stopPropagation()}
-                                onChange={e => { e.stopPropagation(); updateIncidentStatus(s.id, e.target.value) }}
-                                className="bg-[#111] border border-[#333] rounded-lg px-2 py-1 text-xs text-white outline-none focus:border-[#E50914]"
-                              >
-                                <option value="ABERTO">Aberto</option>
-                                <option value="EM_ANALISE">Em Análise</option>
-                                <option value="RESOLVIDO">Resolvido</option>
-                                <option value="FECHADO">Fechado</option>
-                              </select>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-
-                    {chatIncident && user && (
-                      <IncidentChat
-                        incident={chatIncident}
-                        onClose={() => setChatIncident(null)}
-                        currentUserId={user.id}
-                        isAdmin
-                        guestId={chatIncident.booking?.guest_id ?? undefined}
-                        guestName={chatIncident.booking?.guest?.name ?? undefined}
-                        ownerId={chatIncident.booking?.owner_id ?? undefined}
-                        ownerName={chatIncident.booking?.owner?.name ?? undefined}
-                      />
-                    )}
-                  </>
-                )
-              })()}
-            </div>
-          )}
-
           {/* ─────────────── CONFIGURAÇÕES ─────────────── */}
           {tab === 'config' && (
             <div className="space-y-6 max-w-2xl">
@@ -1356,23 +1198,6 @@ function InstallBadge({ status }: { status: string }) {
     ATRASADO:'bg-[#E50914]/10 text-[#E50914]', CANCELADO:'bg-[#2A2A2A] text-[#555]',
   }
   return <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${m[status] ?? 'bg-[#2A2A2A] text-[#555]'}`}>{status}</span>
-}
-
-function AdminIncidentBadge({ status }: { status: string }) {
-  const map: Record<string, string> = {
-    ABERTO:     'bg-[#F5A623]/10 text-[#F5A623]',
-    EM_ANALISE: 'bg-blue-500/10 text-blue-400',
-    RESOLVIDO:  'bg-[#46D369]/10 text-[#46D369]',
-    FECHADO:    'bg-[#333] text-[#666]',
-  }
-  const labels: Record<string, string> = {
-    ABERTO: 'Aberto', EM_ANALISE: 'Em Análise', RESOLVIDO: 'Resolvido', FECHADO: 'Fechado',
-  }
-  return (
-    <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${map[status] ?? map.ABERTO}`}>
-      {labels[status] ?? status}
-    </span>
-  )
 }
 
 function Skeleton() {

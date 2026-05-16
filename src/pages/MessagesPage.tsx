@@ -38,6 +38,7 @@ export function MessagesPage() {
   const [mobileView, setMobileView] = useState<'list' | 'chat'>('list')
   const bottomRef = useRef<HTMLDivElement>(null)
   const activeContactIdRef = useRef<string | null>(null)
+  const activePairIdsRef = useRef<[string, string] | null>(null)
   const adminIdsRef = useRef<string[]>([])
   const attachmentRef = useRef<HTMLInputElement>(null)
   const [uploadingAttachment, setUploadingAttachment] = useState(false)
@@ -50,7 +51,11 @@ export function MessagesPage() {
   const [composeText, setComposeText] = useState('')
   const [composeSending, setComposeSending] = useState(false)
 
-  useEffect(() => { activeContactIdRef.current = activeContactId }, [activeContactId])
+  useEffect(() => {
+    activeContactIdRef.current = activeContactId
+    const contact = contacts.find(c => c.id === activeContactId)
+    activePairIdsRef.current = contact?.pairIds ?? null
+  }, [activeContactId, contacts])
 
   useEffect(() => {
     if (user?.id && profile !== null) {
@@ -70,21 +75,39 @@ export function MessagesPage() {
         filter: `receiver_id=eq.${user.id}`,
       }, payload => {
         const m = payload.new as Message
-        const effectiveSender = adminIdsRef.current.includes(m.sender_id) ? SUPPORT_ID : m.sender_id
-        if (effectiveSender === activeContactIdRef.current) {
-          setMessages(prev => prev.some(x => x.id === m.id) ? prev : [...prev, m])
-        }
-        setContacts(prev => {
-          const exists = prev.find(c => c.id === effectiveSender)
-          if (exists) {
-            return prev.map(c => c.id === effectiveSender
-              ? { ...c, lastMessage: m.content, lastAt: m.created_at, unread: effectiveSender !== activeContactIdRef.current ? c.unread + 1 : c.unread }
+        const pair = activePairIdsRef.current
+
+        if (pair) {
+          // Admin pairIds conversation — sender is the non-admin party
+          const allAdminIds = new Set([SUPPORT_ID, ...adminIdsRef.current])
+          const nonAdminId = pair.find(id => !allAdminIds.has(id)) ?? pair[1]
+          if (m.sender_id === nonAdminId) {
+            setMessages(prev => prev.some(x => x.id === m.id) ? prev : [...prev, m])
+          }
+          const pairKey = [...pair].sort().join('__')
+          setContacts(prev =>
+            prev.map(c => c.id === pairKey
+              ? { ...c, lastMessage: m.content, lastAt: m.created_at }
               : c
             ).sort((a, b) => new Date(b.lastAt).getTime() - new Date(a.lastAt).getTime())
+          )
+        } else {
+          const effectiveSender = adminIdsRef.current.includes(m.sender_id) ? SUPPORT_ID : m.sender_id
+          if (effectiveSender === activeContactIdRef.current) {
+            setMessages(prev => prev.some(x => x.id === m.id) ? prev : [...prev, m])
           }
-          void loadContacts()
-          return prev
-        })
+          setContacts(prev => {
+            const exists = prev.find(c => c.id === effectiveSender)
+            if (exists) {
+              return prev.map(c => c.id === effectiveSender
+                ? { ...c, lastMessage: m.content, lastAt: m.created_at, unread: effectiveSender !== activeContactIdRef.current ? c.unread + 1 : c.unread }
+                : c
+              ).sort((a, b) => new Date(b.lastAt).getTime() - new Date(a.lastAt).getTime())
+            }
+            void loadContacts()
+            return prev
+          })
+        }
       })
       .subscribe()
     return () => { supabase.removeChannel(channel) }
@@ -213,7 +236,11 @@ export function MessagesPage() {
     if (!user?.id) return
 
     if (!pairIds && contactId === SUPPORT_ID) {
-      // Support conversation: include messages from SUPPORT_ID and from any known admin
+      // Non-admin support conversation. Ensure we know all admin IDs.
+      if (adminIdsRef.current.length === 0) {
+        const { data: admins } = await supabase.from('users').select('id').eq('role', 'ADMIN')
+        adminIdsRef.current = (admins ?? []).map((a: { id: string }) => a.id)
+      }
       const adminClauses = adminIdsRef.current
         .map(aid => `and(sender_id.eq.${aid},receiver_id.eq.${user.id})`)
         .join(',')
@@ -224,14 +251,28 @@ export function MessagesPage() {
       ].join(',')
 
       const { data } = await supabase
-        .from('messages')
-        .select('*')
-        .or(orFilter)
-        .order('created_at', { ascending: true })
-        .limit(100)
+        .from('messages').select('*').or(orFilter)
+        .order('created_at', { ascending: true }).limit(100)
 
       setMessages((data ?? []) as Message[])
       setContacts(prev => prev.map(c => c.id === SUPPORT_ID ? { ...c, unread: 0 } : c))
+      return
+    }
+
+    if (pairIds && pairIds.includes(SUPPORT_ID)) {
+      // Admin conversation with a user. Query messages from SUPPORT_ID AND admin's real UUID.
+      const nonAdminId = pairIds.find(id => id !== SUPPORT_ID)!
+      const adminSideIds = [...new Set([SUPPORT_ID, user.id, ...adminIdsRef.current])]
+      const clauses = adminSideIds.flatMap(aid => [
+        `and(sender_id.eq.${aid},receiver_id.eq.${nonAdminId})`,
+        `and(sender_id.eq.${nonAdminId},receiver_id.eq.${aid})`,
+      ]).join(',')
+
+      const { data } = await supabase
+        .from('messages').select('*').or(clauses)
+        .order('created_at', { ascending: true }).limit(100)
+
+      setMessages((data ?? []) as Message[])
       return
     }
 
