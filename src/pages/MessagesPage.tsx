@@ -502,10 +502,14 @@ export function MessagesPage() {
     }
   }
 
+  function makeLocalTicket(participants: string[]): Ticket {
+    return { id: '__local__', participants, subject: null, status: 'ABERTO', priority: 'NORMAL', resolved_at: null }
+  }
+
   async function loadOrCreateTicket(nonAdminId: string) {
     if (!user?.id) return
     try {
-      const { data: existing } = await supabase
+      const { data: existing, error: selErr } = await supabase
         .from('conversation_tickets')
         .select('id, participants, subject, status, priority, resolved_at')
         .contains('participants', [nonAdminId])
@@ -513,34 +517,45 @@ export function MessagesPage() {
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle()
+      if (selErr) throw selErr
       if (existing) { setActiveTicket(existing as Ticket); return }
-      const { data: created } = await supabase
+      const { data: created, error: insErr } = await supabase
         .from('conversation_tickets')
         .insert({ participants: [SUPPORT_ID, nonAdminId], status: 'ABERTO', priority: 'NORMAL', created_by: user.id })
         .select()
         .maybeSingle()
-      setActiveTicket(created as Ticket | null)
-    } catch { setActiveTicket(null) }
+      if (insErr) throw insErr
+      setActiveTicket((created as Ticket | null) ?? makeLocalTicket([SUPPORT_ID, nonAdminId]))
+    } catch {
+      setActiveTicket(makeLocalTicket([SUPPORT_ID, nonAdminId]))
+    }
   }
 
   async function loadTicketForUser() {
     if (!user?.id) return
     try {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('conversation_tickets')
         .select('id, participants, subject, status, priority, resolved_at')
         .contains('participants', [user.id])
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle()
-      setActiveTicket(data as Ticket | null)
-    } catch { setActiveTicket(null) }
+      if (error) throw error
+      setActiveTicket((data as Ticket | null) ?? makeLocalTicket([SUPPORT_ID, user.id]))
+    } catch {
+      setActiveTicket(makeLocalTicket([SUPPORT_ID, user.id]))
+    }
   }
 
   async function updateTicket(patch: Partial<Pick<Ticket, 'status' | 'priority'>>) {
     if (!activeTicket) return
     const update: Record<string, unknown> = { ...patch }
     if (patch.status === 'RESOLVIDO') update.resolved_at = new Date().toISOString()
+    if (activeTicket.id === '__local__') {
+      setActiveTicket(prev => prev ? { ...prev, ...update } as Ticket : prev)
+      return
+    }
     const { data } = await supabase
       .from('conversation_tickets').update(update).eq('id', activeTicket.id).select().maybeSingle()
     if (data) setActiveTicket(data as Ticket)
@@ -549,12 +564,15 @@ export function MessagesPage() {
   async function createNewSupportTicket() {
     if (!user?.id) return
     try {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('conversation_tickets')
         .insert({ participants: [SUPPORT_ID, user.id], status: 'ABERTO', priority: 'NORMAL', created_by: user.id })
         .select().maybeSingle()
-      setActiveTicket(data as Ticket | null)
-    } catch { }
+      if (error) throw error
+      setActiveTicket((data as Ticket | null) ?? makeLocalTicket([SUPPORT_ID, user.id]))
+    } catch {
+      setActiveTicket(makeLocalTicket([SUPPORT_ID, user.id]))
+    }
   }
 
   async function loadHistoryTickets() {

@@ -30,9 +30,9 @@ export function AvailabilityCalendar({ propertyId }: Props) {
   async function load() {
     const { data } = await supabase
       .from('blocked_dates')
-      .select('date')
+      .select('blocked_date')
       .eq('property_id', propertyId)
-    setBlocked(new Set((data ?? []).map((r: { date: string }) => r.date)))
+    setBlocked(new Set((data ?? []).map((r: { blocked_date: string }) => r.blocked_date)))
   }
 
   async function toggle(dateStr: string) {
@@ -44,13 +44,13 @@ export function AvailabilityCalendar({ propertyId }: Props) {
           .from('blocked_dates')
           .delete()
           .eq('property_id', propertyId)
-          .eq('date', dateStr)
+          .eq('blocked_date', dateStr)
         if (error) throw error
         setBlocked(prev => { const s = new Set(prev); s.delete(dateStr); return s })
       } else {
         const { error } = await supabase
           .from('blocked_dates')
-          .upsert({ property_id: propertyId, date: dateStr }, { onConflict: 'property_id,date' })
+          .upsert({ property_id: propertyId, blocked_date: dateStr }, { onConflict: 'property_id,blocked_date' })
         if (error) throw error
         setBlocked(prev => new Set([...prev, dateStr]))
       }

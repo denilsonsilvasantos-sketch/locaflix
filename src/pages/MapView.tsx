@@ -1,6 +1,6 @@
 import 'leaflet/dist/leaflet.css'
 import { useEffect, useState } from 'react'
-import { MapContainer, TileLayer, Marker, Popup, Tooltip } from 'react-leaflet'
+import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet'
 import L from 'leaflet'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -82,33 +82,18 @@ export function MapView({ height = '500px' }: MapViewProps) {
         {properties.map(p =>
           p.latitude && p.longitude ? (
             <Marker key={p.id} position={[p.latitude, p.longitude]} icon={PIN_ICON}>
-              <Tooltip direction="top" permanent={false} opacity={1}>
-                <div style={{ minWidth: 150, maxWidth: 180, fontFamily: 'sans-serif', padding: 2 }}>
-                  {p.photos?.[0] && (
-                    <img
-                      src={p.photos[0]}
-                      alt={p.name}
-                      style={{ width: '100%', height: 60, objectFit: 'cover', borderRadius: 4, marginBottom: 5, display: 'block' }}
-                    />
-                  )}
-                  <p style={{ fontWeight: 700, fontSize: 12, margin: '0 0 2px', color: '#111', lineHeight: 1.3 }}>{p.name}</p>
-                  <p style={{ color: '#e50914', fontWeight: 700, fontSize: 12, margin: 0 }}>
-                    {formatCurrency(p.price_per_night)}<span style={{ color: '#888', fontWeight: 400, fontSize: 10 }}>/noite</span>
-                  </p>
-                </div>
-              </Tooltip>
               <Popup>
-                <div style={{ width: 200, fontFamily: 'sans-serif' }}>
+                <div style={{ width: 180, fontFamily: 'sans-serif' }}>
                   {p.photos?.[0] && (
                     <img
                       src={p.photos[0]}
                       alt={p.name}
-                      style={{ width: '100%', height: 100, objectFit: 'cover', borderRadius: 6, marginBottom: 8 }}
+                      style={{ width: '100%', height: 80, objectFit: 'cover', borderRadius: 6, marginBottom: 7, display: 'block' }}
                     />
                   )}
-                  <p style={{ fontWeight: 700, fontSize: 13, margin: '0 0 2px', lineHeight: 1.3 }}>{p.name}</p>
-                  <p style={{ color: '#888', fontSize: 11, margin: '0 0 4px' }}>{p.city}, {p.state}</p>
-                  <p style={{ color: '#e50914', fontWeight: 700, fontSize: 13, margin: '0 0 8px' }}>
+                  <p style={{ fontWeight: 700, fontSize: 13, margin: '0 0 2px', lineHeight: 1.3, color: '#111' }}>{p.name}</p>
+                  <p style={{ color: '#888', fontSize: 11, margin: '0 0 5px' }}>{p.city}, {p.state}</p>
+                  <p style={{ color: '#e50914', fontWeight: 700, fontSize: 13, margin: '0 0 9px' }}>
                     {formatCurrency(p.price_per_night)}<span style={{ color: '#aaa', fontWeight: 400, fontSize: 11 }}>/noite</span>
                   </p>
                   <Link
@@ -116,7 +101,7 @@ export function MapView({ height = '500px' }: MapViewProps) {
                     style={{
                       display: 'block', textAlign: 'center', textDecoration: 'none',
                       background: '#e50914', color: '#fff', borderRadius: 6,
-                      padding: '6px 0', fontSize: 12, fontWeight: 600,
+                      padding: '7px 0', fontSize: 12, fontWeight: 600,
                     }}
                   >
                     Ver imóvel
