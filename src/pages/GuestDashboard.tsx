@@ -19,7 +19,6 @@ import { ReviewModal } from '../components/ui/ReviewModal'
 import { formatCurrency, formatShortDate, daysUntil } from '../lib/utils'
 import { calcularValorAtualizado } from '../lib/financeiro'
 import { PixModal } from '../components/ui/PixModal'
-import type { IncidentForChat } from '../components/ui/IncidentChat'
 import { APP_ROUTES } from '../constants'
 import type { PixPaymentResponse } from '../types'
 
@@ -29,12 +28,7 @@ const TABS = [
   { key: 'notificacoes', label: 'Notificações',  icon: <Bell           size={16} />, href: '/minha-conta?tab=notificacoes' },
   { key: 'documentos',   label: 'Documentos',    icon: <ShieldCheck    size={16} />, href: '/minha-conta?tab=documentos' },
   { key: 'perfil',       label: 'Perfil',        icon: <User           size={16} />, href: '/minha-conta?tab=perfil' },
-  { key: 'sinistros',    label: 'Sinistros',     icon: <AlertTriangle  size={16} />, href: '/minha-conta?tab=sinistros' },
 ]
-
-interface Incident extends IncidentForChat {
-  booking_id: string | null
-}
 
 export function GuestDashboard() {
   const [searchParams] = useSearchParams()
@@ -61,16 +55,6 @@ export function GuestDashboard() {
   const [docUrl, setDocUrl] = useState('')
   const [submittingKyc, setSubmittingKyc] = useState(false)
 
-  // Sinistros
-  const [incidents, setIncidents] = useState<Incident[]>([])
-  const [loadingIncidents, setLoadingIncidents] = useState(false)
-  const [showIncidentForm, setShowIncidentForm] = useState(false)
-  const [incidentForm, setIncidentForm] = useState({ title: '', description: '', booking_id: '' })
-  const [submittingIncident, setSubmittingIncident] = useState(false)
-  const [incidentPhotos, setIncidentPhotos] = useState<string[]>([])
-  const [uploadingPhoto, setUploadingPhoto] = useState(false)
-  const fileRef = useRef<HTMLInputElement>(null)
-  const cameraRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (profile) {
@@ -179,11 +163,6 @@ export function GuestDashboard() {
     loadData()
   }, [loadData, tab])
 
-  useEffect(() => {
-    if (tab === 'sinistros' && user?.id) void loadIncidents()
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab, user?.id])
-
   async function saveProfile() {
     if (!user) return
     setSaving(true)
@@ -204,63 +183,6 @@ export function GuestDashboard() {
     await refreshProfile()
     toast('success', 'Documento enviado!', 'Nossa equipe irá analisar em breve.')
     setSubmittingKyc(false)
-  }
-
-  async function loadIncidents() {
-    if (!user?.id) return
-    setLoadingIncidents(true)
-    const { data } = await supabase.from('incidents').select('*').eq('reporter_id', user.id).order('created_at', { ascending: false })
-    setIncidents((data ?? []) as Incident[])
-    setLoadingIncidents(false)
-  }
-
-  async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(e.target.files ?? [])
-    if (files.length === 0) return
-    setUploadingPhoto(true)
-    const urls: string[] = []
-    for (const file of files) {
-      const ext = file.name.split('.').pop() ?? 'jpg'
-      const path = `${user!.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
-      const { error } = await supabase.storage.from('incident-photos').upload(path, file, { upsert: true })
-      if (!error) {
-        const { data } = supabase.storage.from('incident-photos').getPublicUrl(path)
-        urls.push(data.publicUrl)
-      }
-    }
-    setIncidentPhotos(prev => [...prev, ...urls])
-    e.target.value = ''
-    setUploadingPhoto(false)
-  }
-
-  async function submitIncident() {
-    if (!user || !incidentForm.title.trim() || !incidentForm.description.trim()) return
-    setSubmittingIncident(true)
-    const { error } = await supabase.from('incidents').insert({
-      reporter_id: user.id,
-      booking_id: incidentForm.booking_id || null,
-      reporter_role: 'GUEST',
-      title: incidentForm.title.trim(),
-      description: incidentForm.description.trim(),
-      photos: incidentPhotos,
-    })
-    if (error) {
-      toast('error', 'Erro', error.message)
-    } else {
-      await supabase.from('messages').insert({
-        sender_id: user.id,
-        receiver_id: '698e7994-96b4-4295-a72d-ba33497387b2',
-        subject: `Sinistro: ${incidentForm.title.trim()}`,
-        content: incidentForm.description.trim(),
-        is_read: false,
-      })
-      toast('success', 'Sinistro registrado', 'Acompanhe pela aba de Mensagens.')
-      setIncidentForm({ title: '', description: '', booking_id: '' })
-      setIncidentPhotos([])
-      setShowIncidentForm(false)
-      navigate(APP_ROUTES.MESSAGES)
-    }
-    setSubmittingIncident(false)
   }
 
   async function removeFavorite(propertyId: string) {
@@ -551,151 +473,6 @@ export function GuestDashboard() {
           )}
 
           {/* ── SINISTROS ────────────────────────── */}
-          {tab === 'sinistros' && (
-            <section>
-              <div className="flex items-center justify-between mb-5">
-                <h2 className="font-display text-xl font-bold text-white">Sinistros</h2>
-                <button
-                  onClick={() => setShowIncidentForm(v => !v)}
-                  className="flex items-center gap-1.5 px-3 py-2 bg-[#E50914] text-white text-xs font-semibold rounded-lg hover:bg-[#F40612] transition-colors"
-                >
-                  <AlertTriangle size={13} />
-                  Relatar incidente
-                </button>
-              </div>
-
-              {showIncidentForm && (
-                <Card className="p-5 mb-5 space-y-4">
-                  <h3 className="text-sm font-semibold text-white">Novo incidente</h3>
-                  <Input
-                    label="Título"
-                    value={incidentForm.title}
-                    onChange={e => setIncidentForm(f => ({ ...f, title: e.target.value }))}
-                    placeholder="Descreva brevemente o problema"
-                  />
-                  <div>
-                    <label className="block text-xs text-[#B3B3B3] mb-1.5 font-medium">Descrição</label>
-                    <textarea
-                      value={incidentForm.description}
-                      onChange={e => setIncidentForm(f => ({ ...f, description: e.target.value }))}
-                      placeholder="Detalhe o ocorrido..."
-                      rows={4}
-                      className="w-full bg-[#2A2A2A] border border-[#333] rounded-xl px-3 py-2.5 text-sm text-white placeholder-[#666] outline-none focus:ring-2 focus:ring-[#E50914] resize-none"
-                    />
-                  </div>
-                  {bookings.length > 0 && (
-                    <div>
-                      <label className="block text-xs text-[#B3B3B3] mb-1.5 font-medium">Reserva relacionada (opcional)</label>
-                      <select
-                        value={incidentForm.booking_id}
-                        onChange={e => setIncidentForm(f => ({ ...f, booking_id: e.target.value }))}
-                        className="w-full bg-[#2A2A2A] border border-[#333] rounded-xl px-3 py-2.5 text-sm text-white outline-none focus:ring-2 focus:ring-[#E50914]"
-                      >
-                        <option value="">Nenhuma</option>
-                        {bookings.map(b => (
-                          <option key={b.id} value={b.id}>
-                            {b.property?.name ?? 'Imóvel'} — {formatShortDate(b.check_in)}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-                  {/* Photo upload */}
-                  <div>
-                    <label className="block text-xs text-[#B3B3B3] mb-1.5 font-medium">Fotos (opcional)</label>
-                    <div className="flex gap-2 flex-wrap mb-3">
-                      <button
-                        type="button"
-                        onClick={() => fileRef.current?.click()}
-                        disabled={uploadingPhoto}
-                        className="flex items-center gap-1.5 px-3 py-2 text-xs bg-[#2A2A2A] border border-[#333] text-[#B3B3B3] hover:text-white hover:border-[#555] rounded-lg transition-colors disabled:opacity-50"
-                      >
-                        📁 Escolher arquivo
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => cameraRef.current?.click()}
-                        disabled={uploadingPhoto}
-                        className="flex items-center gap-1.5 px-3 py-2 text-xs bg-[#2A2A2A] border border-[#333] text-[#B3B3B3] hover:text-white hover:border-[#555] rounded-lg transition-colors disabled:opacity-50"
-                      >
-                        📷 Tirar foto
-                      </button>
-                      {uploadingPhoto && (
-                        <span className="flex items-center gap-1.5 text-xs text-[#666]">
-                          <span className="w-3 h-3 border-2 border-[#E50914] border-t-transparent rounded-full animate-spin" />
-                          Enviando...
-                        </span>
-                      )}
-                    </div>
-                    <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={handlePhotoUpload} />
-                    <input ref={cameraRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handlePhotoUpload} />
-                    {incidentPhotos.length > 0 && (
-                      <div className="grid grid-cols-3 gap-2">
-                        {incidentPhotos.map((url, i) => (
-                          <div key={i} className="relative aspect-square rounded-lg overflow-hidden border border-[#333]">
-                            <img src={url} alt="" className="w-full h-full object-cover" />
-                            <button
-                              type="button"
-                              onClick={() => setIncidentPhotos(prev => prev.filter((_, j) => j !== i))}
-                              className="absolute top-1 right-1 w-5 h-5 bg-black/70 rounded-full flex items-center justify-center text-white hover:bg-black transition-colors"
-                            >
-                              <X size={10} />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="flex gap-2">
-                    <Button
-                      onClick={submitIncident}
-                      loading={submittingIncident}
-                      disabled={!incidentForm.title.trim() || !incidentForm.description.trim()}
-                    >
-                      Enviar
-                    </Button>
-                    <Button variant="ghost" onClick={() => setShowIncidentForm(false)}>Cancelar</Button>
-                  </div>
-                </Card>
-              )}
-
-              {loadingIncidents ? (
-                <div className="flex justify-center py-12">
-                  <div className="w-6 h-6 border-4 border-[#E50914] border-t-transparent rounded-full animate-spin" />
-                </div>
-              ) : incidents.length === 0 ? (
-                <EmptyState icon={<AlertTriangle size={40} />} text="Nenhum sinistro registrado." />
-              ) : (
-                <div className="space-y-3">
-                  {incidents.map(inc => (
-                    <Card
-                      key={inc.id}
-                      className="p-4 hover:border-[#E50914]/30 transition-colors"
-                      onClick={() => navigate(APP_ROUTES.MESSAGES)}
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold text-white">{inc.title}</p>
-                          <p className="text-xs text-[#B3B3B3] mt-1 line-clamp-2">{inc.description}</p>
-                          {inc.admin_notes && (
-                            <p className="text-xs text-[#46D369] mt-2 italic">Resposta: {inc.admin_notes}</p>
-                          )}
-                          <p className="text-[11px] text-[#555] mt-2">{formatShortDate(inc.created_at)}</p>
-                        </div>
-                        <div className="flex flex-col items-end gap-2">
-                          <IncidentBadge status={inc.status} />
-                          <span className="text-[10px] text-[#555]">Clique para abrir</span>
-                        </div>
-                      </div>
-                    </Card>
-                  ))}
-                </div>
-              )}
-
-            </section>
-          )}
-
           {/* ── PERFIL ───────────────────────────── */}
           {tab === 'perfil' && (
             <section className="max-w-lg">
@@ -1032,20 +809,4 @@ function KYCStatusBadge({ status }: { status: KYCStatus }) {
   return <span className={`text-xs font-medium ${map[status] ?? 'text-[#666]'}`}>{status}</span>
 }
 
-function IncidentBadge({ status }: { status: string }) {
-  const map: Record<string, string> = {
-    ABERTO:     'bg-[#F5A623]/10 text-[#F5A623]',
-    EM_ANALISE: 'bg-blue-500/10 text-blue-400',
-    RESOLVIDO:  'bg-[#46D369]/10 text-[#46D369]',
-    FECHADO:    'bg-[#333] text-[#666]',
-  }
-  const labels: Record<string, string> = {
-    ABERTO: 'Aberto', EM_ANALISE: 'Em Análise', RESOLVIDO: 'Resolvido', FECHADO: 'Fechado',
-  }
-  return (
-    <span className={`text-[10px] font-bold px-2 py-0.5 rounded flex-shrink-0 ${map[status] ?? map.ABERTO}`}>
-      {labels[status] ?? status}
-    </span>
-  )
-}
 

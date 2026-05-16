@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Bell, Calendar, ChevronDown, ChevronLeft, DollarSign, Edit, Headphones, Heart, Home, MessageSquare, Send, ShieldCheck, Star, User, X } from 'lucide-react'
+import { Bell, Calendar, ChevronDown, ChevronLeft, DollarSign, Edit, Headphones, Heart, Home, MessageSquare, Paperclip, Send, ShieldCheck, Star, User, X } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import type { Message } from '../types'
@@ -39,6 +39,8 @@ export function MessagesPage() {
   const bottomRef = useRef<HTMLDivElement>(null)
   const activeContactIdRef = useRef<string | null>(null)
   const adminIdsRef = useRef<string[]>([])
+  const attachmentRef = useRef<HTMLInputElement>(null)
+  const [uploadingAttachment, setUploadingAttachment] = useState(false)
 
   // Compose
   const [composeOpen, setComposeOpen] = useState(false)
@@ -279,6 +281,43 @@ export function MessagesPage() {
     } catch { }
   }
 
+  async function uploadAttachment(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file || !activeContactId || !user) return
+    setUploadingAttachment(true)
+    const ext = file.name.split('.').pop() ?? 'jpg'
+    const path = `${user.id}/${Date.now()}.${ext}`
+    const { error: upErr } = await supabase.storage.from('message-attachments').upload(path, file, { upsert: true })
+    if (upErr) {
+      toast('error', 'Erro ao enviar foto', upErr.message)
+      setUploadingAttachment(false)
+      e.target.value = ''
+      return
+    }
+    const { data: urlData } = supabase.storage.from('message-attachments').getPublicUrl(path)
+    const imageUrl = urlData.publicUrl
+    // Send the image URL as a message
+    const activeContact = contacts.find(c => c.id === activeContactId)
+    let receiverId: string
+    if (activeContact?.pairIds) {
+      const myIndex = activeContact.pairIds.findIndex(id => id === user.id)
+      receiverId = myIndex !== -1
+        ? activeContact.pairIds[1 - myIndex]
+        : (activeContact.pairIds.find(id => id !== SUPPORT_ID) ?? activeContact.pairIds[0])
+    } else {
+      receiverId = activeContactId
+    }
+    const { data: newMsg } = await supabase.from('messages').insert({
+      sender_id: user.id, receiver_id: receiverId, content: imageUrl, subject: null, is_read: false,
+    }).select('*').maybeSingle()
+    if (newMsg) setMessages(prev => [...prev, newMsg as Message])
+    setContacts(prev => prev.map(c =>
+      c.id === activeContactId ? { ...c, lastMessage: '📷 Foto', lastAt: new Date().toISOString() } : c
+    ))
+    e.target.value = ''
+    setUploadingAttachment(false)
+  }
+
   async function sendMessage() {
     if (!text.trim() || !activeContactId || !user) return
     setSending(true)
@@ -310,7 +349,7 @@ export function MessagesPage() {
         is_read: false,
       })
       .select('*')
-      .single()
+      .maybeSingle()
 
     console.log('sendMessage result:', { data: !!newMsg, error })
 
@@ -579,13 +618,16 @@ export function MessagesPage() {
                       {m.subject && (
                         <p className="text-[10px] text-[#666] mb-1 px-1">Assunto: {m.subject}</p>
                       )}
-                      <div className={`max-w-[80%] px-4 py-2.5 rounded-2xl text-sm ${
+                      <div className={`max-w-[80%] rounded-2xl text-sm overflow-hidden ${
                         isOwn
                           ? 'bg-[#E50914] text-white rounded-tr-sm'
                           : 'bg-[#2A2A2A] text-white rounded-tl-sm'
                       }`}>
-                        <p className="whitespace-pre-wrap break-words">{m.content}</p>
-                        <p className={`text-[10px] mt-1 ${isOwn ? 'text-white/60 text-right' : 'text-[#666]'}`}>
+                        {/^https?:\/\/.+\.(jpg|jpeg|png|gif|webp|avif|heic)(\?.*)?$/i.test(m.content)
+                          ? <img src={m.content} alt="anexo" className="max-w-full rounded-2xl object-cover cursor-pointer" onClick={() => window.open(m.content, '_blank')} />
+                          : <p className="whitespace-pre-wrap break-words px-4 py-2.5">{m.content}</p>
+                        }
+                        <p className={`text-[10px] px-4 pb-2 ${isOwn ? 'text-white/60 text-right' : 'text-[#666]'}`}>
                           {new Date(m.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                         </p>
                       </div>
@@ -596,7 +638,18 @@ export function MessagesPage() {
               </div>
 
               {/* Input */}
-              <div className="px-4 py-3 border-t border-[#333] flex gap-3 items-end flex-shrink-0">
+              <div className="px-4 py-3 border-t border-[#333] flex gap-2 items-end flex-shrink-0">
+                <button
+                  onClick={() => attachmentRef.current?.click()}
+                  disabled={uploadingAttachment}
+                  className="w-10 h-10 bg-[#2A2A2A] border border-[#333] rounded-xl flex items-center justify-center text-[#666] hover:text-white hover:border-[#555] transition-colors disabled:opacity-50 flex-shrink-0"
+                  title="Anexar foto"
+                >
+                  {uploadingAttachment
+                    ? <span className="w-4 h-4 border-2 border-[#E50914] border-t-transparent rounded-full animate-spin" />
+                    : <Paperclip size={16} />}
+                </button>
+                <input ref={attachmentRef} type="file" accept="image/*" className="hidden" onChange={e => void uploadAttachment(e)} />
                 <textarea
                   value={text}
                   onChange={e => setText(e.target.value)}
