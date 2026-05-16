@@ -25,6 +25,7 @@ import { HelpPage } from './pages/HelpPage'
 import { HostTerms } from './pages/HostTerms'
 import { Privacy } from './pages/Privacy'
 import { TermsOfUse } from './pages/TermsOfUse'
+import { MapView } from './pages/MapView'
 
 function AppLayout({ children, noFooter }: { children: React.ReactNode; noFooter?: boolean }) {
   return (
@@ -100,6 +101,9 @@ export default function App() {
                 <AdminDashboard />
               </ProtectedRoute>
             } />
+
+            {/* Map */}
+            <Route path="/mapa" element={<AppLayout noFooter><MapView /></AppLayout>} />
 
             {/* Fallback */}
             <Route path="*" element={<AppLayout><Home /></AppLayout>} />

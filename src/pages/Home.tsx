@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Home as HouseIcon, Info, SlidersHorizontal, X, Star, MapPin } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Home as HouseIcon, Info, LayoutList, Map, SlidersHorizontal, X, Star, MapPin } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { PROPERTY_TYPES } from '../constants'
 import type { Property, SearchFilters, PropertyType, AmenityCatalog } from '../types'
@@ -8,7 +8,7 @@ import { PropertyRow, PropertyGrid } from '../components/property/PropertyGrid'
 import { SearchBar } from '../components/property/SearchBar'
 import { Button } from '../components/ui/Button'
 import { formatCurrency } from '../lib/utils'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { APP_ROUTES } from '../constants'
 import { useAuth } from '../hooks/useAuth'
 import { useToast } from '../hooks/useToast'
@@ -507,6 +507,21 @@ export function Home() {
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* View toggle */}
+        <div className="flex items-center gap-2 mb-4 px-4">
+          <div className="flex gap-1 bg-[#1A1A1A] border border-[#222] p-1 rounded-lg">
+            <span className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-[#E50914] text-white">
+              <LayoutList size={12} /> Lista
+            </span>
+            <Link
+              to="/mapa"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md text-[#555] hover:text-white transition-colors"
+            >
+              <Map size={12} /> Mapa
+            </Link>
+          </div>
+        </div>
 
         {/* Content: search results or Netflix rows */}
         {isSearching ? (

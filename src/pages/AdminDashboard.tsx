@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
   PieChart, Pie, Cell,
@@ -75,6 +75,7 @@ export function AdminDashboard() {
   const { user, profile, signOut } = useAuth()
   const { toast } = useToast()
   const { unreadCount } = useUnreadMessages()
+  const navigate = useNavigate()
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null)
   const [searchParams, setSearchParams] = useSearchParams()
   const tab = (searchParams.get('tab') ?? 'dashboard') as TabId
@@ -742,6 +743,13 @@ export function AdminDashboard() {
                                     <UserPlus size={11} /> ANFITRIÃO
                                   </button>
                                 )}
+                                <button
+                                  onClick={() => navigate('/mensagens', { state: { startChatWith: u.id } })}
+                                  title="Iniciar conversa"
+                                  className="p-1.5 rounded-lg text-[#444] hover:text-blue-400 hover:bg-blue-400/10 transition-colors"
+                                >
+                                  <MessageSquare size={13} />
+                                </button>
                                 <button onClick={() => blockUser(u.id)} title="Bloquear"
                                   className="p-1.5 rounded-lg text-[#444] hover:text-[#E50914] hover:bg-[#E50914]/10 transition-colors"
                                 >

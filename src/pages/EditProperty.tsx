@@ -71,6 +71,8 @@ export function EditProperty() {
     number: '',
     complement: '',
     cep: '',
+    latitude: '',
+    longitude: '',
     price_per_night: '',
     min_price: '',
     bedrooms: '1',
@@ -119,6 +121,8 @@ export function EditProperty() {
       number: prop.number ?? '',
       complement: prop.complement ?? '',
       cep: prop.cep ?? '',
+      latitude: prop.latitude != null ? String(prop.latitude) : '',
+      longitude: prop.longitude != null ? String(prop.longitude) : '',
       price_per_night: String(prop.price_per_night ?? ''),
       min_price: prop.min_price ? String(prop.min_price) : '',
       bedrooms: String(prop.bedrooms ?? 1),
@@ -343,6 +347,8 @@ export function EditProperty() {
       number: form.number || null,
       complement: form.complement || null,
       cep: form.cep || null,
+      latitude: form.latitude ? parseFloat(form.latitude) : null,
+      longitude: form.longitude ? parseFloat(form.longitude) : null,
       price_per_night: Number(form.price_per_night),
       min_price: form.min_price ? Number(form.min_price) : null,
       bedrooms: Number(form.bedrooms),
@@ -488,6 +494,25 @@ export function EditProperty() {
                 value={form.state}
                 onChange={e => upd('state', e.target.value)}
                 options={BRASIL_STATES.map(s => ({ value: s.uf, label: `${s.uf} — ${s.name}` }))}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <Input
+                label="Latitude"
+                type="number"
+                step="0.00000001"
+                value={form.latitude}
+                onChange={e => upd('latitude', e.target.value)}
+                placeholder="-23.5505"
+                hint="Clique com botão direito no Google Maps e copie as coordenadas"
+              />
+              <Input
+                label="Longitude"
+                type="number"
+                step="0.00000001"
+                value={form.longitude}
+                onChange={e => upd('longitude', e.target.value)}
+                placeholder="-46.6333"
               />
             </div>
           </section>

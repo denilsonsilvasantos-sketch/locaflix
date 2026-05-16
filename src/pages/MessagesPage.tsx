@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { Bell, Calendar, ChevronDown, ChevronLeft, DollarSign, Edit, Headphones, Heart, Home, MessageSquare, Paperclip, Send, ShieldCheck, Star, User, X } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { Bell, Calendar, Check, ChevronDown, ChevronLeft, DollarSign, Edit, Headphones, Heart, History, Home, MessageSquare, Paperclip, Send, ShieldCheck, Star, User, X } from 'lucide-react'
+import { Link, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import type { Message } from '../types'
 import { useAuth } from '../hooks/useAuth'
@@ -10,6 +10,22 @@ import { Lightbox } from '../components/ui/Lightbox'
 import { getInitials } from '../lib/utils'
 
 const SUPPORT_ID = '698e7994-96b4-4295-a72d-ba33497387b2'
+
+type TicketStatus = 'ABERTO' | 'EM_ATENDIMENTO' | 'AGUARDANDO_USUARIO' | 'RESOLVIDO' | 'ARQUIVADO'
+type TicketPriority = 'NORMAL' | 'URGENTE' | 'CRITICO'
+interface Ticket {
+  id: string
+  participants: string[]
+  subject: string | null
+  status: TicketStatus
+  priority: TicketPriority
+  resolved_at: string | null
+}
+
+const TICKET_STATUS_LABELS: Record<TicketStatus, string> = {
+  ABERTO: 'Aberto', EM_ATENDIMENTO: 'Em Atendimento',
+  AGUARDANDO_USUARIO: 'Aguardando Usuário', RESOLVIDO: 'Resolvido', ARQUIVADO: 'Arquivado',
+}
 
 type Contact = {
   id: string
@@ -31,6 +47,10 @@ type Recipient = {
 export function MessagesPage() {
   const { user, profile } = useAuth()
   const { toast } = useToast()
+  const location = useLocation()
+  const pendingStartChatRef = useRef<string | null>(
+    (location.state as { startChatWith?: string } | null)?.startChatWith ?? null
+  )
   const [contacts, setContacts] = useState<Contact[]>([])
   const [activeContactId, setActiveContactId] = useState<string | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
@@ -44,6 +64,11 @@ export function MessagesPage() {
   const attachmentRef = useRef<HTMLInputElement>(null)
   const [uploadingAttachment, setUploadingAttachment] = useState(false)
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null)
+
+  // Tickets
+  const [activeTicket, setActiveTicket] = useState<Ticket | null>(null)
+  const [historyTickets, setHistoryTickets] = useState<(Ticket & { displayName?: string })[]>([])
+  const [contactsTab, setContactsTab] = useState<'ativas' | 'historico'>('ativas')
 
   // Compose
   const [composeOpen, setComposeOpen] = useState(false)
@@ -243,8 +268,36 @@ export function MessagesPage() {
     }
 
     const sorted = Object.values(map).sort((a, b) => new Date(b.lastAt).getTime() - new Date(a.lastAt).getTime())
-    setContacts(sorted)
 
+    const pending = pendingStartChatRef.current
+    if (pending) {
+      pendingStartChatRef.current = null
+      const pairKey = [SUPPORT_ID, pending].sort().join('__')
+      const existing = sorted.find(c => c.id === pairKey)
+      if (existing) {
+        setContacts(sorted)
+        setActiveContactId(pairKey)
+        void loadMessages(pairKey, existing.pairIds)
+        void loadOrCreateTicket(pending)
+        setMobileView('chat')
+      } else {
+        const { data: targetUser } = await supabase.from('users').select('id,name,avatar_url').eq('id', pending).maybeSingle()
+        const pair = [SUPPORT_ID, pending].sort() as [string, string]
+        const synthetic: Contact = {
+          id: pair.join('__'), name: `Suporte ↔ ${targetUser?.name ?? 'Usuário'}`,
+          avatar_url: null, lastMessage: 'Nova conversa', lastAt: new Date().toISOString(),
+          unread: 0, lastSubject: null, pairIds: pair,
+        }
+        setContacts([synthetic, ...sorted])
+        setActiveContactId(synthetic.id)
+        setMessages([])
+        setMobileView('chat')
+        void loadOrCreateTicket(pending)
+      }
+      return
+    }
+
+    setContacts(sorted)
     if (!activeContactIdRef.current && sorted.length > 0) {
       setActiveContactId(sorted[0].id)
       await loadMessages(sorted[0].id, sorted[0].pairIds)
@@ -392,13 +445,6 @@ export function MessagesPage() {
       receiverId = activeContactId
     }
 
-    console.log('sendMessage attempting:', {
-      sender_id: user.id,
-      receiver_id: receiverId,
-      activeContactId,
-      hasPairIds: !!activeContact?.pairIds,
-    })
-
     const { data: newMsg, error } = await supabase
       .from('messages')
       .insert({
@@ -410,8 +456,6 @@ export function MessagesPage() {
       })
       .select('*')
       .maybeSingle()
-
-    console.log('sendMessage result:', { data: !!newMsg, error })
 
     if (error) {
       console.error('sendMessage error:', error)
@@ -433,7 +477,6 @@ export function MessagesPage() {
     if (!composeText.trim() || !composeRecipientId || !user) return
     setComposeSending(true)
     try {
-      console.log('sendCompose attempting:', { sender_id: user.id, receiver_id: composeRecipientId })
       const { error } = await supabase.from('messages').insert({
         sender_id: user.id,
         receiver_id: composeRecipientId,
@@ -441,8 +484,6 @@ export function MessagesPage() {
         subject: composeSubject.trim() || null,
         is_read: false,
       })
-      console.log('sendCompose result:', { error })
-
       if (error) {
         console.error('sendCompose error:', error)
         toast('error', 'Erro ao enviar mensagem', error.message)
@@ -461,11 +502,101 @@ export function MessagesPage() {
     }
   }
 
+  async function loadOrCreateTicket(nonAdminId: string) {
+    if (!user?.id) return
+    try {
+      const { data: existing } = await supabase
+        .from('conversation_tickets')
+        .select('id, participants, subject, status, priority, resolved_at')
+        .contains('participants', [nonAdminId])
+        .not('status', 'in', '("RESOLVIDO","ARQUIVADO")')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      if (existing) { setActiveTicket(existing as Ticket); return }
+      const { data: created } = await supabase
+        .from('conversation_tickets')
+        .insert({ participants: [SUPPORT_ID, nonAdminId], status: 'ABERTO', priority: 'NORMAL', created_by: user.id })
+        .select()
+        .maybeSingle()
+      setActiveTicket(created as Ticket | null)
+    } catch { setActiveTicket(null) }
+  }
+
+  async function loadTicketForUser() {
+    if (!user?.id) return
+    try {
+      const { data } = await supabase
+        .from('conversation_tickets')
+        .select('id, participants, subject, status, priority, resolved_at')
+        .contains('participants', [user.id])
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      setActiveTicket(data as Ticket | null)
+    } catch { setActiveTicket(null) }
+  }
+
+  async function updateTicket(patch: Partial<Pick<Ticket, 'status' | 'priority'>>) {
+    if (!activeTicket) return
+    const update: Record<string, unknown> = { ...patch }
+    if (patch.status === 'RESOLVIDO') update.resolved_at = new Date().toISOString()
+    const { data } = await supabase
+      .from('conversation_tickets').update(update).eq('id', activeTicket.id).select().maybeSingle()
+    if (data) setActiveTicket(data as Ticket)
+  }
+
+  async function createNewSupportTicket() {
+    if (!user?.id) return
+    try {
+      const { data } = await supabase
+        .from('conversation_tickets')
+        .insert({ participants: [SUPPORT_ID, user.id], status: 'ABERTO', priority: 'NORMAL', created_by: user.id })
+        .select().maybeSingle()
+      setActiveTicket(data as Ticket | null)
+    } catch { }
+  }
+
+  async function loadHistoryTickets() {
+    if (!user?.id) return
+    try {
+      const { data } = await supabase
+        .from('conversation_tickets')
+        .select('id, participants, subject, status, priority, resolved_at, created_at')
+        .in('status', ['RESOLVIDO', 'ARQUIVADO'])
+        .order('resolved_at', { ascending: false })
+        .limit(50)
+      if (!data || data.length === 0) { setHistoryTickets([]); return }
+      if (profile?.role === 'ADMIN') {
+        const nonAdminIds = [...new Set(
+          (data as Ticket[]).flatMap(t => t.participants.filter(id => id !== SUPPORT_ID && !adminIdsRef.current.includes(id)))
+        )]
+        const { data: usersData } = nonAdminIds.length
+          ? await supabase.from('users').select('id, name').in('id', nonAdminIds)
+          : { data: [] }
+        const uMap = Object.fromEntries((usersData ?? []).map((u: { id: string; name: string | null }) => [u.id, u.name ?? 'Usuário']))
+        setHistoryTickets((data as Ticket[]).map(t => ({
+          ...t,
+          displayName: uMap[t.participants.find(id => id !== SUPPORT_ID && !adminIdsRef.current.includes(id)) ?? ''] ?? 'Usuário',
+        })))
+      } else {
+        setHistoryTickets(data as Ticket[])
+      }
+    } catch { setHistoryTickets([]) }
+  }
+
   function openConversation(contactId: string) {
     const contact = contacts.find(c => c.id === contactId)
     setActiveContactId(contactId)
+    setActiveTicket(null)
     void loadMessages(contactId, contact?.pairIds)
     setMobileView('chat')
+    if (profile?.role === 'ADMIN' && contact?.pairIds?.includes(SUPPORT_ID)) {
+      const nonAdminId = contact.pairIds.find(id => id !== SUPPORT_ID)
+      if (nonAdminId) void loadOrCreateTicket(nonAdminId)
+    } else if (profile?.role !== 'ADMIN' && contactId === SUPPORT_ID) {
+      void loadTicketForUser()
+    }
   }
 
   function openSupport() {
@@ -572,8 +703,49 @@ export function MessagesPage() {
             </button>
           </div>
 
+          {profile?.role === 'ADMIN' && (
+            <div className="flex border-b border-[#333] flex-shrink-0">
+              <button
+                onClick={() => setContactsTab('ativas')}
+                className={`flex-1 py-2 text-xs font-semibold transition-colors ${contactsTab === 'ativas' ? 'text-white border-b-2 border-[#E50914]' : 'text-[#555] hover:text-white'}`}
+              >
+                Conversas
+              </button>
+              <button
+                onClick={() => { setContactsTab('historico'); void loadHistoryTickets() }}
+                className={`flex-1 py-2 text-xs font-semibold transition-colors flex items-center justify-center gap-1 ${contactsTab === 'historico' ? 'text-white border-b-2 border-[#E50914]' : 'text-[#555] hover:text-white'}`}
+              >
+                <History size={11} />Histórico
+              </button>
+            </div>
+          )}
+
           <div className="flex-1 overflow-y-auto">
-            {contacts.length === 0 ? (
+            {contactsTab === 'historico' ? (
+              historyTickets.length === 0 ? (
+                <div className="text-center py-12 px-4">
+                  <History size={32} className="mx-auto text-[#333] mb-3" />
+                  <p className="text-xs text-[#666]">Nenhum ticket resolvido.</p>
+                </div>
+              ) : (
+                historyTickets.map(ticket => (
+                  <div key={ticket.id} className="px-4 py-3 border-b border-[#2A2A2A] flex flex-col gap-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-sm font-semibold text-white truncate">{ticket.displayName ?? 'Suporte'}</p>
+                      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded flex-shrink-0 ${ticket.status === 'ARQUIVADO' ? 'bg-[#333] text-[#666]' : 'bg-[#46D369]/10 text-[#46D369]'}`}>
+                        {ticket.status}
+                      </span>
+                    </div>
+                    <p className="text-xs text-[#555] truncate">{ticket.subject ?? 'Sem assunto'}</p>
+                    {ticket.resolved_at && (
+                      <p className="text-[10px] text-[#444]">
+                        Resolvido: {new Date(ticket.resolved_at).toLocaleDateString('pt-BR')}
+                      </p>
+                    )}
+                  </div>
+                ))
+              )
+            ) : contacts.length === 0 ? (
               <div className="text-center py-12 px-4">
                 <MessageSquare size={32} className="mx-auto text-[#333] mb-3" />
                 <p className="text-xs text-[#666]">Nenhuma conversa ainda.</p>
@@ -660,6 +832,68 @@ export function MessagesPage() {
                   )}
                 </div>
               </div>
+
+              {/* Ticket panel — admin only */}
+              {profile?.role === 'ADMIN' && activeTicket && (
+                <div className="px-4 py-2 border-b border-[#333] bg-[#161616] flex-shrink-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-[10px] text-[#444] font-medium uppercase tracking-wider">Ticket</span>
+                    <select
+                      value={activeTicket.status}
+                      onChange={e => void updateTicket({ status: e.target.value as TicketStatus })}
+                      className="bg-[#1A1A1A] border border-[#333] rounded px-2 py-0.5 text-xs text-white outline-none cursor-pointer"
+                    >
+                      {(Object.keys(TICKET_STATUS_LABELS) as TicketStatus[]).map(s => (
+                        <option key={s} value={s}>{TICKET_STATUS_LABELS[s]}</option>
+                      ))}
+                    </select>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${
+                      activeTicket.priority === 'CRITICO'
+                        ? 'bg-[#E50914]/10 border-[#E50914]/30 text-[#E50914]'
+                        : activeTicket.priority === 'URGENTE'
+                          ? 'bg-[#F5A623]/10 border-[#F5A623]/30 text-[#F5A623]'
+                          : 'bg-[#333]/50 border-[#333] text-[#666]'
+                    }`}>
+                      {activeTicket.priority}
+                    </span>
+                    <div className="ml-auto flex gap-1.5">
+                      {!(['RESOLVIDO', 'ARQUIVADO'] as TicketStatus[]).includes(activeTicket.status) && (
+                        <>
+                          <button
+                            onClick={() => void updateTicket({ status: 'RESOLVIDO' })}
+                            className="flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold text-[#46D369] border border-[#46D369]/30 rounded hover:bg-[#46D369]/10 transition-colors"
+                          >
+                            <Check size={10} /> Resolvido
+                          </button>
+                          <button
+                            onClick={() => void updateTicket({ priority: activeTicket.priority === 'URGENTE' ? 'NORMAL' : 'URGENTE' })}
+                            className={`px-2 py-0.5 text-[10px] font-bold border rounded transition-colors ${
+                              activeTicket.priority === 'URGENTE'
+                                ? 'text-[#F5A623] border-[#F5A623]/30 bg-[#F5A623]/10'
+                                : 'text-[#555] border-[#333] hover:text-[#F5A623]'
+                            }`}
+                          >
+                            Urgente
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Conversa encerrada — non-admin when ticket resolved */}
+              {isNonAdmin && activeTicket?.status === 'RESOLVIDO' && activeContact?.id === SUPPORT_ID && (
+                <div className="px-4 py-3 border-b border-[#333] bg-[#161616] flex-shrink-0 text-center">
+                  <p className="text-xs text-[#B3B3B3]">Esta conversa foi encerrada pela equipe de suporte.</p>
+                  <button
+                    onClick={() => void createNewSupportTicket()}
+                    className="mt-1.5 text-xs text-[#E50914] hover:underline"
+                  >
+                    Abrir nova conversa
+                  </button>
+                </div>
+              )}
 
               {/* Messages */}
               <div className="flex-1 overflow-y-auto p-4 space-y-3">
