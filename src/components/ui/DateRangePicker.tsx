@@ -137,32 +137,48 @@ export function DateRangePicker({ from, to, onChange, onClose, blockedDates = []
               <div
                 key={i}
                 className={`relative h-9 flex items-center justify-center
-                  ${ranged ? 'bg-[#E50914]/15' : ''}
+                  ${!isDayBlocked && ranged ? 'bg-[#E50914]/15' : ''}
                   ${isFrom && ranged ? 'rounded-l-full' : ''}
                   ${isTo && ranged ? 'rounded-r-full' : ''}
                 `}
               >
-                <button
-                  type="button"
-                  disabled={disabled}
-                  onClick={() => handleDay(day)}
-                  onMouseEnter={() => {
-                    if (phase === 'to' && draftFrom && !disabled) setHover(day)
-                  }}
-                  onMouseLeave={() => setHover(null)}
-                  className={[
-                    'w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium transition-all relative',
-                    disabled ? 'cursor-not-allowed' : 'cursor-pointer',
-                    isDayBlocked ? 'text-[#3A3A3A] line-through' : '',
-                    isPast && !isDayBlocked ? 'text-[#3A3A3A]' : '',
-                    isFrom || isTo ? 'bg-[#E50914] text-white font-bold shadow-lg' : '',
-                    !isFrom && !isTo && !disabled ? 'hover:bg-[#2A2A2A] text-white' : '',
-                    ranged && !isFrom && !isTo ? 'text-white' : '',
-                    isToday && !isFrom && !isTo && !isDayBlocked ? 'font-bold text-[#E50914]' : '',
-                  ].filter(Boolean).join(' ')}
-                >
-                  {day.getDate()}
-                </button>
+                {isDayBlocked ? (
+                  <div
+                    className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium cursor-not-allowed relative overflow-hidden"
+                    style={{ background: 'rgba(229,9,20,0.08)', border: '1px solid rgba(229,9,20,0.2)' }}
+                    title="Data indisponível"
+                  >
+                    <span className="text-[#555] line-through select-none">{day.getDate()}</span>
+                    {/* diagonal line */}
+                    <span
+                      aria-hidden="true"
+                      style={{
+                        position: 'absolute', inset: 0, pointerEvents: 'none',
+                        background: 'linear-gradient(to bottom right, transparent calc(50% - 0.5px), rgba(229,9,20,0.3) calc(50% - 0.5px), rgba(229,9,20,0.3) calc(50% + 0.5px), transparent calc(50% + 0.5px))',
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={disabled}
+                    onClick={() => handleDay(day)}
+                    onMouseEnter={() => {
+                      if (phase === 'to' && draftFrom && !disabled) setHover(day)
+                    }}
+                    onMouseLeave={() => setHover(null)}
+                    className={[
+                      'w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium transition-all',
+                      isPast ? 'cursor-not-allowed text-[#3A3A3A]' : 'cursor-pointer',
+                      isFrom || isTo ? 'bg-[#E50914] text-white font-bold shadow-lg' : '',
+                      !isFrom && !isTo && !disabled ? 'hover:bg-[#2A2A2A] text-white' : '',
+                      ranged && !isFrom && !isTo ? 'text-white' : '',
+                      isToday && !isFrom && !isTo ? 'font-bold text-[#E50914]' : '',
+                    ].filter(Boolean).join(' ')}
+                  >
+                    {day.getDate()}
+                  </button>
+                )}
               </div>
             )
           })}

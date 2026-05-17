@@ -759,16 +759,17 @@ export function MessagesPage() {
                 </button>
               </div>
               {contactsTab === 'ativas' && (
-                <div className="flex gap-1 px-2 py-1.5 border-b border-[#2A2A2A] flex-shrink-0 overflow-x-auto">
-                  {(['TODOS', 'ABERTO', 'EM_ATENDIMENTO', 'AGUARDANDO_USUARIO', 'RESOLVIDO'] as const).map(s => (
-                    <button
-                      key={s}
-                      onClick={() => setContactStatusFilter(s)}
-                      className={`px-2 py-0.5 text-[9px] font-bold rounded-full whitespace-nowrap flex-shrink-0 transition-colors ${contactStatusFilter === s ? 'bg-[#E50914] text-white' : 'bg-[#2A2A2A] text-[#555] hover:text-[#B3B3B3]'}`}
-                    >
-                      {s === 'TODOS' ? 'Todos' : TICKET_STATUS_LABELS[s]}
-                    </button>
-                  ))}
+                <div className="px-3 py-1.5 border-b border-[#2A2A2A] flex-shrink-0">
+                  <select
+                    value={contactStatusFilter}
+                    onChange={e => setContactStatusFilter(e.target.value as TicketStatus | 'TODOS')}
+                    className="w-full bg-[#2A2A2A] border border-[#333] rounded-lg px-2 py-1.5 text-xs text-white outline-none cursor-pointer"
+                  >
+                    <option value="TODOS">Todos os status</option>
+                    {(Object.keys(TICKET_STATUS_LABELS) as TicketStatus[]).map(s => (
+                      <option key={s} value={s}>{TICKET_STATUS_LABELS[s]}</option>
+                    ))}
+                  </select>
                 </div>
               )}
             </>

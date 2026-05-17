@@ -530,7 +530,7 @@ export function Home() {
 
         {view === 'map' ? (
           <div className="px-4 pb-8">
-            <MapView height="500px" />
+            <MapView height="500px" from={filters.check_in} to={filters.check_out} />
           </div>
         ) : isSearching ? (
           <PropertyGrid

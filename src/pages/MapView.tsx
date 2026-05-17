@@ -24,23 +24,31 @@ const PIN_ICON = L.divIcon({
   iconSize: [20, 20],
   iconAnchor: [10, 20],
   popupAnchor: [0, -22],
-  tooltipAnchor: [5, -16],
 })
 
 interface MapViewProps {
   height?: string | number
+  from?: string   // 'yyyy-MM-dd'
+  to?: string     // 'yyyy-MM-dd'
 }
 
-export function MapView({ height = '500px' }: MapViewProps) {
+function calcNights(from?: string, to?: string): number {
+  if (!from || !to) return 0
+  const diff = new Date(to + 'T00:00:00').getTime() - new Date(from + 'T00:00:00').getTime()
+  return Math.max(0, Math.floor(diff / 86400000))
+}
+
+export function MapView({ height = '500px', from, to }: MapViewProps) {
   const [properties, setProperties] = useState<Property[]>([])
   const [loading, setLoading] = useState(true)
 
   const containerStyle = { height: typeof height === 'number' ? `${height}px` : height, width: '100%' }
+  const nights = calcNights(from, to)
 
   useEffect(() => {
     supabase
       .from('properties')
-      .select('id, name, city, state, photos, price_per_night, latitude, longitude')
+      .select('id, name, city, state, photos, price_per_night, latitude, longitude, plan')
       .eq('status', 'ATIVO')
       .not('latitude', 'is', null)
       .not('longitude', 'is', null)
@@ -83,21 +91,60 @@ export function MapView({ height = '500px' }: MapViewProps) {
           p.latitude && p.longitude ? (
             <Marker key={p.id} position={[p.latitude, p.longitude]} icon={PIN_ICON}>
               <Popup>
-                <div style={{ width: 180, fontFamily: 'sans-serif' }}>
-                  {p.photos?.[0] && (
-                    <img
-                      src={p.photos[0]}
-                      alt={p.name}
-                      style={{ width: '100%', height: 80, objectFit: 'cover', borderRadius: 6, marginBottom: 7, display: 'block' }}
-                    />
-                  )}
-                  <p style={{ fontWeight: 700, fontSize: 13, margin: '0 0 2px', lineHeight: 1.3, color: '#111' }}>{p.name}</p>
-                  <p style={{ color: '#888', fontSize: 11, margin: '0 0 5px' }}>{p.city}, {p.state}</p>
-                  <p style={{ color: '#555', fontSize: 11, margin: '0 0 9px' }}>
-                    A partir de <strong style={{ color: '#111' }}>{formatCurrency(p.price_per_night)}</strong>
+                <div style={{ width: 190, fontFamily: 'sans-serif', padding: 0, margin: 0 }}>
+                  {/* Photo */}
+                  <div style={{ position: 'relative', marginBottom: 8 }}>
+                    {p.photos?.[0] && (
+                      <img
+                        src={p.photos[0]}
+                        alt={p.name}
+                        style={{ width: '100%', height: 100, objectFit: 'cover', borderRadius: 6, display: 'block' }}
+                      />
+                    )}
+                    {p.plan === 'DESTAQUE' && (
+                      <span style={{
+                        position: 'absolute', top: 6, left: 6,
+                        background: '#F5A623', color: '#fff',
+                        fontSize: 9, fontWeight: 800, padding: '2px 6px',
+                        borderRadius: 4, textTransform: 'uppercase', letterSpacing: '0.05em',
+                      }}>
+                        Destaque
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Name */}
+                  <p style={{ fontWeight: 700, fontSize: 13, margin: '0 0 3px', lineHeight: 1.3, color: '#111' }}>
+                    {p.name}
                   </p>
+
+                  {/* Location */}
+                  <p style={{ color: '#888', fontSize: 11, margin: '0 0 6px', display: 'flex', alignItems: 'center', gap: 3 }}>
+                    <span style={{ color: '#e50914', fontSize: 10 }}>●</span> {p.city}, {p.state}
+                  </p>
+
+                  {/* Price */}
+                  {nights > 0 ? (
+                    <div style={{ margin: '0 0 9px' }}>
+                      <p style={{ color: '#e50914', fontWeight: 700, fontSize: 14, margin: 0 }}>
+                        {formatCurrency(nights * p.price_per_night)}
+                        <span style={{ color: '#888', fontWeight: 400, fontSize: 11 }}>
+                          {' '}· {nights} noite{nights !== 1 ? 's' : ''}
+                        </span>
+                      </p>
+                      <p style={{ color: '#aaa', fontSize: 10, margin: '1px 0 0' }}>
+                        {formatCurrency(p.price_per_night)}/noite
+                      </p>
+                    </div>
+                  ) : (
+                    <p style={{ color: '#aaa', fontSize: 11, margin: '0 0 9px', fontStyle: 'italic' }}>
+                      Selecione as datas para ver o preço
+                    </p>
+                  )}
+
+                  {/* CTA */}
                   <Link
-                    to={`/imovel/${p.id}`}
+                    to={from && to ? `/imovel/${p.id}?entrada=${from}&saida=${to}` : `/imovel/${p.id}`}
                     style={{
                       display: 'block', textAlign: 'center', textDecoration: 'none',
                       background: '#e50914', color: '#fff', borderRadius: 6,
