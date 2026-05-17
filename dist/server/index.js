@@ -10,13 +10,24 @@ const ASAAS_BASE_URL = process.env.ASAAS_ENV === "production" ? "https://api.asa
 const WEBHOOK_SECRET = process.env.ASAAS_WEBHOOK_SECRET ?? "";
 app.use(express.json());
 app.set("trust proxy", true);
-function requireAuth(req, res, next) {
+async function requireAuth(req, res, next) {
   const token = req.headers.authorization?.replace("Bearer ", "");
   if (!token) {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
-  next();
+  try {
+    const { createClient } = await import("@supabase/supabase-js");
+    const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+    const { data: { user }, error } = await supabase.auth.getUser(token);
+    if (error || !user) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+    next();
+  } catch {
+    res.status(401).json({ error: "Unauthorized" });
+  }
 }
 app.get("/api/client-ip", (req, res) => {
   const ip = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() ?? req.headers["x-real-ip"] ?? req.socket.remoteAddress ?? "0.0.0.0";
@@ -24,7 +35,7 @@ app.get("/api/client-ip", (req, res) => {
 });
 app.post("/api/payments/create-pix", requireAuth, async (req, res) => {
   try {
-    const { customer, value, dueDate, description, externalReference } = req.body;
+    const { customer, value, dueDate, description, externalReference, installment_id } = req.body;
     if (!ASAAS_API_KEY) {
       res.status(503).json({ error: "Integra\xE7\xE3o Asaas n\xE3o configurada. Defina ASAAS_API_KEY no servidor." });
       return;
@@ -32,6 +43,21 @@ app.post("/api/payments/create-pix", requireAuth, async (req, res) => {
     if (!customer || !value || !dueDate) {
       res.status(400).json({ error: "customer, value and dueDate are required" });
       return;
+    }
+    let confirmedValue = Number(value);
+    if (installment_id) {
+      const { createClient } = await import("@supabase/supabase-js");
+      const sb = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+      const { data: inst, error } = await sb.from("installments").select("value").eq("id", installment_id).single();
+      if (error || !inst) {
+        res.status(400).json({ error: "Parcela n\xE3o encontrada" });
+        return;
+      }
+      if (Math.abs(Number(inst.value) - Number(value)) > 0.01) {
+        res.status(400).json({ error: "Valor inv\xE1lido" });
+        return;
+      }
+      confirmedValue = Number(inst.value);
     }
     const customerRes = await asaasRequest("POST", "/customers", {
       name: customer.name,
@@ -42,7 +68,7 @@ app.post("/api/payments/create-pix", requireAuth, async (req, res) => {
     const paymentRes = await asaasRequest("POST", "/payments", {
       customer: customerRes.id,
       billingType: "PIX",
-      value,
+      value: confirmedValue,
       dueDate,
       description,
       externalReference,
@@ -50,7 +76,6 @@ app.post("/api/payments/create-pix", requireAuth, async (req, res) => {
       interest: { value: 1, type: "MONTHLY" }
     });
     const pixRes = await asaasRequest("GET", `/payments/${paymentRes.id}/pixQrCode`);
-    const { installment_id } = req.body;
     if (installment_id) {
       const { createClient } = await import("@supabase/supabase-js");
       const supabase = createClient(
@@ -112,6 +137,21 @@ app.post("/api/payments/create-installments", requireAuth, async (req, res) => {
       res.status(400).json({ error: "customer, value and dueDate are required" });
       return;
     }
+    let confirmedValue = Number(value);
+    if (installment_id) {
+      const { createClient } = await import("@supabase/supabase-js");
+      const sb = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+      const { data: inst, error } = await sb.from("installments").select("value").eq("id", installment_id).single();
+      if (error || !inst) {
+        res.status(400).json({ error: "Parcela n\xE3o encontrada" });
+        return;
+      }
+      if (Math.abs(Number(inst.value) - Number(value)) > 0.01) {
+        res.status(400).json({ error: "Valor inv\xE1lido" });
+        return;
+      }
+      confirmedValue = Number(inst.value);
+    }
     const customerRes = await asaasRequest("POST", "/customers", {
       name: customer.name,
       cpfCnpj: customer.cpf?.replace(/\D/g, ""),
@@ -120,7 +160,7 @@ app.post("/api/payments/create-installments", requireAuth, async (req, res) => {
     });
     const basePayload = {
       customer: customerRes.id,
-      value,
+      value: confirmedValue,
       dueDate,
       description,
       externalReference,
@@ -180,12 +220,10 @@ app.get("/api/payments/:id/pixQrCode", requireAuth, async (req, res) => {
   }
 });
 app.post("/api/webhooks/asaas", async (req, res) => {
-  if (WEBHOOK_SECRET) {
-    const signature = req.headers["asaas-access-token"];
-    if (signature !== WEBHOOK_SECRET) {
-      res.status(401).json({ error: "Invalid webhook signature" });
-      return;
-    }
+  const signature = req.headers["asaas-access-token"];
+  if (!WEBHOOK_SECRET || signature !== WEBHOOK_SECRET) {
+    res.status(401).json({ error: "Invalid webhook signature" });
+    return;
   }
   const { event, payment } = req.body;
   try {

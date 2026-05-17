@@ -91,8 +91,10 @@ function isCarnival(date: Date): boolean {
 
 function isBetween(date: Date, startISO: string, endISO: string): boolean {
   const d = dayOnly(date)
-  const s = Date.UTC(...(startISO.split('-').map(Number) as [number, number, number]))
-  const e = Date.UTC(...(endISO.split('-').map(Number) as [number, number, number]))
+  const [sy, sm, sd] = startISO.split('-').map(Number)
+  const [ey, em, ed] = endISO.split('-').map(Number)
+  const s = Date.UTC(sy, sm - 1, sd)  // Date.UTC month is 0-indexed
+  const e = Date.UTC(ey, em - 1, ed)
   return d >= s && d <= e
 }
 

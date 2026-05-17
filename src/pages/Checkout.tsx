@@ -363,7 +363,7 @@ export function Checkout() {
       const payment = await res.json()
 
       if (payment.status === 'CONFIRMED' || payment.status === 'RECEIVED') {
-        setPixModalOpen(false)
+        setPaymentModalOpen2(false)
         setPaid(true)
       } else {
         toast('warning', 'Pagamento pendente', 'Ainda não identificamos o pagamento. Tente novamente em alguns instantes.')

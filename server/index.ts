@@ -21,12 +21,18 @@ app.use(express.json())
 app.set('trust proxy', true)
 
 // ---- Middleware: JWT auth ----
-function requireAuth(req: Request, res: Response, next: () => void) {
+async function requireAuth(req: Request, res: Response, next: () => void) {
   const token = req.headers.authorization?.replace('Bearer ', '')
   if (!token) { res.status(401).json({ error: 'Unauthorized' }); return }
-  // Supabase JWTs are verified client-side — here we just ensure the header exists
-  // For production, verify with jwt.verify(token, process.env.SUPABASE_JWT_SECRET)
-  next()
+  try {
+    const { createClient } = await import('@supabase/supabase-js')
+    const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+    const { data: { user }, error } = await supabase.auth.getUser(token)
+    if (error || !user) { res.status(401).json({ error: 'Unauthorized' }); return }
+    next()
+  } catch {
+    res.status(401).json({ error: 'Unauthorized' })
+  }
 }
 
 // ---- GET /api/client-ip ----
@@ -42,7 +48,7 @@ app.get('/api/client-ip', (req: Request, res: Response) => {
 // ---- POST /api/payments/create-pix ----
 app.post('/api/payments/create-pix', requireAuth, async (req: Request, res: Response) => {
   try {
-    const { customer, value, dueDate, description, externalReference } = req.body
+    const { customer, value, dueDate, description, externalReference, installment_id } = req.body
 
     if (!ASAAS_API_KEY) {
       res.status(503).json({ error: 'Integração Asaas não configurada. Defina ASAAS_API_KEY no servidor.' })
@@ -52,6 +58,19 @@ app.post('/api/payments/create-pix', requireAuth, async (req: Request, res: Resp
     if (!customer || !value || !dueDate) {
       res.status(400).json({ error: 'customer, value and dueDate are required' })
       return
+    }
+
+    // Validate value against DB — never trust the client-supplied amount
+    let confirmedValue: number = Number(value)
+    if (installment_id) {
+      const { createClient } = await import('@supabase/supabase-js')
+      const sb = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+      const { data: inst, error } = await sb.from('installments').select('value').eq('id', installment_id).single()
+      if (error || !inst) { res.status(400).json({ error: 'Parcela não encontrada' }); return }
+      if (Math.abs(Number(inst.value) - Number(value)) > 0.01) {
+        res.status(400).json({ error: 'Valor inválido' }); return
+      }
+      confirmedValue = Number(inst.value)
     }
 
     // Create or get customer
@@ -66,7 +85,7 @@ app.post('/api/payments/create-pix', requireAuth, async (req: Request, res: Resp
     const paymentRes = await asaasRequest('POST', '/payments', {
       customer: customerRes.id,
       billingType: 'PIX',
-      value,
+      value: confirmedValue,
       dueDate,
       description,
       externalReference,
@@ -78,7 +97,6 @@ app.post('/api/payments/create-pix', requireAuth, async (req: Request, res: Resp
     const pixRes = await asaasRequest('GET', `/payments/${paymentRes.id}/pixQrCode`)
 
     // Salva asaas_payment_id na parcela do Supabase
-    const { installment_id } = req.body
     if (installment_id) {
       const { createClient } = await import('@supabase/supabase-js')
       const supabase = createClient(
@@ -154,6 +172,19 @@ app.post('/api/payments/create-installments', requireAuth, async (req: Request, 
       return
     }
 
+    // Validate value against DB — never trust the client-supplied amount
+    let confirmedValue: number = Number(value)
+    if (installment_id) {
+      const { createClient } = await import('@supabase/supabase-js')
+      const sb = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+      const { data: inst, error } = await sb.from('installments').select('value').eq('id', installment_id).single()
+      if (error || !inst) { res.status(400).json({ error: 'Parcela não encontrada' }); return }
+      if (Math.abs(Number(inst.value) - Number(value)) > 0.01) {
+        res.status(400).json({ error: 'Valor inválido' }); return
+      }
+      confirmedValue = Number(inst.value)
+    }
+
     const customerRes = await asaasRequest('POST', '/customers', {
       name: customer.name,
       cpfCnpj: customer.cpf?.replace(/\D/g, ''),
@@ -163,7 +194,7 @@ app.post('/api/payments/create-installments', requireAuth, async (req: Request, 
 
     const basePayload = {
       customer: customerRes.id,
-      value,
+      value: confirmedValue,
       dueDate,
       description,
       externalReference,
@@ -235,13 +266,11 @@ app.get('/api/payments/:id/pixQrCode', requireAuth, async (req: Request, res: Re
 
 // ---- POST /api/webhooks/asaas ----
 app.post('/api/webhooks/asaas', async (req: Request, res: Response) => {
-  // Verify webhook signature
-  if (WEBHOOK_SECRET) {
-    const signature = req.headers['asaas-access-token'] as string
-    if (signature !== WEBHOOK_SECRET) {
-      res.status(401).json({ error: 'Invalid webhook signature' })
-      return
-    }
+  // Verify webhook signature — always reject if secret is not configured
+  const signature = req.headers['asaas-access-token'] as string
+  if (!WEBHOOK_SECRET || signature !== WEBHOOK_SECRET) {
+    res.status(401).json({ error: 'Invalid webhook signature' })
+    return
   }
 
   const { event, payment } = req.body
