@@ -170,10 +170,13 @@ export function PropertyDetails() {
 
     supabase
       .from('blocked_dates')
-      .select('blocked_date')
+      .select('*')
       .eq('property_id', propertyId)
       .then(({ data }) => {
-        setBlockedDates((data ?? []).map((r: { blocked_date: string }) => r.blocked_date))
+        const dates = (data ?? []).map((r: Record<string, unknown>) =>
+          (r.blocked_date as string) ?? (r.date as string) ?? ''
+        ).filter(Boolean)
+        setBlockedDates(dates)
       })
   }, [])
 

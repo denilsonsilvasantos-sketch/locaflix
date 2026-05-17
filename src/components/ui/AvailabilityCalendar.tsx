@@ -30,9 +30,12 @@ export function AvailabilityCalendar({ propertyId }: Props) {
   async function load() {
     const { data } = await supabase
       .from('blocked_dates')
-      .select('blocked_date')
+      .select('*')
       .eq('property_id', propertyId)
-    setBlocked(new Set((data ?? []).map((r: { blocked_date: string }) => r.blocked_date)))
+    const dates = (data ?? []).map((r: Record<string, unknown>) =>
+      (r.blocked_date as string) ?? (r.date as string) ?? ''
+    ).filter(Boolean)
+    setBlocked(new Set(dates))
   }
 
   async function toggle(dateStr: string) {

@@ -258,7 +258,7 @@ export function MessagesPage() {
         const displayName = userMap[nonAdminId]?.name ?? 'Usuário'
         map[pairKey] = {
           id: pairKey,
-          name: `Suporte LOCAFLIX ↔ ${displayName}`,
+          name: displayName,
           avatar_url: null,
           lastMessage: m.content,
           lastAt: m.created_at,
@@ -300,14 +300,14 @@ export function MessagesPage() {
     }
 
     setContacts(sorted)
-    void loadContactTicketStatuses(sorted)
+    void loadContactTicketStatuses()
     if (!activeContactIdRef.current && sorted.length > 0) {
       setActiveContactId(sorted[0].id)
       await loadMessages(sorted[0].id, sorted[0].pairIds)
     }
   }
 
-  async function loadContactTicketStatuses(contactList: Contact[]) {
+  async function loadContactTicketStatuses() {
     try {
       const { data } = await supabase
         .from('conversation_tickets')
@@ -813,7 +813,11 @@ export function MessagesPage() {
               </div>
             ) : (
               contacts
-                .filter(c => contactStatusFilter === 'TODOS' || contactTicketMap[c.id] === contactStatusFilter)
+                .filter(c => {
+                  if (contactStatusFilter === 'TODOS') return true
+                  const status = contactTicketMap[c.id] ?? 'ABERTO'
+                  return status === contactStatusFilter
+                })
                 .map(contact => {
                 const isActive = contact.id === activeContactId
                 const name = contact.id === SUPPORT_ID ? 'Suporte LOCAFLIX' : (contact.name ?? 'Usuário')

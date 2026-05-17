@@ -124,19 +124,21 @@ export function MapView({ height = '500px', from, to }: MapViewProps) {
                   </p>
 
                   {/* Price */}
-                  {nights > 0 ? (
-                    <div style={{ margin: '0 0 9px' }}>
-                      <p style={{ color: '#e50914', fontWeight: 700, fontSize: 14, margin: 0 }}>
-                        {formatCurrency(nights * p.price_per_night)}
-                        <span style={{ color: '#888', fontWeight: 400, fontSize: 11 }}>
-                          {' '}· {nights} noite{nights !== 1 ? 's' : ''}
-                        </span>
-                      </p>
-                      <p style={{ color: '#aaa', fontSize: 10, margin: '1px 0 0' }}>
-                        {formatCurrency(p.price_per_night)}/noite
-                      </p>
-                    </div>
-                  ) : (
+                  {nights > 0 ? (() => {
+                    const total = nights * p.price_per_night
+                    const maxInstall = nights >= 14 ? 12 : nights >= 7 ? 6 : 3
+                    const installment = total / maxInstall
+                    return (
+                      <div style={{ margin: '0 0 9px' }}>
+                        <p style={{ color: '#e50914', fontWeight: 700, fontSize: 13, margin: 0 }}>
+                          {maxInstall}x de {formatCurrency(installment)}<span style={{ color: '#888', fontWeight: 400, fontSize: 10 }}>/mês</span>
+                        </p>
+                        <p style={{ color: '#aaa', fontSize: 10, margin: '2px 0 0' }}>
+                          {formatCurrency(total)} total · {nights} noite{nights !== 1 ? 's' : ''}
+                        </p>
+                      </div>
+                    )
+                  })() : (
                     <p style={{ color: '#aaa', fontSize: 11, margin: '0 0 9px', fontStyle: 'italic' }}>
                       Selecione as datas para ver o preço
                     </p>

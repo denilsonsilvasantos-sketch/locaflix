@@ -306,7 +306,7 @@ export function Home() {
       )}
 
       {/* SearchBar único — sempre montado, nunca desmonta */}
-      <div id="search-bar" className={`relative z-20 px-4 sm:px-6 lg:px-8 ${
+      <div id="search-bar" className={`relative z-[500] px-4 sm:px-6 lg:px-8 ${
         isSearching
           ? 'pt-20 sm:pt-24 pb-6 max-w-5xl mx-auto'
           : heroProperties.length > 0 ? '-mt-16 pb-4 max-w-5xl mx-auto' : 'pt-8 pb-4 max-w-5xl mx-auto'
@@ -529,7 +529,7 @@ export function Home() {
         </div>
 
         {view === 'map' ? (
-          <div className="px-4 pb-8">
+          <div className="px-4 pb-8 isolate">
             <MapView height="500px" from={filters.check_in} to={filters.check_out} />
           </div>
         ) : isSearching ? (
