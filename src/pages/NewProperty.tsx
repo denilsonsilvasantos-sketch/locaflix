@@ -728,6 +728,13 @@ export function NewProperty() {
             </Button>
           </section>
 
+          <div className="bg-[#1F1F1F] border border-[#333] rounded-2xl px-4 py-3 flex items-start gap-3">
+            <span className="text-[#F5A623] text-sm mt-0.5">ℹ</span>
+            <p className="text-xs text-[#B3B3B3] leading-relaxed">
+              <strong className="text-white">Disponibilidade:</strong> após cadastrar o imóvel, acesse a edição para bloquear datas indisponíveis no calendário de disponibilidade.
+            </p>
+          </div>
+
           <div className="flex gap-4 pt-2">
             <Button type="button" variant="secondary" onClick={() => navigate(APP_ROUTES.OWNER_DASHBOARD)} fullWidth>
               Cancelar

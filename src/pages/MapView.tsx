@@ -93,8 +93,8 @@ export function MapView({ height = '500px' }: MapViewProps) {
                   )}
                   <p style={{ fontWeight: 700, fontSize: 13, margin: '0 0 2px', lineHeight: 1.3, color: '#111' }}>{p.name}</p>
                   <p style={{ color: '#888', fontSize: 11, margin: '0 0 5px' }}>{p.city}, {p.state}</p>
-                  <p style={{ color: '#e50914', fontWeight: 700, fontSize: 13, margin: '0 0 9px' }}>
-                    {formatCurrency(p.price_per_night)}<span style={{ color: '#aaa', fontWeight: 400, fontSize: 11 }}>/noite</span>
+                  <p style={{ color: '#555', fontSize: 11, margin: '0 0 9px' }}>
+                    A partir de <strong style={{ color: '#111' }}>{formatCurrency(p.price_per_night)}</strong>
                   </p>
                   <Link
                     to={`/imovel/${p.id}`}

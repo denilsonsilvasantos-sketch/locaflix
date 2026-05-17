@@ -895,6 +895,9 @@ function PropertyRow({ property, onToggle }: { property: Property; onToggle: (p:
             <PropertyStatusBadge status={property.status} />
             <span className="text-xs text-[#666]">{formatCurrency(property.price_per_night)}/noite</span>
           </div>
+          <Link to={APP_ROUTES.EDIT_PROPERTY(property.id)} className="inline-block mt-1 text-[10px] text-[#F5A623] hover:underline">
+            Configurar disponibilidade →
+          </Link>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
           <button

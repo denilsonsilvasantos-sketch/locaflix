@@ -69,6 +69,8 @@ export function MessagesPage() {
   const [activeTicket, setActiveTicket] = useState<Ticket | null>(null)
   const [historyTickets, setHistoryTickets] = useState<(Ticket & { displayName?: string })[]>([])
   const [contactsTab, setContactsTab] = useState<'ativas' | 'historico'>('ativas')
+  const [contactStatusFilter, setContactStatusFilter] = useState<TicketStatus | 'TODOS'>('TODOS')
+  const [contactTicketMap, setContactTicketMap] = useState<Record<string, TicketStatus>>({})
 
   // Compose
   const [composeOpen, setComposeOpen] = useState(false)
@@ -298,10 +300,29 @@ export function MessagesPage() {
     }
 
     setContacts(sorted)
+    void loadContactTicketStatuses(sorted)
     if (!activeContactIdRef.current && sorted.length > 0) {
       setActiveContactId(sorted[0].id)
       await loadMessages(sorted[0].id, sorted[0].pairIds)
     }
+  }
+
+  async function loadContactTicketStatuses(contactList: Contact[]) {
+    try {
+      const { data } = await supabase
+        .from('conversation_tickets')
+        .select('participants, status')
+        .order('created_at', { ascending: false })
+      if (!data) return
+      const map: Record<string, TicketStatus> = {}
+      for (const ticket of data as Pick<Ticket, 'participants' | 'status'>[]) {
+        const nonAdminId = ticket.participants.find(id => id !== SUPPORT_ID && !adminIdsRef.current.includes(id))
+        if (!nonAdminId) continue
+        const pairKey = [SUPPORT_ID, nonAdminId].sort().join('__')
+        if (!map[pairKey]) map[pairKey] = ticket.status
+      }
+      setContactTicketMap(map)
+    } catch { /* table may not exist yet */ }
   }
 
   async function loadMessages(contactId: string, pairIds?: [string, string]) {
@@ -722,20 +743,35 @@ export function MessagesPage() {
           </div>
 
           {profile?.role === 'ADMIN' && (
-            <div className="flex border-b border-[#333] flex-shrink-0">
-              <button
-                onClick={() => setContactsTab('ativas')}
-                className={`flex-1 py-2 text-xs font-semibold transition-colors ${contactsTab === 'ativas' ? 'text-white border-b-2 border-[#E50914]' : 'text-[#555] hover:text-white'}`}
-              >
-                Conversas
-              </button>
-              <button
-                onClick={() => { setContactsTab('historico'); void loadHistoryTickets() }}
-                className={`flex-1 py-2 text-xs font-semibold transition-colors flex items-center justify-center gap-1 ${contactsTab === 'historico' ? 'text-white border-b-2 border-[#E50914]' : 'text-[#555] hover:text-white'}`}
-              >
-                <History size={11} />Histórico
-              </button>
-            </div>
+            <>
+              <div className="flex border-b border-[#333] flex-shrink-0">
+                <button
+                  onClick={() => setContactsTab('ativas')}
+                  className={`flex-1 py-2 text-xs font-semibold transition-colors ${contactsTab === 'ativas' ? 'text-white border-b-2 border-[#E50914]' : 'text-[#555] hover:text-white'}`}
+                >
+                  Conversas
+                </button>
+                <button
+                  onClick={() => { setContactsTab('historico'); void loadHistoryTickets() }}
+                  className={`flex-1 py-2 text-xs font-semibold transition-colors flex items-center justify-center gap-1 ${contactsTab === 'historico' ? 'text-white border-b-2 border-[#E50914]' : 'text-[#555] hover:text-white'}`}
+                >
+                  <History size={11} />Histórico
+                </button>
+              </div>
+              {contactsTab === 'ativas' && (
+                <div className="flex gap-1 px-2 py-1.5 border-b border-[#2A2A2A] flex-shrink-0 overflow-x-auto">
+                  {(['TODOS', 'ABERTO', 'EM_ATENDIMENTO', 'AGUARDANDO_USUARIO', 'RESOLVIDO'] as const).map(s => (
+                    <button
+                      key={s}
+                      onClick={() => setContactStatusFilter(s)}
+                      className={`px-2 py-0.5 text-[9px] font-bold rounded-full whitespace-nowrap flex-shrink-0 transition-colors ${contactStatusFilter === s ? 'bg-[#E50914] text-white' : 'bg-[#2A2A2A] text-[#555] hover:text-[#B3B3B3]'}`}
+                    >
+                      {s === 'TODOS' ? 'Todos' : TICKET_STATUS_LABELS[s]}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </>
           )}
 
           <div className="flex-1 overflow-y-auto">
@@ -775,7 +811,9 @@ export function MessagesPage() {
                 </button>
               </div>
             ) : (
-              contacts.map(contact => {
+              contacts
+                .filter(c => contactStatusFilter === 'TODOS' || contactTicketMap[c.id] === contactStatusFilter)
+                .map(contact => {
                 const isActive = contact.id === activeContactId
                 const name = contact.id === SUPPORT_ID ? 'Suporte LOCAFLIX' : (contact.name ?? 'Usuário')
                 return (
@@ -950,37 +988,59 @@ export function MessagesPage() {
                 <div ref={bottomRef} />
               </div>
 
-              {/* Input */}
-              <div className="px-4 py-3 border-t border-[#333] flex gap-2 items-end flex-shrink-0">
-                <button
-                  onClick={() => attachmentRef.current?.click()}
-                  disabled={uploadingAttachment}
-                  className="w-10 h-10 bg-[#2A2A2A] border border-[#333] rounded-xl flex items-center justify-center text-[#666] hover:text-white hover:border-[#555] transition-colors disabled:opacity-50 flex-shrink-0"
-                  title="Anexar foto"
-                >
-                  {uploadingAttachment
-                    ? <span className="w-4 h-4 border-2 border-[#E50914] border-t-transparent rounded-full animate-spin" />
-                    : <Paperclip size={16} />}
-                </button>
-                <input ref={attachmentRef} type="file" accept="image/*" className="hidden" onChange={e => void uploadAttachment(e)} />
-                <textarea
-                  value={text}
-                  onChange={e => setText(e.target.value)}
-                  onKeyDown={e => {
-                    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void sendMessage() }
-                  }}
-                  placeholder="Digite uma mensagem..."
-                  rows={1}
-                  className="flex-1 bg-[#2A2A2A] border border-[#333] rounded-xl px-3 py-2.5 text-sm text-white placeholder-[#666] outline-none focus:ring-2 focus:ring-[#E50914] resize-none max-h-32"
-                />
-                <button
-                  onClick={() => void sendMessage()}
-                  disabled={!text.trim() || sending}
-                  className="w-10 h-10 bg-[#E50914] rounded-xl flex items-center justify-center text-white hover:bg-[#F40612] transition-colors disabled:opacity-50 flex-shrink-0"
-                >
-                  <Send size={16} />
-                </button>
-              </div>
+              {/* Input or closed banner */}
+              {activeTicket && (['RESOLVIDO', 'ARQUIVADO'] as TicketStatus[]).includes(activeTicket.status) ? (
+                <div className="px-4 py-4 border-t border-[#333] bg-[#161616] flex-shrink-0 text-center space-y-1.5">
+                  <p className="text-xs text-[#666]">Esta conversa foi encerrada.</p>
+                  {profile?.role === 'ADMIN' && (
+                    <button
+                      onClick={() => void updateTicket({ status: 'EM_ATENDIMENTO' })}
+                      className="text-xs text-[#E50914] hover:underline"
+                    >
+                      Reabrir conversa
+                    </button>
+                  )}
+                  {isNonAdmin && activeContact?.id === SUPPORT_ID && (
+                    <button
+                      onClick={() => void createNewSupportTicket()}
+                      className="text-xs text-[#E50914] hover:underline"
+                    >
+                      Abrir nova conversa
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <div className="px-4 py-3 border-t border-[#333] flex gap-2 items-end flex-shrink-0">
+                  <button
+                    onClick={() => attachmentRef.current?.click()}
+                    disabled={uploadingAttachment}
+                    className="w-10 h-10 bg-[#2A2A2A] border border-[#333] rounded-xl flex items-center justify-center text-[#666] hover:text-white hover:border-[#555] transition-colors disabled:opacity-50 flex-shrink-0"
+                    title="Anexar foto"
+                  >
+                    {uploadingAttachment
+                      ? <span className="w-4 h-4 border-2 border-[#E50914] border-t-transparent rounded-full animate-spin" />
+                      : <Paperclip size={16} />}
+                  </button>
+                  <input ref={attachmentRef} type="file" accept="image/*" className="hidden" onChange={e => void uploadAttachment(e)} />
+                  <textarea
+                    value={text}
+                    onChange={e => setText(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void sendMessage() }
+                    }}
+                    placeholder="Digite uma mensagem..."
+                    rows={1}
+                    className="flex-1 bg-[#2A2A2A] border border-[#333] rounded-xl px-3 py-2.5 text-sm text-white placeholder-[#666] outline-none focus:ring-2 focus:ring-[#E50914] resize-none max-h-32"
+                  />
+                  <button
+                    onClick={() => void sendMessage()}
+                    disabled={!text.trim() || sending}
+                    className="w-10 h-10 bg-[#E50914] rounded-xl flex items-center justify-center text-white hover:bg-[#F40612] transition-colors disabled:opacity-50 flex-shrink-0"
+                  >
+                    <Send size={16} />
+                  </button>
+                </div>
+              )}
             </>
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center text-[#666] gap-4 p-6">
