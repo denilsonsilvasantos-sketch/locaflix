@@ -18,7 +18,7 @@ import { supabase } from '../lib/supabase'
 import type { Property, PropertyPhoto, PricePeriod, Review, PropertyAmenity } from '../types'
 
 type ReviewWithProperty = Review & { property?: { id: string; name: string } | null }
-import { getMinPrice, PERIOD_TYPE_LABELS } from '../lib/pricing'
+import { getMinPrice } from '../lib/pricing'
 import { MOCK_PROPERTIES } from '../constants/mocks'
 import { APP_ROUTES } from '../constants'
 import { formatCurrency, calculateMaxInstallments } from '../lib/utils'
@@ -165,7 +165,7 @@ export function PropertyDetails() {
     }
     setRoomGroups(groups)
     setPricePeriods((periodsRes.data ?? []) as PricePeriod[])
-    setPropertyAmenities((amenitiesRes.data ?? []) as PropertyAmenity[])
+    setPropertyAmenities((amenitiesRes.data ?? []) as unknown as PropertyAmenity[])
     setLoading(false)
 
     supabase
@@ -236,11 +236,9 @@ export function PropertyDetails() {
     }
     if (isFavorited) {
       const { error } = await supabase.from('favorites').delete().eq('user_id', user.id).eq('property_id', id)
-      console.log('[favorites] DELETE PropertyDetails', { user_id: user.id, property_id: id, error })
       if (error) { toast('error', 'Erro ao remover', error.message); return }
     } else {
       const result = await supabase.from('favorites').insert({ user_id: user.id, property_id: id })
-      console.log('[favorites] INSERT PropertyDetails', { user_id: user.id, property_id: id, error: result.error, data: result.data })
       if (result.error) { toast('error', 'Erro ao favoritar', result.error.message); return }
     }
     setIsFavorited(v => !v)

@@ -192,7 +192,7 @@ export function AdminDashboard() {
     try {
       if (t === 'imoveis') {
         const { data } = await supabase
-          .from('properties').select('*')
+          .from('properties').select('*, owner:owner_id(id,name,email)')
           .order('created_at', { ascending: false }).limit(200)
         setProperties((data ?? []) as Property[])
 
@@ -255,12 +255,17 @@ export function AdminDashboard() {
         { key: 'repasse_days',    value: settings.repasse_days },
         { key: 'fee_model',       value: feeModel },
       ]
-      await Promise.all(rows.map(r =>
+      const results = await Promise.all(rows.map(r =>
         supabase.from('platform_settings')
           .update({ value: r.value, updated_at: new Date().toISOString() })
           .eq('key', r.key)
       ))
-      toast('success', 'Configurações salvas')
+      const failed = results.filter(r => r.error)
+      if (failed.length > 0) {
+        toast('error', 'Erro ao salvar', 'Algumas configurações não foram salvas')
+      } else {
+        toast('success', 'Configurações salvas')
+      }
     } catch {
       toast('error', 'Erro ao salvar')
     } finally {

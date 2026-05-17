@@ -8,7 +8,7 @@ import { PropertyRow, PropertyGrid } from '../components/property/PropertyGrid'
 import { SearchBar } from '../components/property/SearchBar'
 import { Button } from '../components/ui/Button'
 import { formatCurrency } from '../lib/utils'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { APP_ROUTES } from '../constants'
 import { useAuth } from '../hooks/useAuth'
 import { useToast } from '../hooks/useToast'
@@ -98,12 +98,10 @@ export function Home() {
     }
     if (favoritedIds.has(propertyId)) {
       const { error } = await supabase.from('favorites').delete().eq('user_id', user.id).eq('property_id', propertyId)
-      console.log('[favorites] DELETE', { user_id: user.id, property_id: propertyId, error })
       if (error) { toast('error', 'Erro ao remover', error.message); return }
       setFavoritedIds(prev => { const s = new Set(prev); s.delete(propertyId); return s })
     } else {
       const result = await supabase.from('favorites').insert({ user_id: user.id, property_id: propertyId })
-      console.log('[favorites] INSERT', { user_id: user.id, property_id: propertyId, error: result.error, data: result.data })
       if (result.error) { toast('error', 'Erro ao favoritar', result.error.message); return }
       setFavoritedIds(prev => new Set([...prev, propertyId]))
     }
@@ -118,8 +116,6 @@ export function Home() {
       .order('plan', { ascending: false })
       .order('created_at', { ascending: false })
       .limit(500)
-
-    console.log('[loadProperties]', { count: data?.length, error })
 
     setProperties(error ? [] : (data as Property[]) ?? [])
     setLoading(false)
@@ -163,6 +159,7 @@ export function Home() {
         .filter(Boolean) as string[]
       if (!selectedNames.every(name => (p.amenities ?? []).includes(name))) return false
     }
+    if (filters.bedrooms && p.bedrooms < filters.bedrooms) return false
     return true
   })
 

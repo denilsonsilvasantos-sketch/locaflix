@@ -13,8 +13,7 @@ import { PaymentModal } from '../components/ui/PaymentModal'
 import { useAuth } from '../hooks/useAuth'
 import { useToast } from '../hooks/useToast'
 import {
-  formatCurrency, calculateInstallments, calculateMaxInstallments,
-  calculatePlatformFee, formatDate,
+  formatCurrency, calculateInstallments, calculateMaxInstallments, formatDate,
 } from '../lib/utils'
 import { calcularEstadia, type EstadiaResult } from '../lib/pricing'
 import { calcularReserva } from '../lib/financeiro'

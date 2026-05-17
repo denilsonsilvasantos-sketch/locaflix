@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  Bell, Calendar, FileText, Heart, HelpCircle, Home, LogOut,
-  Mail, Menu, MessageCircle, MessageSquare, Settings, ShieldCheck, User, X,
+  Bell, FileText, HelpCircle, Home, LogOut,
+  Mail, Menu, MessageCircle, MessageSquare, Settings, User, X,
 } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 import { useNotifications } from '../../hooks/useNotifications'
