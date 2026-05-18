@@ -160,7 +160,9 @@ export function GuestDashboard() {
 
   // Load on mount and reload whenever the user arrives at the reservas tab
   useEffect(() => {
-    loadData()
+    if (['reservas', 'favoritos', 'avaliacoes'].includes(tab)) {
+      loadData()
+    }
   }, [loadData, tab])
 
   async function saveProfile() {

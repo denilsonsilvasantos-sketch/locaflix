@@ -136,10 +136,13 @@ export function PropertyDetails() {
     ])
 
     if (propRes.data) {
-      setProperty({ ...propRes.data, owner: ownerRes.data ?? undefined } as Property)
+      const p = { ...propRes.data, owner: ownerRes.data ?? undefined } as Property
+      setProperty(p)
+      if (p.max_guests && guests > p.max_guests) setGuests(p.max_guests)
     } else {
       const mock = MOCK_PROPERTIES.find(p => p.id === propertyId)
       setProperty(mock ?? null)
+      if (mock?.max_guests && guests > mock.max_guests) setGuests(mock.max_guests)
     }
     const rawReviews = (revRes.data ?? []) as (ReviewWithProperty & { reviewer_id: string })[]
     if (rawReviews.length > 0) {

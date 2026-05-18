@@ -128,13 +128,13 @@ export function AdminDashboard() {
       { data: overdueInstall },
     ] = await Promise.all([
       supabase.from('properties').select('id,status,state').limit(1000),
-      supabase.from('bookings').select('id,total_price,platform_fee,subtotal,status,created_at').limit(1000),
+      supabase.from('bookings').select('id,total_price,platform_fee,subtotal,status,created_at,check_in').limit(1000),
       supabase.from('users').select('id').eq('kyc_status','PENDENTE'),
       supabase.from('installments').select('id').eq('status','ATRASADO'),
     ])
 
     const propsData    = (props ?? []) as { id: string; status: string; state: string }[]
-    const bookingsData = (allBookings ?? []) as { id: string; total_price: number; platform_fee: number; subtotal: number; status: string; created_at: string }[]
+    const bookingsData = (allBookings ?? []) as { id: string; total_price: number; platform_fee: number; subtotal: number; status: string; created_at: string; check_in: string }[]
     const pendKYC      = (kycUsers ?? []).length
     const overdue      = (overdueInstall ?? []).length
     const pendProps    = propsData.filter(p => p.status === 'PENDENTE').length
@@ -155,7 +155,7 @@ export function AdminDashboard() {
     const monthMap: Record<string, { gmv: number; revenue: number }> = {}
     bookingsData.forEach(b => {
       if (!['PAGO','CONCLUIDA','PARCIAL'].includes(b.status)) return
-      const m = b.created_at?.slice(0,7) ?? ''
+      const m = b.check_in?.slice(0,7) ?? ''
       if (!monthMap[m]) monthMap[m] = { gmv: 0, revenue: 0 }
       monthMap[m].gmv     += b.total_price
       monthMap[m].revenue += b.platform_fee
@@ -379,7 +379,7 @@ export function AdminDashboard() {
   // Filters
   const filteredProps  = properties.filter(p => propFilter === 'todos' || p.status.toLowerCase() === propFilter)
   const filteredUsers  = users.filter(u => {
-    const roleOk   = userSubTab === 'clientes' ? u.role === 'GUEST' : u.role === 'OWNER' || u.role === 'ADMIN'
+    const roleOk   = userSubTab === 'clientes' ? u.role === 'GUEST' : u.role === 'OWNER'
     const searchOk = !userSearch || u.name?.toLowerCase().includes(userSearch.toLowerCase()) || u.email.toLowerCase().includes(userSearch.toLowerCase())
     return roleOk && searchOk
   })

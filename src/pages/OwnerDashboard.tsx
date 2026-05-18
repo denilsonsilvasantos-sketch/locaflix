@@ -235,7 +235,7 @@ export function OwnerDashboard() {
     ? (ratedProps.reduce((s, p) => s + (p.rating ?? 0), 0) / ratedProps.length).toFixed(1)
     : '—'
   const totalRevenue = bookings
-    .filter(b => b.status === 'PAGO' || b.status === 'CONCLUIDA')
+    .filter(b => ['PAGO', 'CONCLUIDA', 'PARCIAL'].includes(b.status))
     .reduce((s, b) => s + b.subtotal - b.platform_fee, 0)
 
   const cancelRate = bookings.length > 0

@@ -2,12 +2,17 @@ import express from "express";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { existsSync } from "node:fs";
+import { createClient } from "@supabase/supabase-js";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 const PORT = process.env.PORT ?? 3e3;
 const ASAAS_API_KEY = (process.env.ASAAS_API_KEY ?? "").replace(/^\\+/, "").trim();
 const ASAAS_BASE_URL = process.env.ASAAS_ENV === "production" ? "https://api.asaas.com/v3" : "https://sandbox.asaas.com/api/v3";
 const WEBHOOK_SECRET = process.env.ASAAS_WEBHOOK_SECRET ?? "";
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
 app.use(express.json());
 app.set("trust proxy", true);
 async function requireAuth(req, res, next) {
@@ -17,8 +22,6 @@ async function requireAuth(req, res, next) {
     return;
   }
   try {
-    const { createClient } = await import("@supabase/supabase-js");
-    const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
     const { data: { user }, error } = await supabase.auth.getUser(token);
     if (error || !user) {
       res.status(401).json({ error: "Unauthorized" });
@@ -46,9 +49,7 @@ app.post("/api/payments/create-pix", requireAuth, async (req, res) => {
     }
     let confirmedValue = Number(value);
     if (installment_id) {
-      const { createClient } = await import("@supabase/supabase-js");
-      const sb = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
-      const { data: inst, error } = await sb.from("installments").select("value").eq("id", installment_id).single();
+      const { data: inst, error } = await supabase.from("installments").select("value").eq("id", installment_id).single();
       if (error || !inst) {
         res.status(400).json({ error: "Parcela n\xE3o encontrada" });
         return;
@@ -77,11 +78,6 @@ app.post("/api/payments/create-pix", requireAuth, async (req, res) => {
     });
     const pixRes = await asaasRequest("GET", `/payments/${paymentRes.id}/pixQrCode`);
     if (installment_id) {
-      const { createClient } = await import("@supabase/supabase-js");
-      const supabase = createClient(
-        process.env.SUPABASE_URL,
-        process.env.SUPABASE_SERVICE_ROLE_KEY
-      );
       await supabase.from("installments").update({ asaas_payment_id: paymentRes.id }).eq("id", installment_id);
     }
     res.json({
@@ -139,9 +135,7 @@ app.post("/api/payments/create-installments", requireAuth, async (req, res) => {
     }
     let confirmedValue = Number(value);
     if (installment_id) {
-      const { createClient } = await import("@supabase/supabase-js");
-      const sb = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
-      const { data: inst, error } = await sb.from("installments").select("value").eq("id", installment_id).single();
+      const { data: inst, error } = await supabase.from("installments").select("value").eq("id", installment_id).single();
       if (error || !inst) {
         res.status(400).json({ error: "Parcela n\xE3o encontrada" });
         return;
@@ -173,11 +167,6 @@ app.post("/api/payments/create-installments", requireAuth, async (req, res) => {
     ]);
     const pixQr = await asaasRequest("GET", `/payments/${pixPayment.id}/pixQrCode`);
     if (installment_id) {
-      const { createClient } = await import("@supabase/supabase-js");
-      const supabase = createClient(
-        process.env.SUPABASE_URL,
-        process.env.SUPABASE_SERVICE_ROLE_KEY
-      );
       await supabase.from("installments").update({ asaas_payment_id: pixPayment.id }).eq("id", installment_id);
     }
     res.json({
@@ -242,11 +231,6 @@ async function handlePaymentConfirmed(payment) {
   if (!payment.externalReference) return;
   const [type, id] = payment.externalReference.split(":");
   if (type !== "installment" || !id) return;
-  const { createClient } = await import("@supabase/supabase-js");
-  const supabase = createClient(
-    process.env.SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY
-  );
   await supabase.from("installments").update({
     status: "PAGO",
     paid_at: (/* @__PURE__ */ new Date()).toISOString(),
@@ -270,11 +254,6 @@ async function handlePaymentOverdue(payment) {
   if (!payment.externalReference) return;
   const [type, id] = payment.externalReference.split(":");
   if (type !== "installment" || !id) return;
-  const { createClient } = await import("@supabase/supabase-js");
-  const supabase = createClient(
-    process.env.SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY
-  );
   await supabase.from("installments").update({ status: "ATRASADO" }).eq("id", id);
   const { data: inst } = await supabase.from("installments").select("booking_id, number, due_date").eq("id", id).single();
   if (inst) {
