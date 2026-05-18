@@ -110,7 +110,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         role,
         ...extra,
       }).then(({ error: e }) => {
-        if (e) console.warn('[signUp] profile upsert:', e.message)
+        if (e) { /* profile upsert failed — user can still sign in */ }
       })
     }
   }

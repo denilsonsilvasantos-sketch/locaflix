@@ -623,15 +623,13 @@ export function PropertyDetails() {
               <section>
                 <div className="flex items-center gap-4 mb-6 flex-wrap">
                   <h2 className="font-display text-xl font-bold text-white">Avaliações do Anfitrião</h2>
-                  {reviews.length > 0 && (
-                    <div className="flex items-center gap-2">
-                      {property.rating && <RatingStars value={property.rating} size={15} />}
-                      {property.rating && <span className="text-sm font-bold text-white">{property.rating.toFixed(1)}</span>}
-                      <span className="text-sm text-[#B3B3B3]">
-                        · {reviews.length} avaliação{reviews.length !== 1 ? 'ões' : ''}
-                      </span>
-                    </div>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {property.rating && <RatingStars value={property.rating} size={15} />}
+                    {property.rating && <span className="text-sm font-bold text-white">{property.rating.toFixed(1)}</span>}
+                    <span className="text-sm text-[#B3B3B3]">
+                      · {reviews.length} avaliação{reviews.length !== 1 ? 'ões' : ''}
+                    </span>
+                  </div>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {reviews.map(r => <ReviewCard key={r.id} review={r} currentPropertyId={property.id} />)}

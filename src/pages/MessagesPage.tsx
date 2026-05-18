@@ -9,7 +9,7 @@ import { Button } from '../components/ui/Button'
 import { Lightbox } from '../components/ui/Lightbox'
 import { getInitials } from '../lib/utils'
 
-const SUPPORT_ID = '698e7994-96b4-4295-a72d-ba33497387b2'
+import { SUPPORT_ID } from '../constants/config'
 
 type TicketStatus = 'ABERTO' | 'EM_ATENDIMENTO' | 'AGUARDANDO_USUARIO' | 'RESOLVIDO' | 'ARQUIVADO'
 type TicketPriority = 'NORMAL' | 'URGENTE' | 'CRITICO'

@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from './useAuth'
-
-const SUPPORT_ID = '698e7994-96b4-4295-a72d-ba33497387b2'
+import { SUPPORT_ID } from '../constants/config'
 
 export function useUnreadMessages() {
   const { user, profile } = useAuth()

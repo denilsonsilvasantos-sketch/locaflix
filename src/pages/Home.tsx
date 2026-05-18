@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Home as HouseIcon, Info, LayoutList, Map, SlidersHorizontal, X, Star, MapPin } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Home as HouseIcon, LayoutList, Map, SlidersHorizontal, X, Star, MapPin } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { PROPERTY_TYPES } from '../constants'
 import type { Property, SearchFilters, PropertyType, AmenityCatalog } from '../types'
@@ -48,11 +48,10 @@ export function Home() {
     else setFavoritedIds(new Set())
   }, [user?.id])
 
-  // Auto-carousel every 6s
+  // Auto-carousel every 6s — heroProperties computed below, safe in callback
   useEffect(() => {
-    const heroes = properties.filter(p => p.plan === 'DESTAQUE').slice(0, 5)
-    if (heroes.length <= 1) return
-    const id = setInterval(() => setHeroIdx(i => (i + 1) % heroes.length), 6000)
+    if (heroProperties.length <= 1) return
+    const id = setInterval(() => setHeroIdx(i => (i + 1) % heroProperties.length), 6000)
     return () => clearInterval(id)
   }, [properties])
 
@@ -150,9 +149,6 @@ export function Home() {
     if (filters.guests && filters.guests > 1 && (p.max_guests ?? Infinity) < filters.guests) return false
     if (filters.min_price && p.price_per_night < filters.min_price) return false
     if (filters.max_price && p.price_per_night > filters.max_price) return false
-    if (filters.amenities?.length) {
-      if (!filters.amenities.every(a => p.amenities.includes(a))) return false
-    }
     if (filters.amenity_ids?.length && catalog.length > 0) {
       const selectedNames = filters.amenity_ids
         .map(id => catalog.find(c => c.id === id)?.name)
@@ -249,15 +245,6 @@ export function Home() {
                 >
                   <HouseIcon size={18} />
                   Ver imóvel
-                </Button>
-                <Button
-                  size="lg"
-                  variant="secondary"
-                  onClick={() => navigate(APP_ROUTES.PROPERTY(currentHero.id))}
-                  className="gap-2"
-                >
-                  <Info size={18} />
-                  Detalhes
                 </Button>
                 {filters.check_in && (
                   <div className="ml-2">

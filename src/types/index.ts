@@ -314,7 +314,6 @@ export interface CheckoutFormData {
   contract_accepted: boolean
   // step 5: payment
   payment_method: 'PIX' | 'BOLETO'
-  installments_count: number
 }
 
 export interface InstallmentPreview {

@@ -104,7 +104,6 @@ export function Checkout() {
     cep: profile?.cep ?? '',
     contract_accepted: false,
     payment_method: 'PIX',
-    installments_count: 1,
   })
 
   useEffect(() => {
