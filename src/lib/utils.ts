@@ -10,11 +10,21 @@ export function formatCurrency(value: number): string {
 }
 
 export function formatDate(dateStr: string): string {
-  return format(parseISO(dateStr), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })
+  try {
+    if (!dateStr) return '—'
+    return format(parseISO(dateStr), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })
+  } catch {
+    return dateStr ?? '—'
+  }
 }
 
 export function formatShortDate(dateStr: string): string {
-  return format(parseISO(dateStr), 'dd/MM/yyyy')
+  try {
+    if (!dateStr) return '—'
+    return format(parseISO(dateStr), 'dd/MM/yyyy')
+  } catch {
+    return dateStr ?? '—'
+  }
 }
 
 export function fromISODateString(isoDate: string): Date {

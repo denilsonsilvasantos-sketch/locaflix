@@ -312,6 +312,13 @@ export function NewProperty() {
       )
     }
 
+    const allPhotoUrls = validRooms.flatMap(r =>
+      r.photos.filter(p => p.url && !p.uploading).map(p => p.url)
+    )
+    if (allPhotoUrls.length > 0) {
+      await supabase.from('properties').update({ photos: allPhotoUrls }).eq('id', propertyId)
+    }
+
     const validPeriods = periods.filter(p => p.name.trim() && p.price_per_night)
     if (validPeriods.length > 0) {
       await supabase.from('price_periods').insert(

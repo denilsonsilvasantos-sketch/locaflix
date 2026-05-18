@@ -375,8 +375,10 @@ export function EditProperty() {
       )
     }
 
-    await supabase.from('property_rooms').delete().eq('property_id', id)
     const validRooms = rooms.filter(rm => rm.name.trim())
+    if (validRooms.length > 0) {
+      await supabase.from('property_rooms').delete().eq('property_id', id)
+    }
     for (let i = 0; i < validRooms.length; i++) {
       const room = validRooms[i]
       const { data: roomRow, error: roomErr } = await supabase
@@ -406,9 +408,14 @@ export function EditProperty() {
       )
     }
 
-    await supabase.from('price_periods').delete().eq('property_id', id)
+    const allPhotoUrls = validRooms.flatMap(r =>
+      r.photos.filter(p => p.url && !p.uploading).map(p => p.url)
+    )
+    await supabase.from('properties').update({ photos: allPhotoUrls }).eq('id', id)
+
     const validPeriods = periods.filter(p => p.name.trim() && p.price_per_night)
     if (validPeriods.length > 0) {
+      await supabase.from('price_periods').delete().eq('property_id', id)
       await supabase.from('price_periods').insert(
         validPeriods.map((p, i) => ({
           property_id: id,

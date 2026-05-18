@@ -262,7 +262,7 @@ export function OwnerDashboard() {
       const label = d.toLocaleString('pt-BR', { month: 'short' })
       const monthBks = bookings.filter(b =>
         ['PAGO', 'CONCLUIDA', 'PARCIAL'].includes(b.status) &&
-        (b.created_at ?? '').startsWith(prefix)
+        (b.check_in ?? '').startsWith(prefix)
       )
       return {
         month: label,

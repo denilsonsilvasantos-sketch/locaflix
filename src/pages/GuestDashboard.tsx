@@ -599,6 +599,7 @@ function BookingCard({
   const [overdueQR, setOverdueQR] = useState<PixPaymentResponse | null>(null)
   const [fetchingQR, setFetchingQR] = useState(false)
   const [pixModalOpen, setPixModalOpen] = useState(false)
+  const { toast } = useToast()
 
   const insts = booking.installments ?? []
   const total = insts.length
@@ -634,6 +635,25 @@ function BookingCard({
       // user can retry via the button
     } finally {
       setFetchingQR(false)
+    }
+  }
+
+  async function handlePaymentConfirm() {
+    setPixModalOpen(false)
+    if (!next?.asaas_payment_id) return
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const res = await fetch(`/api/payments/${next.asaas_payment_id}`, {
+        headers: { Authorization: `Bearer ${session?.access_token ?? ''}` },
+      })
+      const payment = await res.json()
+      if (payment.status === 'CONFIRMED' || payment.status === 'RECEIVED') {
+        toast('success', 'Pagamento confirmado!', 'Sua parcela foi registrada.')
+      } else {
+        toast('warning', 'Pagamento pendente', 'Não identificamos o pagamento ainda.')
+      }
+    } catch {
+      // ignore
     }
   }
 
@@ -762,7 +782,7 @@ function BookingCard({
         open={pixModalOpen}
         onClose={() => setPixModalOpen(false)}
         pix={overdueQR}
-        onConfirm={() => setPixModalOpen(false)}
+        onConfirm={() => { void handlePaymentConfirm() }}
       />
     </Card>
   )
