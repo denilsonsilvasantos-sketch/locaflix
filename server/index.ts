@@ -3,8 +3,17 @@ import type { Request, Response } from 'express'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { existsSync } from 'node:fs'
+import { createClient } from '@supabase/supabase-js'
+import ws from 'ws'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
+
+// Singleton com ws transport — evita erro "Node.js 20 without native WebSocket"
+const adminSupabase = createClient(
+  process.env.SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  { realtime: { transport: ws }, auth: { persistSession: false } },
+)
 
 const app = express()
 const PORT = process.env.PORT ?? 3000
@@ -80,12 +89,7 @@ app.post('/api/payments/create-pix', requireAuth, async (req: Request, res: Resp
     // Salva asaas_payment_id na parcela do Supabase
     const { installment_id } = req.body
     if (installment_id) {
-      const { createClient } = await import('@supabase/supabase-js')
-      const supabase = createClient(
-        process.env.SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      )
-      await supabase.from('installments')
+      await adminSupabase.from('installments')
         .update({ asaas_payment_id: paymentRes.id })
         .eq('id', installment_id)
     }
@@ -179,12 +183,7 @@ app.post('/api/payments/create-installments', requireAuth, async (req: Request, 
     const pixQr = await asaasRequest('GET', `/payments/${pixPayment.id}/pixQrCode`)
 
     if (installment_id) {
-      const { createClient } = await import('@supabase/supabase-js')
-      const supabase = createClient(
-        process.env.SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      )
-      await supabase.from('installments')
+      await adminSupabase.from('installments')
         .update({ asaas_payment_id: pixPayment.id })
         .eq('id', installment_id)
     }
@@ -265,25 +264,19 @@ async function handlePaymentConfirmed(payment: { externalReference?: string; id:
   const [type, id] = payment.externalReference.split(':')
   if (type !== 'installment' || !id) return
 
-  const { createClient } = await import('@supabase/supabase-js')
-  const supabase = createClient(
-    process.env.SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  )
-
-  await supabase.from('installments').update({
+  await adminSupabase.from('installments').update({
     status: 'PAGO',
     paid_at: new Date().toISOString(),
     asaas_payment_id: payment.id,
   }).eq('id', id)
 
   // Notify guest
-  const { data: inst } = await supabase.from('installments').select('booking_id, number, value').eq('id', id).single()
+  const { data: inst } = await adminSupabase.from('installments').select('booking_id, number, value').eq('id', id).single()
   if (inst) {
-    const { data: booking } = await supabase.from('bookings').select('guest_id').eq('id', inst.booking_id).single()
+    const { data: booking } = await adminSupabase.from('bookings').select('guest_id').eq('id', inst.booking_id).single()
     if (booking) {
       const valueFormatted = `R$ ${Number(inst.value).toFixed(2).replace('.', ',')}`
-      await supabase.from('notifications').insert({
+      await adminSupabase.from('notifications').insert({
         user_id: booking.guest_id,
         title: 'Pagamento confirmado!',
         message: `Parcela ${inst.number} de ${valueFormatted} foi confirmada com sucesso.`,
@@ -298,20 +291,14 @@ async function handlePaymentOverdue(payment: { externalReference?: string }) {
   const [type, id] = payment.externalReference.split(':')
   if (type !== 'installment' || !id) return
 
-  const { createClient } = await import('@supabase/supabase-js')
-  const supabase = createClient(
-    process.env.SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  )
-
-  await supabase.from('installments').update({ status: 'ATRASADO' }).eq('id', id)
+  await adminSupabase.from('installments').update({ status: 'ATRASADO' }).eq('id', id)
 
   // Notify guest
-  const { data: inst } = await supabase.from('installments').select('booking_id, number, due_date').eq('id', id).single()
+  const { data: inst } = await adminSupabase.from('installments').select('booking_id, number, due_date').eq('id', id).single()
   if (inst) {
-    const { data: booking } = await supabase.from('bookings').select('guest_id').eq('id', inst.booking_id).single()
+    const { data: booking } = await adminSupabase.from('bookings').select('guest_id').eq('id', inst.booking_id).single()
     if (booking) {
-      await supabase.from('notifications').insert({
+      await adminSupabase.from('notifications').insert({
         user_id: booking.guest_id,
         title: 'Pagamento em atraso',
         message: `A parcela ${inst.number} com vencimento em ${new Date(inst.due_date).toLocaleDateString('pt-BR')} está em atraso.`,
