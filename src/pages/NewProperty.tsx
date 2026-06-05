@@ -198,19 +198,27 @@ export function NewProperty() {
     await Promise.all(filesToUpload.map(async (file, i) => {
       const photoId = newPhotos[i].id
       const ext = file.name.split('.').pop() ?? 'jpg'
-      const path = `${user!.id}/${Date.now()}-${uid()}.${ext}`
-      const { error } = await supabase.storage.from('property-photos').upload(path, file)
-      if (error) {
+      const filePath = `${user!.id}/${Date.now()}-${uid()}.${ext}`
+      try {
+        const session = await supabase.auth.getSession()
+        const authToken = session.data.session?.access_token ?? ''
+        const signRes = await fetch(`/api/upload/property-photo-sign?path=${encodeURIComponent(filePath)}`, {
+          headers: { 'Authorization': `Bearer ${authToken}` },
+        })
+        if (!signRes.ok) throw new Error('Falha ao obter URL de upload')
+        const { token: uploadToken } = await signRes.json() as { token: string }
+        const { error } = await supabase.storage.from('property-photos').uploadToSignedUrl(filePath, uploadToken, file)
+        if (error) throw error
+        const { data } = supabase.storage.from('property-photos').getPublicUrl(filePath)
+        setRooms(r => r.map(rm =>
+          rm.id === roomId
+            ? { ...rm, photos: rm.photos.map(p => p.id === photoId ? { ...p, url: data.publicUrl, uploading: false } : p) }
+            : rm
+        ))
+      } catch (err) {
         setRooms(r => r.map(rm => rm.id === roomId ? { ...rm, photos: rm.photos.filter(p => p.id !== photoId) } : rm))
-        toast('error', 'Erro no upload', error.message)
-        return
+        toast('error', 'Erro no upload', err instanceof Error ? err.message : 'Tente novamente')
       }
-      const { data } = supabase.storage.from('property-photos').getPublicUrl(path)
-      setRooms(r => r.map(rm =>
-        rm.id === roomId
-          ? { ...rm, photos: rm.photos.map(p => p.id === photoId ? { ...p, url: data.publicUrl, uploading: false } : p) }
-          : rm
-      ))
     }))
   }
 

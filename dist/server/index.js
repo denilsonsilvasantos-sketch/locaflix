@@ -263,6 +263,23 @@ async function asaasRequest(method, path2, body) {
   if (!res.ok) throw new Error(data.errors?.[0]?.description ?? `Asaas error ${res.status}`);
   return data;
 }
+app.get("/api/upload/property-photo-sign", requireAuth, async (req, res) => {
+  const filePath = req.query.path;
+  if (!filePath) {
+    res.status(400).json({ error: "path required" });
+    return;
+  }
+  try {
+    const { data, error } = await adminSupabase.storage.from("property-photos").createSignedUploadUrl(filePath);
+    if (error || !data) {
+      res.status(500).json({ error: error?.message ?? "Failed to create signed URL" });
+      return;
+    }
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "Error" });
+  }
+});
 app.get("/auth/callback", (_req, res) => {
   res.sendFile(distIndex);
 });

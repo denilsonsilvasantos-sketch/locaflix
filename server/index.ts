@@ -335,6 +335,22 @@ async function asaasRequest(method: string, path: string, body?: unknown) {
   return data
 }
 
+// ---- GET /api/upload/property-photo-sign ----
+// Generates a signed upload URL using the service role key (bypasses Storage RLS)
+app.get('/api/upload/property-photo-sign', requireAuth, async (req: Request, res: Response) => {
+  const filePath = req.query.path as string
+  if (!filePath) { res.status(400).json({ error: 'path required' }); return }
+  try {
+    const { data, error } = await adminSupabase.storage
+      .from('property-photos')
+      .createSignedUploadUrl(filePath)
+    if (error || !data) { res.status(500).json({ error: error?.message ?? 'Failed to create signed URL' }); return }
+    res.json(data) // { signedUrl, token, path }
+  } catch (err: unknown) {
+    res.status(500).json({ error: err instanceof Error ? err.message : 'Error' })
+  }
+})
+
 // ---- GET /auth/callback — Supabase email confirmation ----
 // O code PKCE só pode ser trocado pelo cliente (browser) pois o code_verifier
 // fica no localStorage. O servidor apenas serve o index.html para o React processar.
