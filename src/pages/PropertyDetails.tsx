@@ -290,10 +290,13 @@ export function PropertyDetails() {
       property.price_per_night,
     )
   }, [property, checkIn, checkOut, nights, pricePeriods])
-  const subtotal = estadiaCalc?.total ?? (property ? property.price_per_night * nights : 0)
+  const nightly = estadiaCalc?.total ?? (property ? property.price_per_night * nights : 0)
   const cleaningFee = (nights > 0 && property?.cleaning_fee) ? property.cleaning_fee : 0
-  const fee = Math.round(subtotal * guestFeePercent * 100) / 100
-  const grandTotal = subtotal + cleaningFee + fee
+  // diárias + limpeza combinados → base de cálculo da taxa de serviço
+  const combinedBase = nightly + cleaningFee
+  const avgPerNight = nights > 0 ? Math.round((combinedBase / nights) * 100) / 100 : 0
+  const fee = Math.round(combinedBase * guestFeePercent * 100) / 100
+  const grandTotal = combinedBase + fee
 
   if (loading) {
     return (
@@ -809,25 +812,10 @@ export function PropertyDetails() {
                 {/* Price breakdown */}
                 {nights > 0 && (
                   <div className="mt-5 pt-5 border-t border-[#333] space-y-2">
-                    {estadiaCalc ? (
-                      estadiaCalc.summary.map((s, i) => (
-                        <div key={i} className="flex justify-between text-sm">
-                          <span className="text-[#B3B3B3]">{s.nights}× {s.periodName}</span>
-                          <span className="text-white">{formatCurrency(s.nights * s.pricePerNight)}</span>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="flex justify-between text-sm">
-                        <span className="text-[#B3B3B3]">{formatCurrency(property.price_per_night)} × {nights} noites</span>
-                        <span className="text-white">{formatCurrency(subtotal)}</span>
-                      </div>
-                    )}
-                    {cleaningFee > 0 && (
-                      <div className="flex justify-between text-sm">
-                        <span className="text-[#B3B3B3]">Taxa de limpeza</span>
-                        <span className="text-white">{formatCurrency(cleaningFee)}</span>
-                      </div>
-                    )}
+                    <div className="flex justify-between text-sm">
+                      <span className="text-[#B3B3B3]">{nights}x Diárias: {formatCurrency(avgPerNight)}</span>
+                      <span className="text-white">{formatCurrency(combinedBase)}</span>
+                    </div>
                     {feeModel === 'dividido' && fee > 0 && (
                       <div className="flex justify-between text-sm">
                         <span className="text-[#B3B3B3]">Taxa de serviço</span>

@@ -150,9 +150,10 @@ export function Checkout() {
     const co = new Date(checkOut + 'T00:00:00')
     const result = calcularEstadia(ci, co, pricePeriods, property.price_per_night)
     setEstadiaResult(result)
-    const feeAmt = Math.round(result.total * guestFeePercent * 100) / 100
     const cleaning = property.cleaning_fee ?? 0
-    setInstallmentPreviews(calculateInstallments(result.total + cleaning + feeAmt, installmentCount, checkIn))
+    const base = result.total + cleaning
+    const feeAmt = Math.round(base * guestFeePercent * 100) / 100
+    setInstallmentPreviews(calculateInstallments(base + feeAmt, installmentCount, checkIn))
   }, [installmentCount, property, checkIn, checkOut, nights, pricePeriods])
 
   async function loadProperty(pid: string) {
@@ -236,10 +237,10 @@ export function Checkout() {
       const ci = new Date(checkIn + 'T00:00:00')
       const co = new Date(checkOut + 'T00:00:00')
       const estadia = calcularEstadia(ci, co, pricePeriods, property.price_per_night)
-      const subtotal = estadia.total
       const cleaning = property.cleaning_fee ?? 0
-      const platform_fee = Math.round(estadia.total * guestFeePercent * 100) / 100
-      const total_price = subtotal + cleaning + platform_fee
+      const subtotal = estadia.total + cleaning
+      const platform_fee = Math.round(subtotal * guestFeePercent * 100) / 100
+      const total_price = subtotal + platform_fee
       const previews = calculateInstallments(total_price, installmentCount, checkIn)
 
       let firstInstallmentId: string | undefined
@@ -420,10 +421,13 @@ export function Checkout() {
     return <KYCGate status={profile.kyc_status ?? 'INCOMPLETO'} />
   }
 
-  const subtotal = estadiaResult?.total ?? property.price_per_night * nights
+  const nightly = estadiaResult?.total ?? property.price_per_night * nights
   const cleaningFee = property.cleaning_fee ?? 0
-  const fee = Math.round(subtotal * guestFeePercent * 100) / 100
-  const total = subtotal + cleaningFee + fee
+  const combinedBase = nightly + cleaningFee
+  const avgPerNight = nights > 0 ? Math.round((combinedBase / nights) * 100) / 100 : 0
+  const subtotal = combinedBase
+  const fee = Math.round(combinedBase * guestFeePercent * 100) / 100
+  const total = combinedBase + fee
   const maxInstallments = checkIn ? calculateMaxInstallments(checkIn) : 1
   const isMock = MOCK_PROPERTIES.some(p => p.id === property.id)
 
@@ -721,20 +725,10 @@ export function Checkout() {
               <p className="text-xs text-[#B3B3B3] mb-4">{property.city}, {property.state}</p>
 
               <div className="space-y-2 text-sm">
-                {estadiaResult ? (
-                  estadiaResult.summary.map((s, i) => (
-                    <Row
-                      key={i}
-                      label={`${s.nights}× ${s.periodName}`}
-                      value={formatCurrency(s.nights * s.pricePerNight)}
-                    />
-                  ))
-                ) : (
-                  <Row label={`${formatCurrency(property.price_per_night)} × ${nights} noites`} value={formatCurrency(subtotal)} />
-                )}
-                {cleaningFee > 0 && (
-                  <Row label="Taxa de limpeza" value={formatCurrency(cleaningFee)} />
-                )}
+                <Row
+                  label={`${nights}x Diárias: ${formatCurrency(avgPerNight)}`}
+                  value={formatCurrency(combinedBase)}
+                />
                 {feeModel === 'dividido' && fee > 0 && (
                   <Row label="Taxa de serviço" value={formatCurrency(fee)} />
                 )}
