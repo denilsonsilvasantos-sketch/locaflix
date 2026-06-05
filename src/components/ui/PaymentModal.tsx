@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Copy, Check, RefreshCw, Download, QrCode, FileText, ExternalLink } from 'lucide-react'
 import { Modal } from './Modal'
 import { Button } from './Button'
@@ -11,6 +11,7 @@ interface PaymentModalProps {
   payment: InstallmentPaymentResponse | null
   onCheckPayment: () => void
   loading?: boolean
+  polling?: boolean
 }
 
 function CopyField({ value, label }: { value: string; label: string }) {
@@ -45,8 +46,15 @@ function CopyField({ value, label }: { value: string; label: string }) {
   )
 }
 
-export function PaymentModal({ open, onClose, payment, onCheckPayment, loading }: PaymentModalProps) {
+export function PaymentModal({ open, onClose, payment, onCheckPayment, loading, polling }: PaymentModalProps) {
   const [method, setMethod] = useState<'PIX' | 'BOLETO'>('PIX')
+  const [dots, setDots] = useState('.')
+
+  useEffect(() => {
+    if (!polling) return
+    const t = setInterval(() => setDots(d => d.length >= 3 ? '.' : d + '.'), 600)
+    return () => clearInterval(t)
+  }, [polling])
 
   if (!payment) return null
 
@@ -149,9 +157,16 @@ export function PaymentModal({ open, onClose, payment, onCheckPayment, loading }
           </Button>
         </div>
 
-        <p className="text-center text-xs text-[#555]">
-          Ambiente sandbox — use dados de teste do Asaas
-        </p>
+        {polling ? (
+          <p className="text-center text-xs text-[#46D369] flex items-center justify-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#46D369] animate-pulse inline-block" />
+            Verificando pagamento automaticamente{dots}
+          </p>
+        ) : (
+          <p className="text-center text-xs text-[#555]">
+            Ambiente sandbox — use dados de teste do Asaas
+          </p>
+        )}
       </div>
     </Modal>
   )

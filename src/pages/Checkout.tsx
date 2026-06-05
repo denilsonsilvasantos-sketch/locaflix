@@ -115,6 +115,13 @@ export function Checkout() {
     fetchIp()
   }, [id])
 
+  // Auto-polling: check payment status every 5s while QR/boleto modal is open
+  useEffect(() => {
+    if (!paymentModalOpen2 || !paymentData) return
+    const interval = setInterval(() => void checkPaymentStatus(true), 5000)
+    return () => clearInterval(interval)
+  }, [paymentModalOpen2, paymentData])
+
   // Load persisted personal data from previous checkout
   useEffect(() => {
     if (!user?.id) return
@@ -353,9 +360,9 @@ export function Checkout() {
     }
   }
 
-  async function handleCheckPayment() {
+  async function checkPaymentStatus(silent = false) {
     if (!paymentData) return
-    setCheckingPayment(true)
+    if (!silent) setCheckingPayment(true)
     try {
       const session = await supabase.auth.getSession()
       const token = session.data.session?.access_token ?? ''
@@ -366,17 +373,19 @@ export function Checkout() {
       const payment = await res.json()
 
       if (payment.status === 'CONFIRMED' || payment.status === 'RECEIVED') {
-        setPaymentModalOpen(false)
+        setPaymentModalOpen2(false)
         setPaid(true)
-      } else {
-        toast('warning', 'Pagamento pendente', 'Ainda não identificamos o pagamento. Tente novamente em alguns instantes.')
+      } else if (!silent) {
+        toast('warning', 'Pagamento pendente', 'Ainda não identificamos o pagamento. Aguarde alguns instantes ou tente novamente.')
       }
     } catch (err: unknown) {
-      toast('error', 'Erro', err instanceof Error ? err.message : 'Erro ao verificar pagamento.')
+      if (!silent) toast('error', 'Erro', err instanceof Error ? err.message : 'Erro ao verificar pagamento.')
     } finally {
-      setCheckingPayment(false)
+      if (!silent) setCheckingPayment(false)
     }
   }
+
+  function handleCheckPayment() { void checkPaymentStatus(false) }
 
   // Compute totals early — needed for both the success page and the main form
   const nightly = estadiaResult?.total ?? (property ? property.price_per_night * nights : 0)
@@ -754,6 +763,7 @@ export function Checkout() {
         payment={paymentData}
         onCheckPayment={handleCheckPayment}
         loading={checkingPayment}
+        polling={paymentModalOpen2}
       />
     </div>
   )
