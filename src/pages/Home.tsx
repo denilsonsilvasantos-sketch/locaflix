@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Home as HouseIcon, Info, LayoutList, Map, SlidersHorizontal, X, Star, MapPin } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { PROPERTY_TYPES } from '../constants'
-import type { Property, SearchFilters, PropertyType, AmenityCatalog } from '../types'
+import type { Property, SearchFilters, PropertyType, AmenityCatalog, PricePeriod } from '../types'
 import { PropertyRow, PropertyGrid } from '../components/property/PropertyGrid'
 import { SearchBar } from '../components/property/SearchBar'
 import { Button } from '../components/ui/Button'
@@ -16,6 +16,7 @@ import { MapView } from './MapView'
 
 export function Home() {
   const [properties, setProperties] = useState<Property[]>([])
+  const [allPricePeriods, setAllPricePeriods] = useState<Record<string, PricePeriod[]>>({})
   const [loading, setLoading] = useState(true)
   const [heroIdx, setHeroIdx] = useState(0)
   const [filters, setFilters] = useState<SearchFilters>({})
@@ -121,7 +122,24 @@ export function Home() {
 
     console.log('[loadProperties]', { count: data?.length, error })
 
-    setProperties(error ? [] : (data as Property[]) ?? [])
+    const props = error ? [] : (data as Property[]) ?? []
+    setProperties(props)
+
+    if (props.length > 0) {
+      const ids = props.map(p => p.id)
+      const { data: periods } = await supabase
+        .from('price_periods')
+        .select('*')
+        .in('property_id', ids)
+        .eq('active', true)
+      const map: Record<string, PricePeriod[]> = {}
+      for (const period of (periods ?? []) as PricePeriod[]) {
+        if (!map[period.property_id]) map[period.property_id] = []
+        map[period.property_id].push(period)
+      }
+      setAllPricePeriods(map)
+    }
+
     setLoading(false)
   }
 
@@ -542,6 +560,7 @@ export function Home() {
             checkIn={filters.check_in}
             checkOut={filters.check_out}
             guests={filters.guests}
+            allPricePeriods={allPricePeriods}
           />
         ) : (
           <div className="flex flex-col gap-12">
@@ -558,6 +577,10 @@ export function Home() {
                   properties={row.items}
                   favoritedIds={favoritedIds}
                   onFavoriteToggle={toggleFavorite}
+                  checkIn={filters.check_in}
+                  checkOut={filters.check_out}
+                  guests={filters.guests}
+                  allPricePeriods={allPricePeriods}
                 />
               ))
             )}

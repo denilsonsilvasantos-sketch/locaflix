@@ -216,6 +216,19 @@ app.post('/api/payments/create-installments', requireAuth, async (req: Request, 
 app.get('/api/payments/:id', requireAuth, async (req: Request, res: Response) => {
   try {
     const payment = await asaasRequest('GET', `/payments/${req.params.id}`)
+    // Sync Supabase installment when payment is confirmed (fallback for missing webhook)
+    if (payment.status === 'CONFIRMED' || payment.status === 'RECEIVED') {
+      if (payment.externalReference) {
+        const [type, id] = (payment.externalReference as string).split(':')
+        if (type === 'installment' && id) {
+          await adminSupabase.from('installments').update({
+            status: 'PAGO',
+            paid_at: new Date().toISOString(),
+            asaas_payment_id: payment.id,
+          }).eq('id', id).neq('status', 'PAGO')
+        }
+      }
+    }
     res.json(payment)
   } catch (err: unknown) {
     res.status(500).json({ error: err instanceof Error ? err.message : 'Error' })

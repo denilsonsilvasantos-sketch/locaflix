@@ -2,7 +2,7 @@ import { useRef } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { PropertyCard } from './PropertyCard'
-import type { Property } from '../../types'
+import type { Property, PricePeriod } from '../../types'
 
 interface PropertyRowProps {
   title: string
@@ -12,9 +12,10 @@ interface PropertyRowProps {
   checkIn?: string
   checkOut?: string
   guests?: number
+  allPricePeriods?: Record<string, PricePeriod[]>
 }
 
-export function PropertyRow({ title, properties, favoritedIds = new Set(), onFavoriteToggle, checkIn, checkOut, guests }: PropertyRowProps) {
+export function PropertyRow({ title, properties, favoritedIds = new Set(), onFavoriteToggle, checkIn, checkOut, guests, allPricePeriods = {} }: PropertyRowProps) {
   const rowRef = useRef<HTMLDivElement>(null)
 
   function scroll(dir: 'left' | 'right') {
@@ -65,6 +66,7 @@ export function PropertyRow({ title, properties, favoritedIds = new Set(), onFav
                 checkIn={checkIn}
                 checkOut={checkOut}
                 guests={guests}
+                pricePeriods={allPricePeriods[p.id] ?? []}
               />
             </motion.div>
           ))}
@@ -91,9 +93,10 @@ interface PropertyGridProps {
   checkIn?: string
   checkOut?: string
   guests?: number
+  allPricePeriods?: Record<string, PricePeriod[]>
 }
 
-export function PropertyGrid({ properties, favoritedIds = new Set(), onFavoriteToggle, loading = false, emptyMessage = 'Nenhum imóvel encontrado.', checkIn, checkOut, guests }: PropertyGridProps) {
+export function PropertyGrid({ properties, favoritedIds = new Set(), onFavoriteToggle, loading = false, emptyMessage = 'Nenhum imóvel encontrado.', checkIn, checkOut, guests, allPricePeriods = {} }: PropertyGridProps) {
   if (loading) {
     return (
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
@@ -133,6 +136,7 @@ export function PropertyGrid({ properties, favoritedIds = new Set(), onFavoriteT
             checkIn={checkIn}
             checkOut={checkOut}
             guests={guests}
+            pricePeriods={allPricePeriods[p.id] ?? []}
           />
         </motion.div>
       ))}
