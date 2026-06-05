@@ -1,3 +1,4 @@
+export const APP_VERSION = '1.1.0'
 export const APP_ROUTES = {
   HOME: '/',
   LOGIN: '/entrar',

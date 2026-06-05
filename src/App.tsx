@@ -5,7 +5,7 @@ import { ToastContainer } from './components/ui/Toast'
 import { Navbar } from './components/layout/Navbar'
 import { Footer } from './components/layout/Footer'
 import { ProtectedRoute } from './components/auth/ProtectedRoute'
-import { APP_ROUTES } from './constants'
+import { APP_ROUTES, APP_VERSION } from './constants'
 
 import { Home } from './pages/Home'
 import { Login } from './pages/Login'
@@ -42,7 +42,7 @@ export default function App() {
     <BrowserRouter>
       <AuthProvider>
         <ToastProvider>
-          <Routes>
+          <Routes data-v={APP_VERSION}>
             {/* Auth callback — Supabase email confirmation */}
             <Route path="/auth/callback" element={<AuthCallback />} />
 
