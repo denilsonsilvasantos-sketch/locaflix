@@ -3,6 +3,7 @@ import type { Request, Response } from 'express'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { existsSync } from 'node:fs'
+import { createHash } from 'node:crypto'
 import { createClient } from '@supabase/supabase-js'
 import ws from 'ws'
 
@@ -335,20 +336,26 @@ async function asaasRequest(method: string, path: string, body?: unknown) {
   return data
 }
 
-// ---- GET /api/upload/property-photo-sign ----
-// Generates a signed upload URL using the service role key (bypasses Storage RLS)
-app.get('/api/upload/property-photo-sign', requireAuth, async (req: Request, res: Response) => {
-  const filePath = req.query.path as string
-  if (!filePath) { res.status(400).json({ error: 'path required' }); return }
-  try {
-    const { data, error } = await adminSupabase.storage
-      .from('property-photos')
-      .createSignedUploadUrl(filePath)
-    if (error || !data) { res.status(500).json({ error: error?.message ?? 'Failed to create signed URL' }); return }
-    res.json(data) // { signedUrl, token, path }
-  } catch (err: unknown) {
-    res.status(500).json({ error: err instanceof Error ? err.message : 'Error' })
+// ---- GET /api/upload/cloudinary-sign ----
+// Returns a signed upload request for Cloudinary (keeps API secret server-side)
+app.get('/api/upload/cloudinary-sign', requireAuth, (req: Request, res: Response) => {
+  const apiSecret  = process.env.CLOUDINARY_API_SECRET
+  const apiKey     = process.env.CLOUDINARY_API_KEY
+  const cloudName  = process.env.CLOUDINARY_CLOUD_NAME
+
+  if (!apiSecret || !apiKey || !cloudName) {
+    res.status(503).json({ error: 'Cloudinary não configurado. Defina CLOUDINARY_API_SECRET, CLOUDINARY_API_KEY e CLOUDINARY_CLOUD_NAME no servidor.' })
+    return
   }
+
+  const timestamp = Math.round(Date.now() / 1000)
+  const folder = 'property-photos'
+  // Cloudinary signature: SHA1 of "folder=...&timestamp=..." + apiSecret
+  const signature = createHash('sha1')
+    .update(`folder=${folder}&timestamp=${timestamp}${apiSecret}`)
+    .digest('hex')
+
+  res.json({ timestamp, signature, api_key: apiKey, cloud_name: cloudName, folder })
 })
 
 // ---- GET /auth/callback — Supabase email confirmation ----

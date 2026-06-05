@@ -197,22 +197,35 @@ export function NewProperty() {
 
     await Promise.all(filesToUpload.map(async (file, i) => {
       const photoId = newPhotos[i].id
-      const ext = file.name.split('.').pop() ?? 'jpg'
-      const filePath = `${user!.id}/${Date.now()}-${uid()}.${ext}`
       try {
         const session = await supabase.auth.getSession()
         const authToken = session.data.session?.access_token ?? ''
-        const signRes = await fetch(`/api/upload/property-photo-sign?path=${encodeURIComponent(filePath)}`, {
+        // 1. Pega a assinatura do servidor (mantém o secret seguro)
+        const signRes = await fetch('/api/upload/cloudinary-sign', {
           headers: { 'Authorization': `Bearer ${authToken}` },
         })
-        if (!signRes.ok) throw new Error('Falha ao obter URL de upload')
-        const { token: uploadToken } = await signRes.json() as { token: string }
-        const { error } = await supabase.storage.from('property-photos').uploadToSignedUrl(filePath, uploadToken, file)
-        if (error) throw error
-        const { data } = supabase.storage.from('property-photos').getPublicUrl(filePath)
+        if (!signRes.ok) throw new Error('Falha ao obter assinatura de upload')
+        const { timestamp, signature, api_key, cloud_name, folder } = await signRes.json() as {
+          timestamp: number; signature: string; api_key: string; cloud_name: string; folder: string
+        }
+        // 2. Faz upload direto para o Cloudinary com a assinatura
+        const formData = new FormData()
+        formData.append('file', file)
+        formData.append('timestamp', String(timestamp))
+        formData.append('signature', signature)
+        formData.append('api_key', api_key)
+        formData.append('folder', folder)
+        const uploadRes = await fetch(`https://api.cloudinary.com/v1_1/${cloud_name}/image/upload`, {
+          method: 'POST', body: formData,
+        })
+        if (!uploadRes.ok) {
+          const errData = await uploadRes.json() as { error?: { message?: string } }
+          throw new Error(errData.error?.message ?? 'Falha no upload')
+        }
+        const data = await uploadRes.json() as { secure_url: string }
         setRooms(r => r.map(rm =>
           rm.id === roomId
-            ? { ...rm, photos: rm.photos.map(p => p.id === photoId ? { ...p, url: data.publicUrl, uploading: false } : p) }
+            ? { ...rm, photos: rm.photos.map(p => p.id === photoId ? { ...p, url: data.secure_url, uploading: false } : p) }
             : rm
         ))
       } catch (err) {

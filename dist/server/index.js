@@ -2,6 +2,7 @@ import express from "express";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { existsSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 import ws from "ws";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -263,22 +264,18 @@ async function asaasRequest(method, path2, body) {
   if (!res.ok) throw new Error(data.errors?.[0]?.description ?? `Asaas error ${res.status}`);
   return data;
 }
-app.get("/api/upload/property-photo-sign", requireAuth, async (req, res) => {
-  const filePath = req.query.path;
-  if (!filePath) {
-    res.status(400).json({ error: "path required" });
+app.get("/api/upload/cloudinary-sign", requireAuth, (req, res) => {
+  const apiSecret = process.env.CLOUDINARY_API_SECRET;
+  const apiKey = process.env.CLOUDINARY_API_KEY;
+  const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
+  if (!apiSecret || !apiKey || !cloudName) {
+    res.status(503).json({ error: "Cloudinary n\xE3o configurado. Defina CLOUDINARY_API_SECRET, CLOUDINARY_API_KEY e CLOUDINARY_CLOUD_NAME no servidor." });
     return;
   }
-  try {
-    const { data, error } = await adminSupabase.storage.from("property-photos").createSignedUploadUrl(filePath);
-    if (error || !data) {
-      res.status(500).json({ error: error?.message ?? "Failed to create signed URL" });
-      return;
-    }
-    res.json(data);
-  } catch (err) {
-    res.status(500).json({ error: err instanceof Error ? err.message : "Error" });
-  }
+  const timestamp = Math.round(Date.now() / 1e3);
+  const folder = "property-photos";
+  const signature = createHash("sha1").update(`folder=${folder}&timestamp=${timestamp}${apiSecret}`).digest("hex");
+  res.json({ timestamp, signature, api_key: apiKey, cloud_name: cloudName, folder });
 });
 app.get("/auth/callback", (_req, res) => {
   res.sendFile(distIndex);
