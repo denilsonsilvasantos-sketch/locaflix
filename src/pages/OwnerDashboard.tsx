@@ -3,7 +3,7 @@ import { useSearchParams, Link } from 'react-router-dom'
 import {
   Home, Calendar, DollarSign, Star, Plus, Eye, Pencil,
   ToggleLeft, ToggleRight, ShieldCheck, Check, X, AlertCircle,
-  ChevronUp, Trash2, LogOut, MessageSquare, TrendingUp,
+  ChevronUp, Trash2, LogOut, MessageSquare, TrendingUp, Info,
 } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 import { supabase } from '../lib/supabase'
@@ -66,6 +66,8 @@ export function OwnerDashboard() {
 
   const [cancelBookingId, setCancelBookingId] = useState<string | null>(null)
   const [cancellingBooking, setCancellingBooking] = useState(false)
+  const [contractBooking, setContractBooking] = useState<Booking | null>(null)
+  const [acceptingContract, setAcceptingContract] = useState(false)
   const [bankForm, setBankForm] = useState({
     pix_key: '', bank_name: '', bank_agency: '', bank_account: '', bank_account_type: 'corrente',
   })
@@ -113,9 +115,8 @@ export function OwnerDashboard() {
         .order('created_at', { ascending: false })
         .limit(50),
     ])
-    console.log('[OwnerDashboard] user.id:', user!.id)
-    console.log('[OwnerDashboard] bookings result:', { data: bkData, error: bkErr })
-    console.log('[OwnerDashboard] properties result:', { data: propData, error: propErr })
+    if (bkErr)   console.error('[OwnerDashboard] bookings:', bkErr)
+    if (propErr) console.error('[OwnerDashboard] properties:', propErr)
 
     const propList = (propData ?? []) as Property[]
     setProperties(propList)
@@ -199,11 +200,15 @@ export function OwnerDashboard() {
     setSubmittingKyc(false)
   }
 
-  async function acceptBooking(id: string) {
-    const { error } = await supabase.from('bookings').update({ owner_confirmed: true }).eq('id', id)
-    if (error) { toast('error', 'Erro', error.message); return }
-    setBookings(prev => prev.map(b => b.id === id ? { ...b, owner_confirmed: true } : b))
+  async function confirmAccept() {
+    if (!contractBooking) return
+    setAcceptingContract(true)
+    const { error } = await supabase.from('bookings').update({ owner_confirmed: true }).eq('id', contractBooking.id)
+    if (error) { toast('error', 'Erro', error.message); setAcceptingContract(false); return }
+    setBookings(prev => prev.map(b => b.id === contractBooking!.id ? { ...b, owner_confirmed: true } : b))
     toast('success', 'Reserva aceita', 'O hóspede será notificado.')
+    setContractBooking(null)
+    setAcceptingContract(false)
   }
 
   async function cancelBookingByOwner() {
@@ -406,11 +411,20 @@ export function OwnerDashboard() {
                     <StatCard label="Receita do mês" value={formatCurrency(monthlyRevenue)} icon={<DollarSign size={18} />} accent />
                     <StatCard label="Avaliação média" value={avgRating} icon={<Star size={18} />} />
                   </div>
-                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
                     <StatCard label="Receita líquida total" value={formatCurrency(totalRevenue)} icon={<DollarSign size={18} />} accent />
                     <StatCard label="Estadia média" value={avgNights > 0 ? `${avgNights} noites` : '—'} icon={<Calendar size={18} />} />
                     <StatCard label="Taxa cancelamento" value={`${cancelRate}%`} icon={<TrendingUp size={18} />} />
                     <StatCard label="Total reservas" value={bookings.length} icon={<Calendar size={18} />} />
+                  </div>
+
+                  {/* Nota sobre repasses */}
+                  <div className="flex items-start gap-2.5 p-3.5 bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl mb-8">
+                    <Info size={14} className="text-[#555] flex-shrink-0 mt-0.5" />
+                    <p className="text-[11px] text-[#555] leading-relaxed">
+                      <span className="text-[#B3B3B3] font-semibold">Sobre os valores: </span>
+                      todos os valores exibidos são líquidos (após as taxas da plataforma). O repasse é liberado <strong className="text-[#B3B3B3]">1 dia após o checkout</strong> do hóspede, ou conforme a política de cancelamento aplicável em caso de cancelamento antecipado.
+                    </p>
                   </div>
 
                   {/* Ocupação mensal */}
@@ -499,8 +513,15 @@ export function OwnerDashboard() {
                     </div>
                   ) : (
                     <div className="space-y-3">
-                      {bookings.map(b => (
+                      {bookings.map(b => {
+                        const repasseDate = (() => {
+                          const d = new Date(b.check_out)
+                          d.setDate(d.getDate() + 1)
+                          return d.toLocaleDateString('pt-BR')
+                        })()
+                        return (
                         <Card key={b.id} className="p-4">
+                          {/* Header */}
                           <div className="flex items-start gap-4 flex-wrap">
                             <div className="flex items-center gap-3 flex-1 min-w-0">
                               <div className="w-10 h-10 rounded-full bg-[#E50914] flex items-center justify-center text-sm font-bold text-white overflow-hidden flex-shrink-0">
@@ -516,17 +537,44 @@ export function OwnerDashboard() {
                               </div>
                             </div>
                             <div className="text-right flex-shrink-0">
-                              <p className="text-sm font-bold text-[#F5A623]">{formatCurrency(b.subtotal - b.platform_fee)}</p>
                               <StatusBadge status={b.status} />
-                              {b.owner_confirmed && (
-                                <p className="text-[10px] text-[#46D369] mt-0.5">Aceita por você</p>
-                              )}
+                              {b.owner_confirmed
+                                ? <p className="text-[10px] text-[#46D369] mt-0.5">Aceita por você</p>
+                                : !['CANCELADA','CONCLUIDA'].includes(b.status) && (
+                                    <p className="text-[10px] text-[#F5A623] mt-0.5">Aguardando seu aceite</p>
+                                  )
+                              }
                             </div>
                           </div>
-                          {b.status === 'AGUARDANDO_PAGAMENTO' && !b.owner_confirmed && (
+
+                          {/* Detalhamento financeiro */}
+                          <div className="mt-3 pt-3 border-t border-[#2A2A2A]">
+                            <div className="grid grid-cols-3 gap-3 text-xs mb-2">
+                              <div>
+                                <p className="text-[#555] mb-0.5">Valor da reserva</p>
+                                <p className="text-[#B3B3B3] font-medium">{formatCurrency(b.subtotal)}</p>
+                              </div>
+                              <div>
+                                <p className="text-[#555] mb-0.5">Taxa plataforma</p>
+                                <p className="text-[#E50914] font-medium">− {formatCurrency(b.platform_fee)}</p>
+                              </div>
+                              <div>
+                                <p className="text-[#555] mb-0.5">Seu repasse</p>
+                                <p className="text-[#F5A623] font-bold">{formatCurrency(b.subtotal - b.platform_fee)}</p>
+                              </div>
+                            </div>
+                            {!['CANCELADA'].includes(b.status) && (
+                              <p className="text-[10px] text-[#444]">
+                                ⏱ Repasse disponível após checkout em {repasseDate}
+                              </p>
+                            )}
+                          </div>
+
+                          {/* Ações */}
+                          {!b.owner_confirmed && !['CANCELADA','CONCLUIDA'].includes(b.status) && (
                             <div className="flex gap-2 mt-3 pt-3 border-t border-[#2A2A2A]">
                               <button
-                                onClick={() => void acceptBooking(b.id)}
+                                onClick={() => setContractBooking(b)}
                                 className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold rounded-lg bg-[#46D369]/10 border border-[#46D369]/30 text-[#46D369] hover:bg-[#46D369]/20 transition-colors"
                               >
                                 <Check size={12} /> Aceitar reserva
@@ -535,12 +583,13 @@ export function OwnerDashboard() {
                                 onClick={() => setCancelBookingId(b.id)}
                                 className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold rounded-lg bg-[#E50914]/10 border border-[#E50914]/30 text-[#E50914] hover:bg-[#E50914]/20 transition-colors"
                               >
-                                <X size={12} /> Cancelar
+                                <X size={12} /> Recusar
                               </button>
                             </div>
                           )}
                         </Card>
-                      ))}
+                        )
+                      })}
                     </div>
                   )}
                 </div>
@@ -835,6 +884,16 @@ export function OwnerDashboard() {
       </div>
 
       {/* ── Modal cancelamento pelo anfitrião ── */}
+      {/* ── Modal contrato de aceite ── */}
+      {contractBooking && (
+        <OwnerContractModal
+          booking={contractBooking}
+          accepting={acceptingContract}
+          onAccept={() => void confirmAccept()}
+          onClose={() => setContractBooking(null)}
+        />
+      )}
+
       {cancelBookingId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
           <div className="bg-[#1F1F1F] border border-[#333] rounded-2xl w-full max-w-md p-6">
@@ -880,6 +939,109 @@ export function OwnerDashboard() {
 }
 
 // ── Sub-components ──────────────────────────────────────────────────────────
+
+function OwnerContractModal({
+  booking, accepting, onAccept, onClose,
+}: {
+  booking: Booking
+  accepting: boolean
+  onAccept: () => void
+  onClose: () => void
+}) {
+  const repasseDate = (() => {
+    const d = new Date(booking.check_out)
+    d.setDate(d.getDate() + 1)
+    return d.toLocaleDateString('pt-BR')
+  })()
+  const netValue = booking.subtotal - booking.platform_fee
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+      <div className="bg-[#1F1F1F] border border-[#333] rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-5 border-b border-[#2A2A2A]">
+          <div>
+            <h3 className="font-display text-base font-bold text-white">Aceite de Reserva</h3>
+            <p className="text-xs text-[#555] mt-0.5">{booking.booking_number}</p>
+          </div>
+          <button onClick={onClose} className="text-[#666] hover:text-white transition-colors">
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="px-6 py-5 space-y-4">
+
+          {/* Resumo da reserva */}
+          <div className="bg-[#2A2A2A] rounded-xl p-4 space-y-2.5 text-sm">
+            <p className="text-[10px] font-bold text-[#555] uppercase tracking-widest mb-3">Resumo da reserva</p>
+            {[
+              { label: 'Hóspede',   value: booking.guest?.name ?? '—' },
+              { label: 'Imóvel',    value: booking.property?.name ?? '—' },
+              { label: 'Check-in',  value: formatShortDate(booking.check_in) },
+              { label: 'Check-out', value: formatShortDate(booking.check_out) },
+            ].map(row => (
+              <div key={row.label} className="flex justify-between">
+                <span className="text-[#666]">{row.label}</span>
+                <span className="text-white font-medium text-right max-w-[60%] truncate">{row.value}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Detalhamento financeiro */}
+          <div className="bg-[#2A2A2A] rounded-xl p-4 space-y-2.5 text-sm">
+            <p className="text-[10px] font-bold text-[#555] uppercase tracking-widest mb-3">Detalhamento financeiro</p>
+            <div className="flex justify-between">
+              <span className="text-[#666]">Valor da reserva (hospedagem)</span>
+              <span className="text-white">{formatCurrency(booking.subtotal)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-[#666]">Taxa da plataforma</span>
+              <span className="text-[#E50914]">− {formatCurrency(booking.platform_fee)}</span>
+            </div>
+            <div className="flex justify-between border-t border-[#333] pt-2.5">
+              <span className="text-[#F5A623] font-bold">Seu repasse líquido</span>
+              <span className="text-[#F5A623] font-bold text-base">{formatCurrency(netValue)}</span>
+            </div>
+            <div className="flex items-start gap-2 mt-2 pt-2 border-t border-[#333]">
+              <Info size={13} className="text-[#555] flex-shrink-0 mt-0.5" />
+              <p className="text-[11px] text-[#555] leading-relaxed">
+                O repasse é liberado <strong className="text-[#B3B3B3]">1 dia após o checkout</strong> ({repasseDate}).
+                Em caso de cancelamento, o valor segue a política de cancelamento do imóvel.
+              </p>
+            </div>
+          </div>
+
+          {/* Termos */}
+          <div className="bg-[#2A2A2A] rounded-xl p-4">
+            <p className="text-[10px] font-bold text-[#555] uppercase tracking-widest mb-3">Ao aceitar você se compromete a</p>
+            <div className="space-y-2">
+              {[
+                'Manter o imóvel disponível nas datas reservadas',
+                'Receber o hóspede nas condições anunciadas',
+                'Respeitar a política de cancelamento do imóvel',
+                'Comunicar qualquer imprevisto com no mínimo 48h de antecedência',
+              ].map((term, i) => (
+                <div key={i} className="flex items-start gap-2.5 text-sm text-[#B3B3B3]">
+                  <Check size={13} className="text-[#46D369] flex-shrink-0 mt-0.5" />
+                  {term}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Ações */}
+          <div className="flex gap-3 pt-1">
+            <Button variant="ghost" onClick={onClose} fullWidth>Cancelar</Button>
+            <Button onClick={onAccept} loading={accepting} fullWidth>
+              Aceitar e confirmar
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 function KYCStatusBanner({ status }: { status: string }) {
   const cfg: Record<string, { icon: React.ReactNode; bg: string; text: string; title: string; msg: string }> = {
