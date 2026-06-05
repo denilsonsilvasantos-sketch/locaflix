@@ -16,6 +16,7 @@ import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { supabase } from '../lib/supabase'
 import type { Property, PropertyPhoto, PricePeriod, Review, PropertyAmenity } from '../types'
+import { calcularEstadia, type EstadiaResult } from '../lib/pricing'
 
 type ReviewWithProperty = Review & { property?: { id: string; name: string } | null }
 import { MOCK_PROPERTIES } from '../constants/mocks'
@@ -68,7 +69,8 @@ export function PropertyDetails() {
   const [property, setProperty] = useState<Property | null>(null)
   const [reviews, setReviews] = useState<ReviewWithProperty[]>([])
   const [roomGroups, setRoomGroups] = useState<RoomGroup[]>([])
-  const [_pricePeriods, setPricePeriods] = useState<PricePeriod[]>([])
+  const [pricePeriods, setPricePeriods] = useState<PricePeriod[]>([])
+  const [estadiaResult, setEstadiaResult] = useState<EstadiaResult | null>(null)
   const [propertyAmenities, setPropertyAmenities] = useState<PropertyAmenity[]>([])
   const [loading, setLoading] = useState(true)
   const [imgIdx, setImgIdx] = useState(0)
@@ -204,6 +206,13 @@ export function PropertyDetails() {
       .then(({ data }) => setHasActiveBooking((data?.length ?? 0) > 0))
   }, [id, user?.id])
 
+  useEffect(() => {
+    if (!checkIn || !checkOut || !property) { setEstadiaResult(null); return }
+    const ci = new Date(checkIn + 'T00:00:00')
+    const co = new Date(checkOut + 'T00:00:00')
+    setEstadiaResult(calcularEstadia(ci, co, pricePeriods, property.price_per_night))
+  }, [checkIn, checkOut, property, pricePeriods])
+
   function calcNights() {
     if (!checkIn || !checkOut) return 0
     const d1 = new Date(checkIn + 'T00:00:00').getTime()
@@ -278,8 +287,8 @@ export function PropertyDetails() {
   }
 
   const nights = calcNights()
-  const subtotal = property ? property.price_per_night * nights : 0
-  const fee = subtotal * 0.05
+  const subtotal = estadiaResult?.total ?? (property ? property.price_per_night * nights : 0)
+  const fee = Math.round(subtotal * 0.05 * 100) / 100
 
   if (loading) {
     return (
@@ -794,10 +803,19 @@ export function PropertyDetails() {
                 {/* Price breakdown */}
                 {nights > 0 && (
                   <div className="mt-5 pt-5 border-t border-[#333] space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-[#B3B3B3]">{formatCurrency(property.price_per_night)} × {nights} noites</span>
-                      <span className="text-white">{formatCurrency(subtotal)}</span>
-                    </div>
+                    {estadiaResult ? (
+                      estadiaResult.summary.map((s, i) => (
+                        <div key={i} className="flex justify-between text-sm">
+                          <span className="text-[#B3B3B3]">{s.nights}× {s.periodName}</span>
+                          <span className="text-white">{formatCurrency(s.nights * s.pricePerNight)}</span>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-[#B3B3B3]">{formatCurrency(property.price_per_night)} × {nights} noites</span>
+                        <span className="text-white">{formatCurrency(subtotal)}</span>
+                      </div>
+                    )}
                     <div className="flex justify-between text-sm">
                       <span className="text-[#B3B3B3]">Taxa de serviço</span>
                       <span className="text-white">{formatCurrency(fee)}</span>
