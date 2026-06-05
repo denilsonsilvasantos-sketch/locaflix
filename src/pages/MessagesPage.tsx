@@ -402,6 +402,7 @@ export function MessagesPage() {
       const { data } = await supabase.from('messages').select('*').or(clauses)
         .order('created_at', { ascending: true }).limit(100)
       setMessages((data ?? []) as Message[])
+      void markAllRead()
       return
     }
 
