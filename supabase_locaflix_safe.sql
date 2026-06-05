@@ -500,7 +500,16 @@ ALTER TABLE public.incident_messages        ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS users_select_own ON public.users;
 DROP POLICY IF EXISTS users_update_own ON public.users;
 DROP POLICY IF EXISTS users_insert_own ON public.users;
-CREATE POLICY users_select_own ON public.users FOR SELECT USING (id = auth.uid() OR is_admin());
+-- Owners can see their guests; guests can see their hosts; admins see all
+CREATE POLICY users_select_own ON public.users FOR SELECT USING (
+  id = auth.uid()
+  OR is_admin()
+  OR EXISTS (
+    SELECT 1 FROM public.bookings
+    WHERE (owner_id = auth.uid() AND guest_id = public.users.id)
+       OR (guest_id = auth.uid() AND owner_id = public.users.id)
+  )
+);
 CREATE POLICY users_update_own ON public.users FOR UPDATE USING (id = auth.uid() OR is_admin());
 CREATE POLICY users_insert_own ON public.users FOR INSERT WITH CHECK (id = auth.uid());
 

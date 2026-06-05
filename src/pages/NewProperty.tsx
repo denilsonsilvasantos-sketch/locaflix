@@ -739,7 +739,7 @@ export function NewProperty() {
             <Button type="button" variant="secondary" onClick={() => navigate(APP_ROUTES.OWNER_DASHBOARD)} fullWidth>
               Cancelar
             </Button>
-            <Button type="submit" loading={saving} disabled={!hasPixKey} fullWidth>
+            <Button type="submit" loading={saving} fullWidth>
               Cadastrar imóvel
             </Button>
           </div>

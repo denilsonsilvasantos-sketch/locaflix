@@ -109,14 +109,25 @@ export function OwnerDashboard() {
     const [{ data: props }, { data: bks }] = await Promise.all([
       supabase.from('properties').select('*').eq('owner_id', user!.id).order('created_at', { ascending: false }),
       supabase.from('bookings')
-        .select('*, property:properties(id,name,photos), guest:users!guest_id(id,name,avatar_url), installments(*)')
+        .select('*, property:properties(id,name,photos), installments(*)')
         .eq('owner_id', user!.id)
         .order('created_at', { ascending: false })
         .limit(50),
     ])
     const propList = (props ?? []) as Property[]
     setProperties(propList)
-    setBookings((bks ?? []) as Booking[])
+    const bkList = (bks ?? []) as Booking[]
+
+    // Fetch guest info separately to avoid RLS blocking the join
+    if (bkList.length > 0) {
+      const guestIds = [...new Set(bkList.map(b => b.guest_id).filter(Boolean))]
+      const { data: guestUsers } = await supabase
+        .from('users').select('id,name,avatar_url').in('id', guestIds)
+      const guestMap = Object.fromEntries((guestUsers ?? []).map((u: { id: string; name: string | null; avatar_url: string | null }) => [u.id, u]))
+      setBookings(bkList.map(b => ({ ...b, guest: guestMap[b.guest_id] ?? null })))
+    } else {
+      setBookings([])
+    }
 
     if (propList.length > 0) {
       const { data: rawRevs } = await supabase
