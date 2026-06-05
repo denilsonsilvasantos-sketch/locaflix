@@ -217,12 +217,41 @@ export function AdminDashboard() {
         setInstallments((data ?? []) as unknown as InstallRow[])
 
       } else if (t === 'reservas') {
-        const { data } = await supabase
+        const { data: bkData } = await supabase
           .from('bookings')
-          .select('*, property:property_id(id,name,photos,city,state), guest:guest_id(id,name,email), owner:owner_id(id,name,email), installments(*)')
+          .select('*')
           .order('created_at', { ascending: false })
           .limit(300)
-        setAdminBookings((data ?? []) as unknown as BookingRow[])
+        const bkList = (bkData ?? []) as Booking[]
+        if (bkList.length > 0) {
+          const bookingIds = bkList.map(b => b.id)
+          const propertyIds = [...new Set(bkList.map(b => b.property_id).filter(Boolean))]
+          const guestIds    = [...new Set(bkList.map(b => b.guest_id).filter(Boolean))]
+          const ownerIds    = [...new Set(bkList.map(b => b.owner_id).filter(Boolean))]
+          const [{ data: propData }, { data: guestData }, { data: ownerData }, { data: installData }] = await Promise.all([
+            supabase.from('properties').select('id,name,photos,city,state').in('id', propertyIds),
+            supabase.from('users').select('id,name,email').in('id', guestIds),
+            supabase.from('users').select('id,name,email').in('id', ownerIds),
+            supabase.from('installments').select('*').in('booking_id', bookingIds),
+          ])
+          const propMap    = Object.fromEntries((propData  ?? []).map((p: { id: string }) => [p.id, p]))
+          const guestMap   = Object.fromEntries((guestData ?? []).map((u: { id: string }) => [u.id, u]))
+          const ownerMap   = Object.fromEntries((ownerData ?? []).map((u: { id: string }) => [u.id, u]))
+          const installMap: Record<string, Installment[]> = {}
+          for (const inst of (installData ?? []) as Installment[]) {
+            if (!installMap[inst.booking_id]) installMap[inst.booking_id] = []
+            installMap[inst.booking_id].push(inst)
+          }
+          setAdminBookings(bkList.map(b => ({
+            ...b,
+            property:     propMap[b.property_id]  ?? null,
+            guest:        guestMap[b.guest_id]     ?? null,
+            owner:        ownerMap[b.owner_id]     ?? null,
+            installments: installMap[b.id]         ?? [],
+          })) as unknown as BookingRow[])
+        } else {
+          setAdminBookings([])
+        }
 
       } else if (t === 'repasses') {
         const { data } = await supabase

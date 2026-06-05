@@ -7,7 +7,7 @@ import {
 } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 import { supabase } from '../lib/supabase'
-import type { Property, Booking, Review, KinshipType, OwnershipType, PricePeriod, PeriodType } from '../types'
+import type { Property, Booking, Installment, Review, KinshipType, OwnershipType, PricePeriod, PeriodType } from '../types'
 import { useAuth } from '../hooks/useAuth'
 import { useToast } from '../hooks/useToast'
 import { useUnreadMessages } from '../hooks/useUnreadMessages'
@@ -108,7 +108,7 @@ export function OwnerDashboard() {
     const [{ data: props }, { data: bks }] = await Promise.all([
       supabase.from('properties').select('*').eq('owner_id', user!.id).order('created_at', { ascending: false }),
       supabase.from('bookings')
-        .select('*, property:properties(id,name,photos), installments(*)')
+        .select('*, property:properties(id,name,photos)')
         .eq('owner_id', user!.id)
         .order('created_at', { ascending: false })
         .limit(50),
@@ -117,13 +117,24 @@ export function OwnerDashboard() {
     setProperties(propList)
     const bkList = (bks ?? []) as Booking[]
 
-    // Fetch guest info separately to avoid RLS blocking the join
     if (bkList.length > 0) {
+      const bookingIds = bkList.map(b => b.id)
       const guestIds = [...new Set(bkList.map(b => b.guest_id).filter(Boolean))]
-      const { data: guestUsers } = await supabase
-        .from('users').select('id,name,avatar_url').in('id', guestIds)
+      const [{ data: guestUsers }, { data: installRows }] = await Promise.all([
+        supabase.from('users').select('id,name,avatar_url').in('id', guestIds),
+        supabase.from('installments').select('*').in('booking_id', bookingIds),
+      ])
       const guestMap = Object.fromEntries((guestUsers ?? []).map((u: { id: string; name: string | null; avatar_url: string | null }) => [u.id, u]))
-      setBookings(bkList.map(b => ({ ...b, guest: (guestMap[b.guest_id] ?? null) as Booking['guest'] })))
+      const installMap: Record<string, Installment[]> = {}
+      for (const inst of (installRows ?? []) as Installment[]) {
+        if (!installMap[inst.booking_id]) installMap[inst.booking_id] = []
+        installMap[inst.booking_id].push(inst)
+      }
+      setBookings(bkList.map(b => ({
+        ...b,
+        guest: (guestMap[b.guest_id] ?? null) as Booking['guest'],
+        installments: installMap[b.id] ?? [],
+      })))
     } else {
       setBookings([])
     }
