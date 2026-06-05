@@ -113,8 +113,9 @@ export function OwnerDashboard() {
         .order('created_at', { ascending: false })
         .limit(50),
     ])
-    if (propErr) console.error('[OwnerDashboard] properties:', propErr)
-    if (bkErr)   console.error('[OwnerDashboard] bookings:', bkErr)
+    console.log('[OwnerDashboard] user.id:', user!.id)
+    console.log('[OwnerDashboard] bookings result:', { data: bkData, error: bkErr })
+    console.log('[OwnerDashboard] properties result:', { data: propData, error: propErr })
 
     const propList = (propData ?? []) as Property[]
     setProperties(propList)
