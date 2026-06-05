@@ -16,7 +16,7 @@ import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { supabase } from '../lib/supabase'
 import type { Property, PropertyPhoto, PricePeriod, Review, PropertyAmenity } from '../types'
-import { calcularEstadia, type EstadiaResult } from '../lib/pricing'
+import { calcularEstadia } from '../lib/pricing'
 
 type ReviewWithProperty = Review & { property?: { id: string; name: string } | null }
 import { MOCK_PROPERTIES } from '../constants/mocks'
@@ -26,6 +26,7 @@ import { Button } from '../components/ui/Button'
 import { DateRangePicker } from '../components/ui/DateRangePicker'
 import { useAuth } from '../hooks/useAuth'
 import { useToast } from '../hooks/useToast'
+import { usePlatformFee } from '../hooks/usePlatformFee'
 
 // ── Amenity icon map (lucide kebab-case → component) ──────────
 const ICON_MAP: Record<string, React.ComponentType<LucideProps>> = {
@@ -65,12 +66,12 @@ export function PropertyDetails() {
   const [searchParams] = useSearchParams()
   const { user } = useAuth()
   const { toast } = useToast()
+  const { guestFeePercent, feeModel } = usePlatformFee()
 
   const [property, setProperty] = useState<Property | null>(null)
   const [reviews, setReviews] = useState<ReviewWithProperty[]>([])
   const [roomGroups, setRoomGroups] = useState<RoomGroup[]>([])
   const [pricePeriods, setPricePeriods] = useState<PricePeriod[]>([])
-  const [estadiaResult, setEstadiaResult] = useState<EstadiaResult | null>(null)
   const [propertyAmenities, setPropertyAmenities] = useState<PropertyAmenity[]>([])
   const [loading, setLoading] = useState(true)
   const [imgIdx, setImgIdx] = useState(0)
@@ -206,13 +207,6 @@ export function PropertyDetails() {
       .then(({ data }) => setHasActiveBooking((data?.length ?? 0) > 0))
   }, [id, user?.id])
 
-  useEffect(() => {
-    if (!checkIn || !checkOut || !property) { setEstadiaResult(null); return }
-    const ci = new Date(checkIn + 'T00:00:00')
-    const co = new Date(checkOut + 'T00:00:00')
-    setEstadiaResult(calcularEstadia(ci, co, pricePeriods, property.price_per_night))
-  }, [checkIn, checkOut, property, pricePeriods])
-
   function calcNights() {
     if (!checkIn || !checkOut) return 0
     const d1 = new Date(checkIn + 'T00:00:00').getTime()
@@ -287,8 +281,17 @@ export function PropertyDetails() {
   }
 
   const nights = calcNights()
-  const subtotal = estadiaResult?.total ?? (property ? property.price_per_night * nights : 0)
-  const fee = Math.round(subtotal * 0.05 * 100) / 100
+  const estadiaCalc = useMemo(() => {
+    if (!property || !checkIn || !checkOut || nights <= 0) return null
+    return calcularEstadia(
+      new Date(checkIn + 'T00:00:00'),
+      new Date(checkOut + 'T00:00:00'),
+      pricePeriods,
+      property.price_per_night,
+    )
+  }, [property, checkIn, checkOut, nights, pricePeriods])
+  const subtotal = estadiaCalc?.total ?? (property ? property.price_per_night * nights : 0)
+  const fee = Math.round(subtotal * guestFeePercent * 100) / 100
 
   if (loading) {
     return (
@@ -693,7 +696,8 @@ export function PropertyDetails() {
                       até {calculateMaxInstallments(checkIn)}x de {formatCurrency((subtotal + fee) / calculateMaxInstallments(checkIn))}
                     </p>
                     <p className="text-xs text-[#B3B3B3] mt-0.5">
-                      {nights} {nights === 1 ? 'noite' : 'noites'} · total {formatCurrency(subtotal + fee)}
+                      total {formatCurrency(subtotal + fee)}
+                      {feeModel === 'unico' && <span className="ml-1 text-[#46D369]">· taxa inclusa</span>}
                     </p>
                   </div>
                 ) : (
@@ -803,8 +807,8 @@ export function PropertyDetails() {
                 {/* Price breakdown */}
                 {nights > 0 && (
                   <div className="mt-5 pt-5 border-t border-[#333] space-y-2">
-                    {estadiaResult ? (
-                      estadiaResult.summary.map((s, i) => (
+                    {estadiaCalc ? (
+                      estadiaCalc.summary.map((s, i) => (
                         <div key={i} className="flex justify-between text-sm">
                           <span className="text-[#B3B3B3]">{s.nights}× {s.periodName}</span>
                           <span className="text-white">{formatCurrency(s.nights * s.pricePerNight)}</span>
@@ -816,10 +820,12 @@ export function PropertyDetails() {
                         <span className="text-white">{formatCurrency(subtotal)}</span>
                       </div>
                     )}
-                    <div className="flex justify-between text-sm">
-                      <span className="text-[#B3B3B3]">Taxa de serviço</span>
-                      <span className="text-white">{formatCurrency(fee)}</span>
-                    </div>
+                    {feeModel === 'dividido' && fee > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-[#B3B3B3]">Taxa de serviço ({Math.round(guestFeePercent * 100)}%)</span>
+                        <span className="text-white">{formatCurrency(fee)}</span>
+                      </div>
+                    )}
                     <div className="flex justify-between text-sm font-bold pt-2 border-t border-[#333]">
                       <span className="text-white">Total</span>
                       <span className="text-[#F5A623] text-base">{formatCurrency(subtotal + fee)}</span>

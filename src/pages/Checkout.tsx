@@ -12,6 +12,7 @@ import { Modal } from '../components/ui/Modal'
 import { PaymentModal } from '../components/ui/PaymentModal'
 import { useAuth } from '../hooks/useAuth'
 import { useToast } from '../hooks/useToast'
+import { usePlatformFee } from '../hooks/usePlatformFee'
 import {
   formatCurrency, calculateInstallments, calculateMaxInstallments,
   formatDate,
@@ -66,6 +67,7 @@ export function Checkout() {
   const navigate = useNavigate()
   const { user, profile } = useAuth()
   const { toast } = useToast()
+  const { guestFeePercent, feeModel } = usePlatformFee()
 
   const [step, setStep] = useState(1)
   const [property, setProperty] = useState<Property | null>(null)
@@ -148,8 +150,8 @@ export function Checkout() {
     const co = new Date(checkOut + 'T00:00:00')
     const result = calcularEstadia(ci, co, pricePeriods, property.price_per_night)
     setEstadiaResult(result)
-    const totalWithFee = result.total + Math.round(result.total * 0.05 * 100) / 100
-    setInstallmentPreviews(calculateInstallments(totalWithFee, installmentCount, checkIn))
+    const feeAmt = Math.round(result.total * guestFeePercent * 100) / 100
+    setInstallmentPreviews(calculateInstallments(result.total + feeAmt, installmentCount, checkIn))
   }, [installmentCount, property, checkIn, checkOut, nights, pricePeriods])
 
   async function loadProperty(pid: string) {
@@ -234,7 +236,7 @@ export function Checkout() {
       const co = new Date(checkOut + 'T00:00:00')
       const estadia = calcularEstadia(ci, co, pricePeriods, property.price_per_night)
       const subtotal = estadia.total
-      const platform_fee = Math.round(estadia.total * 0.05 * 100) / 100
+      const platform_fee = Math.round(estadia.total * guestFeePercent * 100) / 100
       const total_price = subtotal + platform_fee
       const previews = calculateInstallments(total_price, installmentCount, checkIn)
 
@@ -417,7 +419,7 @@ export function Checkout() {
   }
 
   const subtotal = estadiaResult?.total ?? property.price_per_night * nights
-  const fee = Math.round(subtotal * 0.05 * 100) / 100
+  const fee = Math.round(subtotal * guestFeePercent * 100) / 100
   const total = subtotal + fee
   const maxInstallments = checkIn ? calculateMaxInstallments(checkIn) : 1
   const isMock = MOCK_PROPERTIES.some(p => p.id === property.id)
@@ -727,7 +729,9 @@ export function Checkout() {
                 ) : (
                   <Row label={`${formatCurrency(property.price_per_night)} × ${nights} noites`} value={formatCurrency(subtotal)} />
                 )}
-                <Row label="Taxa de serviço" value={formatCurrency(fee)} />
+                {feeModel === 'dividido' && fee > 0 && (
+                  <Row label={`Taxa de serviço (${Math.round(guestFeePercent * 100)}%)`} value={formatCurrency(fee)} />
+                )}
                 <div className="pt-2 border-t border-[#333] flex justify-between font-bold">
                   <span className="text-white">Total</span>
                   <span className="text-[#F5A623] text-base">{formatCurrency(total)}</span>
