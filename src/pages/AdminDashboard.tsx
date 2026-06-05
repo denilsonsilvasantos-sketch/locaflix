@@ -8,6 +8,7 @@ import {
   LayoutDashboard, Home, Users, ShieldCheck, DollarSign, Send,
   Settings, Menu, X, LogOut, Check, TrendingUp, Building2, CheckCircle2,
   Banknote, AlertTriangle, UserPlus, Ban, Search, Bell, RefreshCw, Plus, Eye, MessageSquare, Trash2,
+  Calendar, Pencil,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { Logo } from '../components/layout/Logo'
@@ -21,6 +22,7 @@ import type { Property, UserProfile, Booking, Installment } from '../types'
 const NAV_ITEMS = [
   { id: 'dashboard', label: 'Dashboard',        icon: LayoutDashboard },
   { id: 'imoveis',   label: 'Imóveis',          icon: Home },
+  { id: 'reservas',  label: 'Reservas',         icon: Calendar },
   { id: 'usuarios',  label: 'Usuários',          icon: Users },
   { id: 'kyc',       label: 'KYC / Verificações', icon: ShieldCheck },
   { id: 'pagamentos',label: 'Pagamentos',        icon: DollarSign },
@@ -99,6 +101,7 @@ export function AdminDashboard() {
   const [installments, setInstallments] = useState<InstallRow[]>([])
   const [installFilter, setInstallFilter] = useState('todos')
   const [repasses, setRepasses]     = useState<BookingRow[]>([])
+  const [adminBookings, setAdminBookings] = useState<BookingRow[]>([])
   const [loadingTab, setLoadingTab] = useState(false)
 
   // Config tab
@@ -212,6 +215,14 @@ export function AdminDashboard() {
           .select('*, booking:booking_id(id,booking_number,total_price,status, property:property_id(name,photos), guest:guest_id(name,email))')
           .order('due_date', { ascending: true }).limit(300)
         setInstallments((data ?? []) as unknown as InstallRow[])
+
+      } else if (t === 'reservas') {
+        const { data } = await supabase
+          .from('bookings')
+          .select('*, property:property_id(id,name,photos,city,state), guest:guest_id(id,name,email), owner:owner_id(id,name,email), installments(*)')
+          .order('created_at', { ascending: false })
+          .limit(300)
+        setAdminBookings((data ?? []) as unknown as BookingRow[])
 
       } else if (t === 'repasses') {
         const { data } = await supabase
@@ -655,7 +666,10 @@ export function AdminDashboard() {
                             <td className="px-4 py-3">
                               <div className="flex items-center justify-end gap-1">
                                 <Link to={`/imovel/${p.id}`} target="_blank">
-                                  <button className="p-1.5 rounded-lg text-[#444] hover:text-white hover:bg-[#333] transition-colors"><Eye size={13} /></button>
+                                  <button className="p-1.5 rounded-lg text-[#444] hover:text-white hover:bg-[#333] transition-colors" title="Ver"><Eye size={13} /></button>
+                                </Link>
+                                <Link to={`/editar-imovel/${p.id}`} target="_blank">
+                                  <button className="p-1.5 rounded-lg text-[#444] hover:text-[#F5A623] hover:bg-[#F5A623]/10 transition-colors" title="Editar"><Pencil size={13} /></button>
                                 </Link>
                                 {p.status === 'PENDENTE' && (
                                   <>
@@ -669,6 +683,92 @@ export function AdminDashboard() {
                         ))}
                         {filteredProps.length === 0 && (
                           <tr><td colSpan={6} className="text-center py-12 text-[#333]">Nenhum imóvel encontrado</td></tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ─────────────── RESERVAS ─────────────── */}
+          {tab === 'reservas' && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <h2 className="text-lg font-bold text-white">Todas as Reservas</h2>
+                <span className="text-xs text-[#555]">{adminBookings.length} reservas</span>
+              </div>
+              {loadingTab ? <Skeleton /> : (
+                <div className="bg-[#1A1A1A] border border-[#222] rounded-xl overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs min-w-[700px]">
+                      <thead>
+                        <tr className="border-b border-[#222] text-[#444]">
+                          <th className="text-left px-4 py-3">#</th>
+                          <th className="text-left px-4 py-3">Imóvel</th>
+                          <th className="text-left px-4 py-3">Cliente</th>
+                          <th className="text-left px-4 py-3">Anfitrião</th>
+                          <th className="text-left px-4 py-3">Check-in → out</th>
+                          <th className="text-right px-4 py-3">Total</th>
+                          <th className="text-left px-4 py-3">Pagamento</th>
+                          <th className="text-left px-4 py-3">Aceite</th>
+                          <th className="text-left px-4 py-3">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {adminBookings.map(b => {
+                          const insts = (b.installments ?? []) as { status: string }[]
+                          const paidCount = insts.filter(i => i.status === 'PAGO').length
+                          const hasOverdue = insts.some(i => i.status === 'ATRASADO')
+                          return (
+                            <tr key={b.id} className="border-b border-[#1F1F1F] hover:bg-[#1F1F1F] transition-colors">
+                              <td className="px-4 py-3 text-[#555] font-mono">{b.booking_number ?? b.id.slice(0,8)}</td>
+                              <td className="px-4 py-3">
+                                <div className="flex items-center gap-2">
+                                  <img src={b.property?.photos?.[0] ?? ''} alt="" className="w-8 h-8 rounded-lg object-cover bg-[#333] flex-shrink-0" />
+                                  <div className="min-w-0">
+                                    <p className="text-white font-medium line-clamp-1">{b.property?.name ?? '—'}</p>
+                                    <p className="text-[#555]">{b.property?.city}, {b.property?.state}</p>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="px-4 py-3">
+                                <p className="text-white">{(b.guest as { name?: string })?.name ?? '—'}</p>
+                                <p className="text-[#555]">{(b.guest as { email?: string })?.email ?? ''}</p>
+                              </td>
+                              <td className="px-4 py-3">
+                                <p className="text-white">{(b.owner as { name?: string })?.name ?? '—'}</p>
+                              </td>
+                              <td className="px-4 py-3 text-[#B3B3B3]">
+                                {formatShortDate(b.check_in)} → {formatShortDate(b.check_out)}
+                                <p className="text-[#555]">{b.nights}n</p>
+                              </td>
+                              <td className="px-4 py-3 text-right text-[#F5A623] font-bold">
+                                {formatCurrency(b.total_price)}
+                              </td>
+                              <td className="px-4 py-3">
+                                {insts.length === 0 ? (
+                                  <span className="text-[#555]">—</span>
+                                ) : hasOverdue ? (
+                                  <span className="px-2 py-0.5 rounded-full bg-[#E50914]/20 text-[#E50914] border border-[#E50914]/30">Atrasado</span>
+                                ) : (
+                                  <span className={`px-2 py-0.5 rounded-full border ${paidCount === insts.length ? 'bg-[#46D369]/20 text-[#46D369] border-[#46D369]/30' : 'bg-[#F5A623]/20 text-[#F5A623] border-[#F5A623]/30'}`}>
+                                    {paidCount}/{insts.length} pagas
+                                  </span>
+                                )}
+                              </td>
+                              <td className="px-4 py-3">
+                                {b.owner_confirmed
+                                  ? <span className="text-[#46D369] flex items-center gap-1"><Check size={11} /> Aceito</span>
+                                  : <span className="text-[#F5A623]">Pendente</span>}
+                              </td>
+                              <td className="px-4 py-3"><BookingStatusBadge status={b.status} /></td>
+                            </tr>
+                          )
+                        })}
+                        {adminBookings.length === 0 && (
+                          <tr><td colSpan={9} className="text-center py-12 text-[#333]">Nenhuma reserva encontrada</td></tr>
                         )}
                       </tbody>
                     </table>
@@ -1221,6 +1321,20 @@ function InstallBadge({ status }: { status: string }) {
     ATRASADO:'bg-[#E50914]/10 text-[#E50914]', CANCELADO:'bg-[#2A2A2A] text-[#555]',
   }
   return <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${m[status] ?? 'bg-[#2A2A2A] text-[#555]'}`}>{status}</span>
+}
+
+function BookingStatusBadge({ status }: { status: string }) {
+  const m: Record<string,string> = {
+    AGUARDANDO_PAGAMENTO:'bg-[#F5A623]/10 text-[#F5A623]',
+    PAGO:'bg-[#46D369]/10 text-[#46D369]',
+    PARCIAL:'bg-blue-500/10 text-blue-400',
+    CONCLUIDA:'bg-[#2A2A2A] text-[#888]',
+    CANCELADA:'bg-[#E50914]/10 text-[#E50914]',
+  }
+  const labels: Record<string,string> = {
+    AGUARDANDO_PAGAMENTO:'Aguardando', PAGO:'Pago', PARCIAL:'Parcial', CONCLUIDA:'Concluída', CANCELADA:'Cancelada',
+  }
+  return <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${m[status] ?? 'bg-[#2A2A2A] text-[#555]'}`}>{labels[status] ?? status}</span>
 }
 
 function Skeleton() {

@@ -4,10 +4,10 @@ import {
   Calendar, Heart, Bell, ShieldCheck, User,
   AlertTriangle, CheckCircle, XCircle, Star,
   BedDouble, MapPin, CreditCard, LogOut, Clock,
-  RefreshCw, Layers,
+  RefreshCw, Layers, ChevronDown, ChevronUp,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
-import type { Booking, Favorite, Installment, Notification, KYCStatus, Property } from '../types'
+import type { Booking, Favorite, Installment, Notification, KYCStatus, Property, InstallmentPaymentResponse } from '../types'
 import { useAuth } from '../hooks/useAuth'
 import { useNotifications } from '../hooks/useNotifications'
 import { useToast } from '../hooks/useToast'
@@ -19,6 +19,7 @@ import { ReviewModal } from '../components/ui/ReviewModal'
 import { formatCurrency, formatShortDate, daysUntil } from '../lib/utils'
 import { calcularValorAtualizado } from '../lib/financeiro'
 import { PixModal } from '../components/ui/PixModal'
+import { PaymentModal } from '../components/ui/PaymentModal'
 import { APP_ROUTES } from '../constants'
 import type { PixPaymentResponse } from '../types'
 
@@ -37,7 +38,7 @@ export function GuestDashboard() {
   const navigate = useNavigate()
 
   const { user, profile, refreshProfile, signOut } = useAuth()
-  const { notifications, unreadCount, markAllRead } = useNotifications()
+  const { notifications, unreadCount, markAllRead, markRead } = useNotifications()
   const { toast } = useToast()
 
   const [bookings, setBookings] = useState<Booking[]>([])
@@ -419,7 +420,7 @@ export function GuestDashboard() {
                 <EmptyState icon={<Bell size={40} />} text="Nenhuma notificação ainda." />
               ) : (
                 <div className="space-y-2">
-                  {notifications.map(n => <NotificationItem key={n.id} n={n} />)}
+                  {notifications.map(n => <NotificationItem key={n.id} n={n} onMarkRead={() => markRead(n.id)} />)}
                 </div>
               )}
             </section>
@@ -599,6 +600,12 @@ function BookingCard({
   const [overdueQR, setOverdueQR] = useState<PixPaymentResponse | null>(null)
   const [fetchingQR, setFetchingQR] = useState(false)
   const [pixModalOpen, setPixModalOpen] = useState(false)
+  const [expanded, setExpanded] = useState(false)
+  const [payingInstId, setPayingInstId] = useState<string | null>(null)
+  const [paymentData, setPaymentData] = useState<InstallmentPaymentResponse | null>(null)
+  const [paymentModalOpen, setPaymentModalOpen] = useState(false)
+  const [checkingPayment, setCheckingPayment] = useState(false)
+  const { user, profile } = useAuth()
 
   const insts = booking.installments ?? []
   const total = insts.length
@@ -634,6 +641,57 @@ function BookingCard({
       // user can retry via the button
     } finally {
       setFetchingQR(false)
+    }
+  }
+
+  async function payInstallment(inst: Installment) {
+    if (!user) return
+    setPayingInstId(inst.id)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const token = session?.access_token ?? ''
+      const res = await fetch('/api/payments/create-installments', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customer: {
+            name: profile?.name ?? user.email ?? 'Cliente',
+            cpf: profile?.cpf ?? '',
+            email: user.email ?? '',
+            phone: profile?.phone ?? '',
+          },
+          value: inst.value,
+          dueDate: inst.due_date,
+          description: `Reserva ${booking.booking_number ?? booking.id.slice(0, 8)} - Parcela ${inst.number}`,
+          externalReference: `installment:${inst.id}`,
+          installment_id: inst.id,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? 'Erro ao gerar pagamento')
+      setPaymentData(data as InstallmentPaymentResponse)
+      setPaymentModalOpen(true)
+    } catch {
+      // silently fail — user can retry
+    } finally {
+      setPayingInstId(null)
+    }
+  }
+
+  async function handleCheckInstallmentPaid() {
+    if (!paymentData) return
+    setCheckingPayment(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const res = await fetch(`/api/payments/${paymentData.pix.payment_id}`, {
+        headers: { Authorization: `Bearer ${session?.access_token ?? ''}` },
+      })
+      const payment = await res.json()
+      if (payment.status === 'CONFIRMED' || payment.status === 'RECEIVED') {
+        setPaymentModalOpen(false)
+      }
+    } finally {
+      setCheckingPayment(false)
     }
   }
 
@@ -691,6 +749,61 @@ function BookingCard({
                     ? `Parcela atrasada: ${formatCurrency(next.value)} (venceu há ${Math.abs(daysLeft)}d)`
                     : `Próxima: ${formatCurrency(next.value)} · vence em ${daysLeft}d`}
                 </p>
+              )}
+            </div>
+          )}
+
+          {/* Expandable installment list */}
+          {total > 0 && (
+            <div className="mt-2">
+              <button
+                onClick={() => setExpanded(v => !v)}
+                className="flex items-center gap-1 text-xs text-[#666] hover:text-[#B3B3B3] transition-colors"
+              >
+                {expanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                {expanded ? 'Ocultar parcelas' : `Ver todas as ${total} parcelas`}
+              </button>
+              {expanded && (
+                <div className="mt-2 space-y-2 border-t border-[#1F1F1F] pt-2">
+                  {insts.map(inst => {
+                    const instDays = daysUntil(inst.due_date)
+                    const instOverdue = inst.status === 'ATRASADO'
+                    return (
+                      <div key={inst.id} className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 text-xs min-w-0">
+                          {inst.status === 'PAGO'
+                            ? <CheckCircle size={12} className="text-[#46D369] flex-shrink-0" />
+                            : instOverdue
+                              ? <AlertTriangle size={12} className="text-[#E50914] flex-shrink-0" />
+                              : <div className="w-3 h-3 rounded-full border border-[#555] flex-shrink-0" />}
+                          <span className={
+                            inst.status === 'PAGO' ? 'text-[#46D369]'
+                            : instOverdue ? 'text-[#E50914]'
+                            : instDays !== null && instDays <= 3 ? 'text-[#F5A623]'
+                            : 'text-[#B3B3B3]'
+                          }>
+                            {inst.number}ª · {formatShortDate(inst.due_date)} · {formatCurrency(inst.value)}
+                            {inst.status === 'PAGO' && inst.paid_at && (
+                              <span className="text-[#555] ml-1">pago</span>
+                            )}
+                          </span>
+                        </div>
+                        {inst.status !== 'PAGO' && (
+                          <button
+                            onClick={() => instOverdue && inst.asaas_payment_id ? fetchOverdueQR() : payInstallment(inst)}
+                            disabled={payingInstId === inst.id || fetchingQR}
+                            className="flex-shrink-0 flex items-center gap-1 text-[10px] font-semibold text-white bg-[#E50914] hover:bg-[#C50813] disabled:opacity-50 rounded-lg px-2 py-1 transition-colors"
+                          >
+                            {(payingInstId === inst.id || (fetchingQR && instOverdue))
+                              ? <RefreshCw size={10} className="animate-spin" />
+                              : <CreditCard size={10} />}
+                            Pagar
+                          </button>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
               )}
             </div>
           )}
@@ -764,17 +877,47 @@ function BookingCard({
         pix={overdueQR}
         onConfirm={() => setPixModalOpen(false)}
       />
+
+      {/* Payment Modal for pending installments */}
+      <PaymentModal
+        open={paymentModalOpen}
+        onClose={() => setPaymentModalOpen(false)}
+        payment={paymentData}
+        onCheckPayment={handleCheckInstallmentPaid}
+        loading={checkingPayment}
+      />
     </Card>
   )
 }
 
-function NotificationItem({ n }: { n: Notification }) {
+function NotificationItem({ n, onMarkRead }: { n: Notification; onMarkRead: () => void }) {
+  function handleClick() {
+    if (!n.is_read) onMarkRead()
+  }
+  const typeIcon: Record<string, string> = {
+    PAYMENT: '💳', BOOKING: '🏠', SUCCESS: '✅', WARNING: '⚠️', ERROR: '❌', INFO: 'ℹ️',
+  }
   return (
-    <div className={`flex gap-3 p-4 rounded-xl border ${n.is_read ? 'bg-transparent border-[#222]' : 'bg-[#1F1F1F] border-[#333]'}`}>
-      <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${n.is_read ? 'bg-[#333]' : 'bg-[#E50914]'}`} />
-      <div>
-        <p className="text-sm font-semibold text-white">{n.title}</p>
-        <p className="text-xs text-[#B3B3B3] mt-0.5">{n.message}</p>
+    <div
+      onClick={handleClick}
+      className={`flex gap-3 p-4 rounded-xl border cursor-pointer transition-all hover:border-[#444] hover:bg-[#1A1A1A] ${
+        n.is_read ? 'bg-transparent border-[#222]' : 'bg-[#1F1F1F] border-[#333]'
+      }`}
+    >
+      <div className="flex flex-col items-center gap-1 pt-0.5 flex-shrink-0">
+        <div className={`w-2 h-2 rounded-full ${n.is_read ? 'bg-[#333]' : 'bg-[#E50914]'}`} />
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-start justify-between gap-2">
+          <p className="text-sm font-semibold text-white leading-tight">
+            {typeIcon[n.type] && <span className="mr-1">{typeIcon[n.type]}</span>}
+            {n.title}
+          </p>
+          <span className="text-[10px] text-[#555] flex-shrink-0 mt-0.5">
+            {new Date(n.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
+          </span>
+        </div>
+        <p className="text-xs text-[#B3B3B3] mt-0.5 leading-relaxed">{n.message}</p>
       </div>
     </div>
   )
