@@ -683,8 +683,8 @@ export function AdminDashboard() {
                           <tr key={p.id} className="border-b border-[#1F1F1F] hover:bg-[#1F1F1F] transition-colors">
                             <td className="px-4 py-3">
                               <div className="flex items-center gap-3">
-                                {p.photos?.[0]
-                                  ? <img src={p.photos[0]} alt="" className="w-10 h-10 rounded-lg object-cover flex-shrink-0" />
+                                {(p.photos ?? [])[0]
+                                  ? <img src={p.photos![0]} alt="" className="w-10 h-10 rounded-lg object-cover flex-shrink-0" />
                                   : <div className="w-10 h-10 rounded-lg flex-shrink-0 bg-[#222] flex items-center justify-center"><Home size={16} className="text-[#555]" /></div>
                                 }
                                 <div>
@@ -760,8 +760,8 @@ export function AdminDashboard() {
                               <td className="px-4 py-3 text-[#555] font-mono">{b.booking_number ?? b.id.slice(0,8)}</td>
                               <td className="px-4 py-3">
                                 <div className="flex items-center gap-2">
-                                  {b.property?.photos?.[0]
-                                    ? <img src={b.property.photos[0]} alt="" className="w-8 h-8 rounded-lg object-cover flex-shrink-0" />
+                                  {(b.property?.photos ?? [])[0]
+                                    ? <img src={b.property!.photos[0]} alt="" className="w-8 h-8 rounded-lg object-cover flex-shrink-0" />
                                     : <div className="w-8 h-8 rounded-lg flex-shrink-0 bg-[#333] flex items-center justify-center"><Home size={13} className="text-[#555]" /></div>
                                   }
                                   <div className="min-w-0">

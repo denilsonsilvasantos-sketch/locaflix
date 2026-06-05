@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useSearchParams, useNavigate, Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Check, ChevronRight, FileText, CreditCard, User, AlertTriangle, ShieldCheck, Calendar, MessageSquare, MapPin, Home, Star } from 'lucide-react'
+import { Check, ChevronRight, FileText, CreditCard, User, AlertTriangle, ShieldCheck, Calendar, MapPin, Home, Star } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import type { Property, CheckoutFormData, InstallmentPreview, InstallmentPaymentResponse, CancellationPolicy, PricePeriod } from '../types'
 import { CANCELLATION_POLICIES, APP_ROUTES } from '../constants'
@@ -118,8 +118,28 @@ export function Checkout() {
   // Auto-polling: check payment status every 5s while QR/boleto modal is open
   useEffect(() => {
     if (!paymentModalOpen2 || !paymentData) return
-    const interval = setInterval(() => void checkPaymentStatus(true), 5000)
-    return () => clearInterval(interval)
+    const paymentId = paymentData.pix.payment_id
+    let active = true
+
+    async function poll() {
+      if (!active) return
+      try {
+        const session = await supabase.auth.getSession()
+        const token = session.data.session?.access_token ?? ''
+        const res = await fetch(`/api/payments/${paymentId}`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+        })
+        const pmt = await res.json()
+        if (active && (pmt.status === 'CONFIRMED' || pmt.status === 'RECEIVED')) {
+          setPaymentModalOpen2(false)
+          setPaid(true)
+        }
+      } catch { /* ignore polling errors */ }
+    }
+
+    const t1 = setTimeout(poll, 3000)
+    const interval = setInterval(poll, 5000)
+    return () => { active = false; clearTimeout(t1); clearInterval(interval) }
   }, [paymentModalOpen2, paymentData])
 
   // Load persisted personal data from previous checkout
@@ -848,7 +868,7 @@ function CheckoutSuccess({
             transition={{ delay: 0.45 }}
             className="bg-[#1F1F1F] border border-[#2A2A2A] rounded-2xl overflow-hidden mb-4"
           >
-            {property.photos[0] && (
+            {property.photos?.[0] && (
               <img src={property.photos[0]} alt={property.name} className="w-full h-36 object-cover" />
             )}
             <div className="p-4">
@@ -909,12 +929,6 @@ function CheckoutSuccess({
             <Button fullWidth className="gap-2">
               <Home size={16} />
               Ver minhas reservas
-            </Button>
-          </Link>
-          <Link to={APP_ROUTES.MESSAGES}>
-            <Button variant="ghost" fullWidth className="gap-2">
-              <MessageSquare size={16} />
-              Falar com o anfitrião
             </Button>
           </Link>
         </motion.div>

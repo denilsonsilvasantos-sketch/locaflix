@@ -4,7 +4,7 @@ import {
   Calendar, Heart, Bell, ShieldCheck, User,
   AlertTriangle, CheckCircle, XCircle, Star,
   BedDouble, MapPin, CreditCard, LogOut, Clock,
-  RefreshCw, Layers, ChevronDown, ChevronUp,
+  RefreshCw, Layers, ChevronDown, ChevronUp, Home,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import type { Booking, Favorite, Installment, Notification, KYCStatus, Property, InstallmentPaymentResponse } from '../types'
@@ -700,12 +700,10 @@ function BookingCard({
   return (
     <Card className="p-4">
       <div className="flex gap-4 items-start">
-        <img
-          src={booking.property?.photos?.[0] ?? ''}
-          alt={booking.property?.name}
-          className="w-16 h-16 rounded-xl object-cover flex-shrink-0 bg-[#2A2A2A]"
-          onError={e => { (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=200' }}
-        />
+        {booking.property?.photos?.[0]
+          ? <img src={booking.property.photos[0]} alt={booking.property?.name} className="w-16 h-16 rounded-xl object-cover flex-shrink-0" />
+          : <div className="w-16 h-16 rounded-xl flex-shrink-0 bg-[#2A2A2A] flex items-center justify-center"><Home size={22} className="text-[#555]" /></div>
+        }
         <div className="flex-1 min-w-0">
           {/* Header row */}
           <div className="flex items-start justify-between gap-2 flex-wrap">

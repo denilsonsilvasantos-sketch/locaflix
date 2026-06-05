@@ -38,6 +38,10 @@ export function useUnreadMessages() {
 
     void fetchCount()
 
+    // Re-fetch when any component calls markAllRead() elsewhere
+    const onReadAll = () => void fetchCount()
+    window.addEventListener('locaflix:messages-read', onReadAll)
+
     const ts = Date.now()
     const channels: ReturnType<typeof supabase.channel>[] = []
 
@@ -63,6 +67,7 @@ export function useUnreadMessages() {
 
     return () => {
       active = false
+      window.removeEventListener('locaflix:messages-read', onReadAll)
       channels.forEach(ch => supabase.removeChannel(ch).catch(() => {}))
     }
   }, [user?.id, profile?.role])
@@ -79,6 +84,7 @@ export function useUnreadMessages() {
     }
     await Promise.all(promises)
     setUnreadCount(0)
+    window.dispatchEvent(new CustomEvent('locaflix:messages-read'))
   }
 
   return { unreadCount, markAllRead }
