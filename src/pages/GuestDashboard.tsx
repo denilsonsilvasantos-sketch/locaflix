@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   Calendar, Heart, Bell, ShieldCheck, User,
   AlertTriangle, CheckCircle, XCircle, Star,
   BedDouble, MapPin, CreditCard, LogOut, Clock,
-  RefreshCw, Layers, X,
+  RefreshCw, Layers,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import type { Booking, Favorite, Installment, Notification, KYCStatus, Property } from '../types'

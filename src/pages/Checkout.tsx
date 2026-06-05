@@ -14,7 +14,7 @@ import { useAuth } from '../hooks/useAuth'
 import { useToast } from '../hooks/useToast'
 import {
   formatCurrency, calculateInstallments, calculateMaxInstallments,
-  calculatePlatformFee, formatDate,
+  formatDate,
 } from '../lib/utils'
 import { calcularEstadia, type EstadiaResult } from '../lib/pricing'
 import { calcularReserva } from '../lib/financeiro'
@@ -363,7 +363,7 @@ export function Checkout() {
       const payment = await res.json()
 
       if (payment.status === 'CONFIRMED' || payment.status === 'RECEIVED') {
-        setPixModalOpen(false)
+        setPaymentModalOpen(false)
         setPaid(true)
       } else {
         toast('warning', 'Pagamento pendente', 'Ainda não identificamos o pagamento. Tente novamente em alguns instantes.')

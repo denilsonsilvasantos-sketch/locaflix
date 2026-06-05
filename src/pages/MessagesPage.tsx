@@ -307,7 +307,7 @@ export function MessagesPage() {
     }
   }
 
-  async function loadContactTicketStatuses(contactList: Contact[]) {
+  async function loadContactTicketStatuses(_contactList: Contact[]) {
     try {
       const { data } = await supabase
         .from('conversation_tickets')

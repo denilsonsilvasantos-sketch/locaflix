@@ -18,7 +18,6 @@ import { supabase } from '../lib/supabase'
 import type { Property, PropertyPhoto, PricePeriod, Review, PropertyAmenity } from '../types'
 
 type ReviewWithProperty = Review & { property?: { id: string; name: string } | null }
-import { getMinPrice, PERIOD_TYPE_LABELS } from '../lib/pricing'
 import { MOCK_PROPERTIES } from '../constants/mocks'
 import { APP_ROUTES } from '../constants'
 import { formatCurrency, calculateMaxInstallments } from '../lib/utils'
@@ -69,7 +68,7 @@ export function PropertyDetails() {
   const [property, setProperty] = useState<Property | null>(null)
   const [reviews, setReviews] = useState<ReviewWithProperty[]>([])
   const [roomGroups, setRoomGroups] = useState<RoomGroup[]>([])
-  const [pricePeriods, setPricePeriods] = useState<PricePeriod[]>([])
+  const [_pricePeriods, setPricePeriods] = useState<PricePeriod[]>([])
   const [propertyAmenities, setPropertyAmenities] = useState<PropertyAmenity[]>([])
   const [loading, setLoading] = useState(true)
   const [imgIdx, setImgIdx] = useState(0)
@@ -165,7 +164,7 @@ export function PropertyDetails() {
     }
     setRoomGroups(groups)
     setPricePeriods((periodsRes.data ?? []) as PricePeriod[])
-    setPropertyAmenities((amenitiesRes.data ?? []) as PropertyAmenity[])
+    setPropertyAmenities((amenitiesRes.data ?? []) as unknown as PropertyAmenity[])
     setLoading(false)
 
     supabase
@@ -675,36 +674,8 @@ export function PropertyDetails() {
                   </div>
                 ) : (
                   <div className="mb-5">
-                    {pricePeriods.length > 0 ? (
-                      <>
-                        <div className="flex items-baseline gap-1.5">
-                          <span className="text-2xl font-bold text-white">{formatCurrency(getMinPrice(pricePeriods, property.price_per_night))}</span>
-                          <span className="text-sm text-[#B3B3B3]">/ noite</span>
-                        </div>
-                        <p className="text-xs text-[#555] mt-1">Preço varia por período — selecione as datas</p>
-                      </>
-                    ) : (
-                      <>
-                        <div className="flex items-baseline gap-1.5">
-                          <span className="text-2xl font-bold text-white">{formatCurrency(property.price_per_night)}</span>
-                          <span className="text-sm text-[#B3B3B3]">/ noite</span>
-                        </div>
-                        <p className="text-xs text-[#555] mt-1">Selecione as datas para ver o parcelamento</p>
-                      </>
-                    )}
-                    {pricePeriods.length > 0 && (
-                      <div className="mt-3 space-y-1">
-                        {pricePeriods.slice(0, 3).map(p => (
-                          <div key={p.id} className="flex items-center justify-between text-xs">
-                            <span className="text-[#666]">{p.name}</span>
-                            <span className="text-white font-medium">{formatCurrency(p.price_per_night)}</span>
-                          </div>
-                        ))}
-                        {pricePeriods.length > 3 && (
-                          <p className="text-xs text-[#555]">+{pricePeriods.length - 3} outros períodos</p>
-                        )}
-                      </div>
-                    )}
+                    <p className="text-lg font-semibold text-[#B3B3B3]">Selecione as datas</p>
+                    <p className="text-xs text-[#555] mt-0.5">para ver o preço e o parcelamento</p>
                   </div>
                 )}
 
@@ -832,11 +803,8 @@ export function PropertyDetails() {
             </>
           ) : (
             <>
-              <p className="text-xs text-[#B3B3B3]">a partir de</p>
-              <p className="text-base font-bold text-white">
-                {formatCurrency(property.price_per_night)}
-                <span className="text-xs font-normal text-[#666]"> /noite</span>
-              </p>
+              <p className="text-xs text-[#B3B3B3]">Selecione as datas</p>
+              <p className="text-sm text-[#555]">para ver o preço</p>
             </>
           )}
         </div>

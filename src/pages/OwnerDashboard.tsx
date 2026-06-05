@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { useSearchParams, Link, useNavigate } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams, Link } from 'react-router-dom'
 import {
   Home, Calendar, DollarSign, Star, Plus, Eye, Pencil,
   ToggleLeft, ToggleRight, ShieldCheck, Check, X, AlertCircle,
-  ChevronDown, ChevronUp, Trash2, LogOut, MessageSquare, TrendingUp,
+  ChevronUp, Trash2, LogOut, MessageSquare, TrendingUp,
 } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 import { supabase } from '../lib/supabase'
@@ -53,7 +53,6 @@ interface KycForm {
 export function OwnerDashboard() {
   const [searchParams] = useSearchParams()
   const tab = searchParams.get('tab') ?? 'imoveis'
-  const navigate = useNavigate()
   const { user, profile, refreshProfile, signOut } = useAuth()
   const { toast } = useToast()
   const { unreadCount } = useUnreadMessages()
@@ -124,7 +123,7 @@ export function OwnerDashboard() {
       const { data: guestUsers } = await supabase
         .from('users').select('id,name,avatar_url').in('id', guestIds)
       const guestMap = Object.fromEntries((guestUsers ?? []).map((u: { id: string; name: string | null; avatar_url: string | null }) => [u.id, u]))
-      setBookings(bkList.map(b => ({ ...b, guest: guestMap[b.guest_id] ?? null })))
+      setBookings(bkList.map(b => ({ ...b, guest: (guestMap[b.guest_id] ?? null) as Booking['guest'] })))
     } else {
       setBookings([])
     }
@@ -410,7 +409,7 @@ export function OwnerDashboard() {
                             contentStyle={{ background: '#1A1A1A', border: '1px solid #333', borderRadius: 8 }}
                             labelStyle={{ color: '#B3B3B3', fontSize: 11 }}
                             itemStyle={{ color: '#E50914', fontSize: 11 }}
-                            formatter={(v: number) => [v, 'Reservas']}
+                            formatter={(v) => [v ?? 0, 'Reservas']}
                           />
                           <Bar dataKey="reservas" fill="#E50914" radius={[4, 4, 0, 0]} maxBarSize={40} />
                         </BarChart>
