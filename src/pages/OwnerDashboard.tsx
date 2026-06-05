@@ -1076,7 +1076,10 @@ function PropertyRow({ property, onToggle }: { property: Property; onToggle: (p:
   return (
     <Card className="overflow-hidden">
       <div className="p-4 flex items-center gap-4">
-        <img src={property.photos[0] ?? ''} alt="" className="w-16 h-16 rounded-xl object-cover flex-shrink-0 bg-[#2A2A2A]" />
+        {property.photos[0]
+          ? <img src={property.photos[0]} alt="" className="w-16 h-16 rounded-xl object-cover flex-shrink-0" />
+          : <div className="w-16 h-16 rounded-xl flex-shrink-0 bg-[#2A2A2A] flex items-center justify-center"><Home size={22} className="text-[#555]" /></div>
+        }
         <div className="flex-1 min-w-0">
           <p className="font-semibold text-white text-sm line-clamp-1">{property.name}</p>
           <p className="text-xs text-[#B3B3B3]">{property.city}, {property.state}</p>

@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase'
 import type { Message } from '../types'
 import { useAuth } from '../hooks/useAuth'
 import { useToast } from '../hooks/useToast'
+import { useUnreadMessages } from '../hooks/useUnreadMessages'
 import { Button } from '../components/ui/Button'
 import { Lightbox } from '../components/ui/Lightbox'
 import { getInitials } from '../lib/utils'
@@ -47,6 +48,7 @@ type Recipient = {
 export function MessagesPage() {
   const { user, profile } = useAuth()
   const { toast } = useToast()
+  const { markAllRead } = useUnreadMessages()
   const location = useLocation()
   const pendingStartChatRef = useRef<string | null>(
     (location.state as { startChatWith?: string } | null)?.startChatWith ?? null
@@ -349,6 +351,7 @@ export function MessagesPage() {
 
       setMessages((data ?? []) as Message[])
       setContacts(prev => prev.map(c => c.id === SUPPORT_ID ? { ...c, unread: 0 } : c))
+      void markAllRead()
       return
     }
 
@@ -389,6 +392,7 @@ export function MessagesPage() {
         .eq('sender_id', contactId)
         .eq('is_read', false)
       setContacts(prev => prev.map(c => c.id === contactId ? { ...c, unread: 0 } : c))
+      void markAllRead()
     }
   }
 

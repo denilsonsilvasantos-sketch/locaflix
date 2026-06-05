@@ -571,6 +571,7 @@ export function AdminDashboard() {
                         <XAxis dataKey="month" tick={{ fill:'#444', fontSize:11 }} axisLine={false} tickLine={false} />
                         <YAxis tick={{ fill:'#444', fontSize:11 }} axisLine={false} tickLine={false} tickFormatter={v => `R$${(v/1000).toFixed(0)}k`} />
                         <Tooltip
+                          cursor={false}
                           contentStyle={{ backgroundColor:'#1F1F1F', border:'1px solid #333', borderRadius:'8px', color:'#fff' }}
                           labelStyle={{ color:'#B3B3B3' }}
                           itemStyle={{ color:'#fff' }}
@@ -682,7 +683,10 @@ export function AdminDashboard() {
                           <tr key={p.id} className="border-b border-[#1F1F1F] hover:bg-[#1F1F1F] transition-colors">
                             <td className="px-4 py-3">
                               <div className="flex items-center gap-3">
-                                <img src={p.photos?.[0] ?? ''} alt="" className="w-10 h-10 rounded-lg object-cover flex-shrink-0 bg-[#222]" />
+                                {p.photos?.[0]
+                                  ? <img src={p.photos[0]} alt="" className="w-10 h-10 rounded-lg object-cover flex-shrink-0" />
+                                  : <div className="w-10 h-10 rounded-lg flex-shrink-0 bg-[#222] flex items-center justify-center"><Home size={16} className="text-[#555]" /></div>
+                                }
                                 <div>
                                   <p className="text-white text-sm font-medium line-clamp-1">{p.name}</p>
                                   <p className="text-[#444] text-xs">{p.city}, {p.state}</p>
@@ -756,7 +760,10 @@ export function AdminDashboard() {
                               <td className="px-4 py-3 text-[#555] font-mono">{b.booking_number ?? b.id.slice(0,8)}</td>
                               <td className="px-4 py-3">
                                 <div className="flex items-center gap-2">
-                                  <img src={b.property?.photos?.[0] ?? ''} alt="" className="w-8 h-8 rounded-lg object-cover bg-[#333] flex-shrink-0" />
+                                  {b.property?.photos?.[0]
+                                    ? <img src={b.property.photos[0]} alt="" className="w-8 h-8 rounded-lg object-cover flex-shrink-0" />
+                                    : <div className="w-8 h-8 rounded-lg flex-shrink-0 bg-[#333] flex items-center justify-center"><Home size={13} className="text-[#555]" /></div>
+                                  }
                                   <div className="min-w-0">
                                     <p className="text-white font-medium line-clamp-1">{b.property?.name ?? '—'}</p>
                                     <p className="text-[#555]">{b.property?.city}, {b.property?.state}</p>

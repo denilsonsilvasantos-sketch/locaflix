@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useSearchParams, useNavigate, Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Check, ChevronRight, FileText, CreditCard, User, AlertTriangle, ShieldCheck, Calendar, MessageSquare } from 'lucide-react'
+import { Check, ChevronRight, FileText, CreditCard, User, AlertTriangle, ShieldCheck, Calendar, MessageSquare, MapPin, Home, Star } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import type { Property, CheckoutFormData, InstallmentPreview, InstallmentPaymentResponse, CancellationPolicy, PricePeriod } from '../types'
 import { CANCELLATION_POLICIES, APP_ROUTES } from '../constants'
@@ -378,33 +378,17 @@ export function Checkout() {
     }
   }
 
+  // Compute totals early — needed for both the success page and the main form
+  const nightly = estadiaResult?.total ?? (property ? property.price_per_night * nights : 0)
+  const cleaningFee = property?.cleaning_fee ?? 0
+  const combinedBase = nightly + cleaningFee
+  const avgPerNight = nights > 0 ? Math.round((combinedBase / nights) * 100) / 100 : 0
+  const subtotal = combinedBase
+  const fee = Math.round(combinedBase * guestFeePercent * 100) / 100
+  const total = combinedBase + fee
+
   if (paid) {
-    return (
-      <div className="min-h-screen bg-[#141414] flex items-center justify-center px-4">
-        <div className="max-w-sm w-full text-center">
-          <div className="w-16 h-16 bg-[#46D369]/20 rounded-full flex items-center justify-center mx-auto mb-5">
-            <Check size={32} className="text-[#46D369]" />
-          </div>
-          <h1 className="font-display text-2xl font-bold text-white mb-2">Reserva confirmada!</h1>
-          <p className="text-[#B3B3B3] text-sm mb-8">
-            Pagamento processado com sucesso. Você receberá os detalhes por e-mail.
-          </p>
-          <div className="space-y-3">
-            <Link to={APP_ROUTES.MESSAGES}>
-              <Button fullWidth className="gap-2">
-                <MessageSquare size={16} />
-                Falar com anfitrião
-              </Button>
-            </Link>
-            <Link to={`${APP_ROUTES.GUEST_DASHBOARD}?tab=reservas`}>
-              <Button variant="ghost" fullWidth>
-                Ver minhas reservas
-              </Button>
-            </Link>
-          </div>
-        </div>
-      </div>
-    )
+    return <CheckoutSuccess property={property} checkIn={checkIn} checkOut={checkOut} nights={nights} total={total} guestsCount={guestsParam} />
   }
 
   if (loading || !property) {
@@ -421,13 +405,6 @@ export function Checkout() {
     return <KYCGate status={profile.kyc_status ?? 'INCOMPLETO'} />
   }
 
-  const nightly = estadiaResult?.total ?? property.price_per_night * nights
-  const cleaningFee = property.cleaning_fee ?? 0
-  const combinedBase = nightly + cleaningFee
-  const avgPerNight = nights > 0 ? Math.round((combinedBase / nights) * 100) / 100 : 0
-  const subtotal = combinedBase
-  const fee = Math.round(combinedBase * guestFeePercent * 100) / 100
-  const total = combinedBase + fee
   const maxInstallments = checkIn ? calculateMaxInstallments(checkIn) : 1
   const isMock = MOCK_PROPERTIES.some(p => p.id === property.id)
 
@@ -778,6 +755,170 @@ export function Checkout() {
         onCheckPayment={handleCheckPayment}
         loading={checkingPayment}
       />
+    </div>
+  )
+}
+
+function CheckoutSuccess({
+  property, checkIn, checkOut, nights, total, guestsCount,
+}: {
+  property: Property | null
+  checkIn: string
+  checkOut: string
+  nights: number
+  total: number
+  guestsCount: number
+}) {
+  const navigate = useNavigate()
+  const [countdown, setCountdown] = useState(6)
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCountdown(c => {
+        if (c <= 1) {
+          clearInterval(timer)
+          navigate(`${APP_ROUTES.GUEST_DASHBOARD}?tab=reservas`, { replace: true })
+          return 0
+        }
+        return c - 1
+      })
+    }, 1000)
+    return () => clearInterval(timer)
+  }, [navigate])
+
+  const fmt = (d: string) => d ? format(new Date(d + 'T00:00:00'), "dd 'de' MMMM, yyyy", { locale: ptBR }) : ''
+
+  return (
+    <div className="min-h-screen bg-[#141414] flex items-center justify-center px-4 py-12">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.5, ease: 'easeOut' }}
+        className="max-w-md w-full"
+      >
+        {/* Success icon with ring animation */}
+        <div className="flex justify-center mb-6">
+          <div className="relative">
+            <motion.div
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ delay: 0.2, type: 'spring', stiffness: 200 }}
+              className="w-20 h-20 bg-[#46D369]/20 rounded-full flex items-center justify-center"
+            >
+              <Check size={40} className="text-[#46D369]" />
+            </motion.div>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: [0, 0.3, 0], scale: [0.8, 1.4, 1.6] }}
+              transition={{ delay: 0.3, duration: 1.2, ease: 'easeOut' }}
+              className="absolute inset-0 border-2 border-[#46D369] rounded-full"
+            />
+          </div>
+        </div>
+
+        {/* Headline */}
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.35 }}
+          className="text-center mb-6"
+        >
+          <h1 className="font-display text-3xl font-bold text-white mb-2">Reserva confirmada!</h1>
+          <p className="text-[#B3B3B3] text-sm leading-relaxed">
+            Parabéns! Seu pagamento foi processado com sucesso.<br />
+            Desejamos bons momentos na sua estadia. ✨
+          </p>
+        </motion.div>
+
+        {/* Property card */}
+        {property && (
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.45 }}
+            className="bg-[#1F1F1F] border border-[#2A2A2A] rounded-2xl overflow-hidden mb-4"
+          >
+            {property.photos[0] && (
+              <img src={property.photos[0]} alt={property.name} className="w-full h-36 object-cover" />
+            )}
+            <div className="p-4">
+              <div className="flex items-start justify-between gap-2 mb-3">
+                <div>
+                  <h2 className="font-semibold text-white text-sm line-clamp-1">{property.name}</h2>
+                  <p className="text-xs text-[#666] flex items-center gap-1 mt-0.5">
+                    <MapPin size={10} /> {property.city}, {property.state}
+                  </p>
+                </div>
+                <div className="flex items-center gap-1 text-[#F5A623] flex-shrink-0">
+                  <Star size={12} fill="#F5A623" />
+                  <span className="text-xs font-medium">{property.rating?.toFixed(1) ?? '—'}</span>
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-2 text-center">
+                <div className="bg-[#0A0A0A] rounded-xl p-2.5">
+                  <p className="text-[10px] text-[#555] uppercase tracking-wide mb-0.5">Check-in</p>
+                  <p className="text-white text-xs font-semibold">{fmt(checkIn)}</p>
+                </div>
+                <div className="bg-[#0A0A0A] rounded-xl p-2.5">
+                  <p className="text-[10px] text-[#555] uppercase tracking-wide mb-0.5">Noites</p>
+                  <p className="text-white text-xs font-semibold">{nights}</p>
+                </div>
+                <div className="bg-[#0A0A0A] rounded-xl p-2.5">
+                  <p className="text-[10px] text-[#555] uppercase tracking-wide mb-0.5">Check-out</p>
+                  <p className="text-white text-xs font-semibold">{fmt(checkOut)}</p>
+                </div>
+              </div>
+              <div className="flex items-center justify-between mt-3 pt-3 border-t border-[#2A2A2A]">
+                <span className="text-xs text-[#666]">{guestsCount} hóspede{guestsCount !== 1 ? 's' : ''}</span>
+                <span className="text-sm font-bold text-[#F5A623]">{formatCurrency(total)}</span>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {/* What's next info */}
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.55 }}
+          className="bg-[#46D369]/8 border border-[#46D369]/20 rounded-xl px-4 py-3 mb-5 text-xs text-[#46D369] space-y-1"
+        >
+          <p>✓ Detalhes enviados para o seu e-mail</p>
+          <p>✓ O anfitrião foi notificado sobre a reserva</p>
+          <p>✓ Acompanhe tudo em "Minhas reservas"</p>
+        </motion.div>
+
+        {/* Actions */}
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.65 }}
+          className="space-y-3"
+        >
+          <Link to={`${APP_ROUTES.GUEST_DASHBOARD}?tab=reservas`}>
+            <Button fullWidth className="gap-2">
+              <Home size={16} />
+              Ver minhas reservas
+            </Button>
+          </Link>
+          <Link to={APP_ROUTES.MESSAGES}>
+            <Button variant="ghost" fullWidth className="gap-2">
+              <MessageSquare size={16} />
+              Falar com o anfitrião
+            </Button>
+          </Link>
+        </motion.div>
+
+        {/* Auto-redirect countdown */}
+        <motion.p
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.8 }}
+          className="text-center text-xs text-[#444] mt-5"
+        >
+          Redirecionando para suas reservas em {countdown}s…
+        </motion.p>
+      </motion.div>
     </div>
   )
 }
