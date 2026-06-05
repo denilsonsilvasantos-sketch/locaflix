@@ -461,51 +461,78 @@ export function PropertyDetails() {
         )}
       </div>
 
-      {/* Desktop: Airbnb-style grid */}
+      {/* Desktop: Airbnb-style gallery */}
       <div className="hidden sm:block max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4">
-        {displayPhotos.length === 1 ? (
-          <div className="relative h-[460px] rounded-2xl overflow-hidden cursor-pointer" onClick={() => openLightbox(0)}>
-            <img src={displayPhotos[0].url} alt={property.name} className="w-full h-full object-cover" />
-          </div>
-        ) : (
-          <div className="relative">
-            <div className={`grid gap-2 h-[460px] rounded-2xl overflow-hidden ${displayPhotos.length >= 5 ? 'grid-cols-4 grid-rows-2' : displayPhotos.length >= 3 ? 'grid-cols-3 grid-rows-2' : 'grid-cols-2'}`}>
-              {/* Large photo */}
-              <div
-                className={`relative cursor-pointer overflow-hidden ${displayPhotos.length >= 3 ? 'col-span-2 row-span-2' : 'col-span-1'}`}
-                onClick={() => openLightbox(0)}
-              >
-                <img src={displayPhotos[0].url} alt="" className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" />
-              </div>
-              {/* Smaller photos */}
-              {displayPhotos.slice(1, 5).map((photo, i) => (
-                <div
-                  key={photo.id + i}
-                  className="relative cursor-pointer overflow-hidden"
-                  onClick={() => openLightbox(i + 1)}
-                >
-                  <img src={photo.url} alt="" className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" />
-                  {/* Caption overlay */}
-                  {photo.caption && (
-                    <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 to-transparent px-3 py-2">
-                      <p className="text-white text-xs truncate">{photo.caption}</p>
-                    </div>
-                  )}
-                </div>
-              ))}
+        <div className="relative rounded-2xl overflow-hidden" style={{ height: 460 }}>
+          <div className="flex gap-2 h-full">
+            {/* Large photo — always left, full height */}
+            <div
+              className="relative cursor-pointer overflow-hidden flex-shrink-0 rounded-l-2xl"
+              style={{ width: displayPhotos.length === 1 ? '100%' : displayPhotos.length === 2 ? '65%' : '60%' }}
+              onClick={() => openLightbox(0)}
+            >
+              <img src={displayPhotos[0].url} alt={property.name} className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" />
             </div>
-            {/* "Ver todas" button */}
-            {displayPhotos.length > 5 && (
-              <button
-                onClick={() => openLightbox(0)}
-                className="absolute bottom-4 right-4 flex items-center gap-2 bg-white text-black text-sm font-semibold px-4 py-2 rounded-xl hover:bg-white/90 transition-colors shadow-lg"
-              >
-                <Grid2x2 size={15} />
-                Ver todas as {displayPhotos.length} fotos
-              </button>
+
+            {/* Right column — small photos stacked */}
+            {displayPhotos.length >= 2 && (
+              <div className="flex flex-col gap-2 flex-1 min-w-0">
+                {displayPhotos.length <= 3
+                  /* 2-3 photos: stack them all */
+                  ? displayPhotos.slice(1).map((photo, i) => (
+                      <div
+                        key={photo.id + i}
+                        className="relative cursor-pointer overflow-hidden flex-1"
+                        style={{ borderTopRightRadius: i === 0 && displayPhotos.length === 2 ? '16px' : i === 0 ? '16px' : undefined, borderBottomRightRadius: i === displayPhotos.slice(1).length - 1 ? '16px' : undefined }}
+                        onClick={() => openLightbox(i + 1)}
+                      >
+                        <img src={photo.url} alt="" className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" />
+                        {photo.caption && (
+                          <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 to-transparent px-3 py-2">
+                            <p className="text-white text-xs truncate">{photo.caption}</p>
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  /* 4+ photos: 2×2 grid on the right */
+                  : (
+                      <div className="grid grid-cols-2 gap-2 h-full">
+                        {displayPhotos.slice(1, 5).map((photo, i) => (
+                          <div
+                            key={photo.id + i}
+                            className="relative cursor-pointer overflow-hidden"
+                            style={{
+                              borderTopRightRadius:    i === 1 ? '16px' : undefined,
+                              borderBottomRightRadius: i === 3 ? '16px' : undefined,
+                            }}
+                            onClick={() => openLightbox(i + 1)}
+                          >
+                            <img src={photo.url} alt="" className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" />
+                            {photo.caption && (
+                              <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 to-transparent px-3 py-2">
+                                <p className="text-white text-xs truncate">{photo.caption}</p>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )
+                }
+              </div>
             )}
           </div>
-        )}
+
+          {/* "Ver todas" button */}
+          {displayPhotos.length > 5 && (
+            <button
+              onClick={() => openLightbox(0)}
+              className="absolute bottom-4 right-4 flex items-center gap-2 bg-white text-black text-sm font-semibold px-4 py-2 rounded-xl hover:bg-white/90 transition-colors shadow-lg"
+            >
+              <Grid2x2 size={15} />
+              Ver todas as {displayPhotos.length} fotos
+            </button>
+          )}
+        </div>
 
         {/* Room tabs (if multiple rooms) */}
         {roomGroups.length > 1 && (
