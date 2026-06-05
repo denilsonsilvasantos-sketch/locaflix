@@ -291,7 +291,9 @@ export function PropertyDetails() {
     )
   }, [property, checkIn, checkOut, nights, pricePeriods])
   const subtotal = estadiaCalc?.total ?? (property ? property.price_per_night * nights : 0)
+  const cleaningFee = (nights > 0 && property?.cleaning_fee) ? property.cleaning_fee : 0
   const fee = Math.round(subtotal * guestFeePercent * 100) / 100
+  const grandTotal = subtotal + cleaningFee + fee
 
   if (loading) {
     return (
@@ -693,10 +695,10 @@ export function PropertyDetails() {
                 {nights > 0 ? (
                   <div className="mb-5">
                     <p className="text-2xl font-bold text-white">
-                      até {calculateMaxInstallments(checkIn)}x de {formatCurrency((subtotal + fee) / calculateMaxInstallments(checkIn))}
+                      até {calculateMaxInstallments(checkIn)}x de {formatCurrency(grandTotal / calculateMaxInstallments(checkIn))}
                     </p>
                     <p className="text-xs text-[#B3B3B3] mt-0.5">
-                      total {formatCurrency(subtotal + fee)}
+                      total {formatCurrency(grandTotal)}
                       {feeModel === 'unico' && <span className="ml-1 text-[#46D369]">· taxa inclusa</span>}
                     </p>
                   </div>
@@ -820,15 +822,21 @@ export function PropertyDetails() {
                         <span className="text-white">{formatCurrency(subtotal)}</span>
                       </div>
                     )}
+                    {cleaningFee > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-[#B3B3B3]">Taxa de limpeza</span>
+                        <span className="text-white">{formatCurrency(cleaningFee)}</span>
+                      </div>
+                    )}
                     {feeModel === 'dividido' && fee > 0 && (
                       <div className="flex justify-between text-sm">
-                        <span className="text-[#B3B3B3]">Taxa de serviço ({Math.round(guestFeePercent * 100)}%)</span>
+                        <span className="text-[#B3B3B3]">Taxa de serviço</span>
                         <span className="text-white">{formatCurrency(fee)}</span>
                       </div>
                     )}
                     <div className="flex justify-between text-sm font-bold pt-2 border-t border-[#333]">
                       <span className="text-white">Total</span>
-                      <span className="text-[#F5A623] text-base">{formatCurrency(subtotal + fee)}</span>
+                      <span className="text-[#F5A623] text-base">{formatCurrency(grandTotal)}</span>
                     </div>
                     <p className="text-xs text-[#46D369] text-center mt-1">
                       em até {calculateMaxInstallments(checkIn)}x sem juros
@@ -847,7 +855,7 @@ export function PropertyDetails() {
           {nights > 0 ? (
             <>
               <p className="text-xs text-[#B3B3B3]">{nights} {nights === 1 ? 'noite' : 'noites'}</p>
-              <p className="text-base font-bold text-white">{formatCurrency(subtotal + fee)}</p>
+              <p className="text-base font-bold text-white">{formatCurrency(grandTotal)}</p>
             </>
           ) : (
             <>

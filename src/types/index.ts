@@ -77,6 +77,7 @@ export interface Property {
   longitude: number | null
   price_per_night: number
   min_price: number | null
+  cleaning_fee: number | null
   bedrooms: number
   bathrooms: number
   max_guests: number

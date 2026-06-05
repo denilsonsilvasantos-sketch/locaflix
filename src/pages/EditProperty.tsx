@@ -76,6 +76,8 @@ export function EditProperty() {
     longitude: '',
     price_per_night: '',
     min_price: '',
+    cleaning_fee_enabled: false,
+    cleaning_fee: '',
     bedrooms: '1',
     bathrooms: '1',
     max_guests: '4',
@@ -126,6 +128,8 @@ export function EditProperty() {
       longitude: prop.longitude != null ? String(prop.longitude) : '',
       price_per_night: String(prop.price_per_night ?? ''),
       min_price: prop.min_price ? String(prop.min_price) : '',
+      cleaning_fee_enabled: !!prop.cleaning_fee,
+      cleaning_fee: prop.cleaning_fee ? String(prop.cleaning_fee) : '',
       bedrooms: String(prop.bedrooms ?? 1),
       bathrooms: String(prop.bathrooms ?? 1),
       max_guests: String(prop.max_guests ?? 4),
@@ -352,6 +356,7 @@ export function EditProperty() {
       longitude: form.longitude ? parseFloat(form.longitude) : null,
       price_per_night: Number(form.price_per_night),
       min_price: form.min_price ? Number(form.min_price) : null,
+      cleaning_fee: form.cleaning_fee_enabled && form.cleaning_fee ? Number(form.cleaning_fee) : null,
       bedrooms: Number(form.bedrooms),
       bathrooms: Number(form.bathrooms),
       max_guests: Number(form.max_guests),
@@ -558,6 +563,32 @@ export function EditProperty() {
                 hint="Para promoções"
               />
             </div>
+            {/* Taxa de limpeza */}
+            <div className="flex items-start gap-3 pt-2">
+              <input
+                id="cleaning_fee_enabled_edit"
+                type="checkbox"
+                checked={form.cleaning_fee_enabled}
+                onChange={e => upd('cleaning_fee_enabled', e.target.checked)}
+                className="mt-0.5 w-4 h-4 accent-[#E50914] flex-shrink-0 cursor-pointer"
+              />
+              <label htmlFor="cleaning_fee_enabled_edit" className="cursor-pointer">
+                <p className="text-sm font-medium text-white">Cobrar taxa de limpeza</p>
+                <p className="text-xs text-[#666] mt-0.5">Valor fixo cobrado uma vez, independente do número de diárias</p>
+              </label>
+            </div>
+            {form.cleaning_fee_enabled && (
+              <Input
+                label="Taxa de limpeza (R$)"
+                type="number"
+                min="1"
+                step="0.01"
+                value={form.cleaning_fee}
+                onChange={e => upd('cleaning_fee', e.target.value)}
+                placeholder="0,00"
+                hint="Cobrado uma vez por reserva"
+              />
+            )}
           </section>
 
           {/* Comodidades */}
