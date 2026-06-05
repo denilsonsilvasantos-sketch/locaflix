@@ -51,6 +51,8 @@ export function NewProperty() {
   const { user, profile } = useAuth()
   const { toast } = useToast()
   const [saving, setSaving] = useState(false)
+  const [ownerUsers, setOwnerUsers] = useState<{ id: string; name: string | null }[]>([])
+  const [selectedOwnerId, setSelectedOwnerId] = useState('')
   const [rooms, setRooms] = useState<RoomDraft[]>([])
   const [coverPhotoUrl, setCoverPhotoUrl] = useState<string | null>(null)
   const [periods, setPeriods] = useState<PeriodDraft[]>([])
@@ -90,6 +92,12 @@ export function NewProperty() {
       .order('display_order')
       .then(({ data }) => { if (data) setCatalog(data as AmenityCatalog[]) })
   }, [])
+
+  useEffect(() => {
+    if (profile?.role !== 'ADMIN') return
+    supabase.from('users').select('id, name').eq('role', 'OWNER').order('name')
+      .then(({ data }) => { if (data) setOwnerUsers(data as { id: string; name: string | null }[]) })
+  }, [profile?.role])
 
   function upd(k: keyof typeof form, v: unknown) {
     setForm(f => ({ ...f, [k]: v }))
@@ -233,6 +241,10 @@ export function NewProperty() {
       toast('warning', 'Campos obrigatórios', 'Preencha nome, cidade e preço.')
       return
     }
+    if (profile?.role === 'ADMIN' && !selectedOwnerId) {
+      toast('warning', 'Selecione o proprietário', 'Escolha a qual usuário este imóvel pertence.')
+      return
+    }
     setSaving(true)
 
     const amenityNames = Array.from(selectedAmenityIds)
@@ -241,7 +253,7 @@ export function NewProperty() {
     const customNames = customAmenities.map(a => `CUSTOM::${a.category}::${a.name}`)
 
     const { data: prop, error: propErr } = await supabase.from('properties').insert({
-      owner_id: user.id,
+      owner_id: profile?.role === 'ADMIN' ? selectedOwnerId : user.id,
       name: form.name,
       description: form.description || null,
       type: form.type,
@@ -380,6 +392,28 @@ export function NewProperty() {
           {/* Informações básicas */}
           <section className="bg-[#1F1F1F] border border-[#333] rounded-2xl p-6 space-y-4">
             <h2 className="font-display text-lg font-bold text-white">Informações básicas</h2>
+
+            {/* Admin-only: owner selector */}
+            {profile?.role === 'ADMIN' && (
+              <div>
+                <label className="block text-xs font-medium text-[#B3B3B3] mb-1.5">Proprietário do imóvel <span className="text-[#E50914]">*</span></label>
+                <select
+                  value={selectedOwnerId}
+                  onChange={e => setSelectedOwnerId(e.target.value)}
+                  required
+                  className="w-full bg-[#2A2A2A] border border-[#333] rounded-xl px-3 py-2.5 text-sm text-white outline-none focus:ring-2 focus:ring-[#E50914] appearance-none cursor-pointer"
+                >
+                  <option value="" disabled>Selecione o anfitrião</option>
+                  {ownerUsers.map(u => (
+                    <option key={u.id} value={u.id}>{u.name ?? u.id}</option>
+                  ))}
+                </select>
+                {ownerUsers.length === 0 && (
+                  <p className="text-xs text-[#666] mt-1">Nenhum usuário com role OWNER encontrado.</p>
+                )}
+              </div>
+            )}
+
             <Input label="Nome do imóvel" value={form.name} onChange={e => upd('name', e.target.value)} required placeholder="Ex: Casa de Praia em Florianópolis" />
             <Textarea label="Descrição" value={form.description} onChange={e => upd('description', e.target.value)} placeholder="Descreva seu imóvel, diferenciais, o que está incluso..." />
             <div className="grid grid-cols-2 gap-4">
