@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import {
   Star, MapPin, Users, BedDouble, Bath, ChevronLeft, ChevronRight,
-  Heart, Share2, Check, Calendar, X, Grid2x2, MessageSquare,
+  Heart, Share2, Check, Calendar, X, Grid2x2, MessageSquare, AlertCircle,
   AirVent, Wind, Wifi, Tv, Shirt, Zap, Car, Accessibility,
   Utensils, UtensilsCrossed, Refrigerator, Snowflake, Flame, Coffee,
   Thermometer, Lock, Baby, Umbrella, Droplets, Dumbbell, Gamepad2, Trees,
@@ -211,6 +211,17 @@ export function PropertyDetails() {
     return Math.max(0, Math.floor((d2 - d1) / 86400000))
   }
 
+  const dateConflict = useMemo(() => {
+    if (!checkIn || !checkOut || blockedDates.length === 0) return false
+    const blocked = new Set(blockedDates)
+    const start = new Date(checkIn + 'T00:00:00')
+    const end = new Date(checkOut + 'T00:00:00')
+    for (let d = new Date(start); d < end; d.setDate(d.getDate() + 1)) {
+      if (blocked.has(d.toISOString().slice(0, 10))) return true
+    }
+    return false
+  }, [checkIn, checkOut, blockedDates])
+
   function handleReserve() {
     if (!user) {
       navigate(APP_ROUTES.LOGIN, { state: { from: { pathname: APP_ROUTES.PROPERTY(id!) } } })
@@ -218,6 +229,10 @@ export function PropertyDetails() {
     }
     if (!checkIn || !checkOut) {
       toast('warning', 'Selecione as datas', 'Escolha as datas de check-in e check-out.')
+      return
+    }
+    if (dateConflict) {
+      toast('error', 'Datas indisponíveis', 'Uma ou mais datas selecionadas estão bloqueadas. Por favor, escolha outras datas.')
       return
     }
     navigate(`${APP_ROUTES.CHECKOUT(id!)}?entrada=${checkIn}&saida=${checkOut}&hospedes=${guests}`)
@@ -753,7 +768,16 @@ export function PropertyDetails() {
                   </div>
                 </div>
 
-                <Button onClick={handleReserve} fullWidth size="lg">
+                {dateConflict && nights > 0 && (
+                  <div className="mb-3 p-3 rounded-xl bg-[#E50914]/10 border border-[#E50914]/30 flex items-start gap-2">
+                    <AlertCircle size={15} className="text-[#E50914] mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="text-xs font-semibold text-[#E50914]">Datas indisponíveis</p>
+                      <p className="text-xs text-[#B3B3B3] mt-0.5">Essas datas já estão ocupadas. Escolha outras datas para este imóvel.</p>
+                    </div>
+                  </div>
+                )}
+                <Button onClick={handleReserve} fullWidth size="lg" disabled={dateConflict && nights > 0}>
                   {user ? 'Reservar agora' : 'Entrar para reservar'}
                 </Button>
                 <p className="text-center text-xs text-[#666] mt-2">Sem cobrança ainda</p>
@@ -808,8 +832,8 @@ export function PropertyDetails() {
             </>
           )}
         </div>
-        <Button onClick={handleReserve} size="sm" className="flex-shrink-0">
-          {user ? 'Reservar agora' : 'Entrar'}
+        <Button onClick={handleReserve} size="sm" className="flex-shrink-0" disabled={dateConflict && nights > 0}>
+          {dateConflict && nights > 0 ? 'Datas ocupadas' : user ? 'Reservar agora' : 'Entrar'}
         </Button>
       </div>
     </div>
