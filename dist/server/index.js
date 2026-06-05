@@ -266,8 +266,8 @@ async function asaasRequest(method, path2, body) {
 }
 app.get("/api/upload/cloudinary-sign", requireAuth, (req, res) => {
   const apiSecret = process.env.CLOUDINARY_API_SECRET;
-  const apiKey = process.env.CLOUDINARY_API_KEY;
-  const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
+  const apiKey = process.env.CLOUDINARY_API_KEY ?? process.env.VITE_CLOUDINARY_API_KEY;
+  const cloudName = process.env.CLOUDINARY_CLOUD_NAME ?? process.env.VITE_CLOUDINARY_CLOUD_NAME;
   if (!apiSecret || !apiKey || !cloudName) {
     res.status(503).json({ error: "Cloudinary n\xE3o configurado. Defina CLOUDINARY_API_SECRET, CLOUDINARY_API_KEY e CLOUDINARY_CLOUD_NAME no servidor." });
     return;

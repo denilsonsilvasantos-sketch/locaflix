@@ -340,8 +340,8 @@ async function asaasRequest(method: string, path: string, body?: unknown) {
 // Returns a signed upload request for Cloudinary (keeps API secret server-side)
 app.get('/api/upload/cloudinary-sign', requireAuth, (req: Request, res: Response) => {
   const apiSecret  = process.env.CLOUDINARY_API_SECRET
-  const apiKey     = process.env.CLOUDINARY_API_KEY
-  const cloudName  = process.env.CLOUDINARY_CLOUD_NAME
+  const apiKey     = process.env.CLOUDINARY_API_KEY ?? process.env.VITE_CLOUDINARY_API_KEY
+  const cloudName  = process.env.CLOUDINARY_CLOUD_NAME ?? process.env.VITE_CLOUDINARY_CLOUD_NAME
 
   if (!apiSecret || !apiKey || !cloudName) {
     res.status(503).json({ error: 'Cloudinary não configurado. Defina CLOUDINARY_API_SECRET, CLOUDINARY_API_KEY e CLOUDINARY_CLOUD_NAME no servidor.' })
