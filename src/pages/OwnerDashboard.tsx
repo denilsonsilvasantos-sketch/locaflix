@@ -105,17 +105,21 @@ export function OwnerDashboard() {
 
   async function loadData() {
     setLoading(true)
-    const [{ data: props }, { data: bks }] = await Promise.all([
+    const [{ data: propData, error: propErr }, { data: bkData, error: bkErr }] = await Promise.all([
       supabase.from('properties').select('*').eq('owner_id', user!.id).order('created_at', { ascending: false }),
       supabase.from('bookings')
-        .select('*, property:properties(id,name,photos)')
+        .select('*')
         .eq('owner_id', user!.id)
         .order('created_at', { ascending: false })
         .limit(50),
     ])
-    const propList = (props ?? []) as Property[]
+    if (propErr) console.error('[OwnerDashboard] properties:', propErr)
+    if (bkErr)   console.error('[OwnerDashboard] bookings:', bkErr)
+
+    const propList = (propData ?? []) as Property[]
     setProperties(propList)
-    const bkList = (bks ?? []) as Booking[]
+    const propMap = Object.fromEntries(propList.map(p => [p.id, p]))
+    const bkList = (bkData ?? []) as (Booking & { property_id: string })[]
 
     if (bkList.length > 0) {
       const bookingIds = bkList.map(b => b.id)
@@ -132,6 +136,7 @@ export function OwnerDashboard() {
       }
       setBookings(bkList.map(b => ({
         ...b,
+        property: (propMap[b.property_id] ?? null) as Property,
         guest: (guestMap[b.guest_id] ?? null) as Booking['guest'],
         installments: installMap[b.id] ?? [],
       })))

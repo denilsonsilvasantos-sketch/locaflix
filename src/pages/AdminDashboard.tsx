@@ -217,11 +217,12 @@ export function AdminDashboard() {
         setInstallments((data ?? []) as unknown as InstallRow[])
 
       } else if (t === 'reservas') {
-        const { data: bkData } = await supabase
+        const { data: bkData, error: bkErr } = await supabase
           .from('bookings')
           .select('*')
           .order('created_at', { ascending: false })
           .limit(300)
+        if (bkErr) console.error('[AdminDashboard] bookings:', bkErr)
         const bkList = (bkData ?? []) as Booking[]
         if (bkList.length > 0) {
           const bookingIds = bkList.map(b => b.id)
