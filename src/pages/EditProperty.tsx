@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { X, Plus, Upload, Trash2, Image, Link, DollarSign } from 'lucide-react'
+import { X, Plus, Upload, Trash2, Image, Link, DollarSign, Star } from 'lucide-react'
 import { AvailabilityCalendar } from '../components/ui/AvailabilityCalendar'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
@@ -55,6 +55,7 @@ export function EditProperty() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [rooms, setRooms] = useState<RoomDraft[]>([])
+  const [coverPhotoUrl, setCoverPhotoUrl] = useState<string | null>(null)
   const [periods, setPeriods] = useState<PeriodDraft[]>([])
   const [catalog, setCatalog] = useState<AmenityCatalog[]>([])
   const [selectedAmenityIds, setSelectedAmenityIds] = useState<Set<string>>(new Set())
@@ -151,6 +152,8 @@ export function EditProperty() {
         return { id: uid(), category: parts[1] ?? 'Outros', name: parts.slice(2).join('::') }
       })
     setCustomAmenities(customOnes)
+
+    setCoverPhotoUrl(prop.photos?.[0] ?? null)
 
     const { data: roomsData } = await supabase
       .from('property_rooms')
@@ -268,43 +271,41 @@ export function EditProperty() {
     ))
   }
 
-  async function uploadFile(roomId: string, file: File, caption: string) {
+  async function uploadFiles(roomId: string, files: File[]) {
+    const validFiles = files.filter(f => {
+      if (!f.type.startsWith('image/')) { toast('error', 'Arquivo inválido', `${f.name}: apenas imagens.`); return false }
+      if (f.size > 10 * 1024 * 1024) { toast('error', 'Muito grande', `${f.name}: máx. 10 MB.`); return false }
+      return true
+    })
+    if (validFiles.length === 0) return
+
     const room = rooms.find(rm => rm.id === roomId)
-    if (!room || room.photos.length >= MAX_PHOTOS_PER_ROOM) return
-    if (!file.type.startsWith('image/')) {
-      toast('error', 'Arquivo inválido', 'Selecione uma imagem (JPG, PNG, WebP).')
-      return
-    }
-    if (file.size > 10 * 1024 * 1024) {
-      toast('error', 'Arquivo muito grande', 'Máximo 10 MB por foto.')
-      return
-    }
+    if (!room) return
+    const remaining = MAX_PHOTOS_PER_ROOM - room.photos.length
+    if (remaining <= 0) return
+    const filesToUpload = validFiles.slice(0, remaining)
+    if (validFiles.length > remaining) toast('warning', 'Limite', `Apenas ${remaining} foto${remaining !== 1 ? 's' : ''} podem ser adicionadas.`)
 
-    const photoId = uid()
-    setRooms(r => r.map(rm =>
-      rm.id === roomId
-        ? { ...rm, photos: [...rm.photos, { id: photoId, url: '', caption, uploading: true }] }
-        : rm
-    ))
+    const newPhotos: PhotoDraft[] = filesToUpload.map(() => ({ id: uid(), url: '', caption: '', uploading: true }))
+    setRooms(r => r.map(rm => rm.id === roomId ? { ...rm, photos: [...rm.photos, ...newPhotos] } : rm))
 
-    const ext = file.name.split('.').pop() ?? 'jpg'
-    const path = `${user!.id}/${Date.now()}-${uid()}.${ext}`
-    const { error } = await supabase.storage.from('property-photos').upload(path, file)
-
-    if (error) {
+    await Promise.all(filesToUpload.map(async (file, i) => {
+      const photoId = newPhotos[i].id
+      const ext = file.name.split('.').pop() ?? 'jpg'
+      const path = `${user!.id}/${Date.now()}-${uid()}.${ext}`
+      const { error } = await supabase.storage.from('property-photos').upload(path, file)
+      if (error) {
+        setRooms(r => r.map(rm => rm.id === roomId ? { ...rm, photos: rm.photos.filter(p => p.id !== photoId) } : rm))
+        toast('error', 'Erro no upload', error.message)
+        return
+      }
+      const { data } = supabase.storage.from('property-photos').getPublicUrl(path)
       setRooms(r => r.map(rm =>
-        rm.id === roomId ? { ...rm, photos: rm.photos.filter(p => p.id !== photoId) } : rm
+        rm.id === roomId
+          ? { ...rm, photos: rm.photos.map(p => p.id === photoId ? { ...p, url: data.publicUrl, uploading: false } : p) }
+          : rm
       ))
-      toast('error', 'Erro no upload', error.message)
-      return
-    }
-
-    const { data } = supabase.storage.from('property-photos').getPublicUrl(path)
-    setRooms(r => r.map(rm =>
-      rm.id === roomId
-        ? { ...rm, photos: rm.photos.map(p => p.id === photoId ? { ...p, url: data.publicUrl, uploading: false } : p) }
-        : rm
-    ))
+    }))
   }
 
   function addPeriod() {
@@ -427,6 +428,13 @@ export function EditProperty() {
         }))
       )
     }
+
+    // Build properties.photos array: cover first, then the rest
+    const allPhotoUrls = validRooms.flatMap(r => r.photos.filter(p => p.url && !p.uploading).map(p => p.url))
+    const photosArray = coverPhotoUrl
+      ? [coverPhotoUrl, ...allPhotoUrls.filter(u => u !== coverPhotoUrl)]
+      : allPhotoUrls
+    await supabase.from('properties').update({ photos: photosArray }).eq('id', id)
 
     setSaving(false)
     toast('success', 'Imóvel atualizado!', 'As alterações foram salvas com sucesso.')
@@ -722,8 +730,10 @@ export function EditProperty() {
                   onDescChange={v => updateRoom(room.id, { description: v })}
                   onRemoveRoom={() => removeRoom(room.id)}
                   onAddPhotoUrl={(url, cap) => addPhotoToRoom(room.id, url, cap)}
-                  onUploadFile={(file, cap) => uploadFile(room.id, file, cap)}
+                  onUploadFiles={files => uploadFiles(room.id, files)}
                   onRemovePhoto={photoId => removePhoto(room.id, photoId)}
+                  coverPhotoUrl={coverPhotoUrl}
+                  onSetCover={url => setCoverPhotoUrl(url)}
                 />
               ))}
             </div>
@@ -874,17 +884,20 @@ interface RoomCardProps {
   onDescChange: (v: string) => void
   onRemoveRoom: () => void
   onAddPhotoUrl: (url: string, caption: string) => void
-  onUploadFile: (file: File, caption: string) => void
+  onUploadFiles: (files: File[]) => void
   onRemovePhoto: (photoId: string) => void
+  coverPhotoUrl?: string | null
+  onSetCover?: (url: string) => void
 }
 
 function RoomCard({
   room, index, onNameChange, onDescChange, onRemoveRoom,
-  onAddPhotoUrl, onUploadFile, onRemovePhoto,
+  onAddPhotoUrl, onUploadFiles, onRemovePhoto, coverPhotoUrl, onSetCover,
 }: RoomCardProps) {
-  const [mode, setMode] = useState<'url' | 'upload'>('url')
+  const [mode, setMode] = useState<'url' | 'upload'>('upload')
   const [photoUrl, setPhotoUrl] = useState('')
   const [caption, setCaption] = useState('')
+  const [dragging, setDragging] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
   function handleAddUrl() {
@@ -896,12 +909,15 @@ function RoomCard({
   }
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (file) {
-      onUploadFile(file, caption.trim())
-      setCaption('')
-      e.target.value = ''
-    }
+    const files = Array.from(e.target.files ?? [])
+    if (files.length > 0) { onUploadFiles(files); e.target.value = '' }
+  }
+
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault()
+    setDragging(false)
+    const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'))
+    if (files.length > 0) onUploadFiles(files)
   }
 
   const canAddMore = room.photos.length < MAX_PHOTOS_PER_ROOM
@@ -917,11 +933,7 @@ function RoomCard({
           className="flex-1 bg-transparent text-sm text-white placeholder-[#555] outline-none"
         />
         <span className="text-xs text-[#444] shrink-0">{room.photos.length}/{MAX_PHOTOS_PER_ROOM}</span>
-        <button
-          type="button"
-          onClick={onRemoveRoom}
-          className="text-[#555] hover:text-[#E50914] transition-colors shrink-0"
-        >
+        <button type="button" onClick={onRemoveRoom} className="text-[#555] hover:text-[#E50914] transition-colors shrink-0">
           <Trash2 size={15} />
         </button>
       </div>
@@ -943,17 +955,25 @@ function RoomCard({
                     <div className="w-5 h-5 border-2 border-[#E50914] border-t-transparent rounded-full animate-spin" />
                   </div>
                 ) : (
-                  <img
-                    src={photo.url}
-                    alt=""
-                    className="w-full h-full object-cover"
-                    onError={e => { (e.target as HTMLImageElement).style.opacity = '0.3' }}
-                  />
+                  <img src={photo.url} alt="" className="w-full h-full object-cover" onError={e => { (e.target as HTMLImageElement).style.opacity = '0.3' }} />
+                )}
+                {photo.url === coverPhotoUrl && (
+                  <div className="absolute top-1 left-1 bg-[#F5A623] text-black text-[8px] font-bold px-1 py-0.5 rounded">CAPA</div>
                 )}
                 {photo.caption && (
                   <div className="absolute bottom-0 inset-x-0 bg-black/70 px-1.5 py-0.5">
                     <p className="text-[9px] text-white truncate">{photo.caption}</p>
                   </div>
+                )}
+                {!photo.uploading && onSetCover && (
+                  <button
+                    type="button"
+                    onClick={() => onSetCover(photo.url)}
+                    title="Definir como foto de capa"
+                    className={`absolute bottom-1 left-1 w-5 h-5 bg-black/70 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity ${photo.url === coverPhotoUrl ? 'text-[#F5A623]' : 'text-white'}`}
+                  >
+                    <Star size={9} className={photo.url === coverPhotoUrl ? 'fill-[#F5A623]' : ''} />
+                  </button>
                 )}
                 <button
                   type="button"
@@ -972,69 +992,67 @@ function RoomCard({
             <div className="flex gap-1">
               <button
                 type="button"
-                onClick={() => setMode('url')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                  mode === 'url' ? 'bg-[#333] text-white' : 'text-[#666] hover:text-[#B3B3B3]'
-                }`}
-              >
-                <Link size={11} />
-                URL
-              </button>
-              <button
-                type="button"
                 onClick={() => setMode('upload')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                  mode === 'upload' ? 'bg-[#333] text-white' : 'text-[#666] hover:text-[#B3B3B3]'
-                }`}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${mode === 'upload' ? 'bg-[#333] text-white' : 'text-[#666] hover:text-[#B3B3B3]'}`}
               >
                 <Upload size={11} />
                 Upload
               </button>
+              <button
+                type="button"
+                onClick={() => setMode('url')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${mode === 'url' ? 'bg-[#333] text-white' : 'text-[#666] hover:text-[#B3B3B3]'}`}
+              >
+                <Link size={11} />
+                URL
+              </button>
             </div>
 
-            <input
-              value={caption}
-              onChange={e => setCaption(e.target.value)}
-              placeholder="Legenda opcional (ex: Vista da janela)"
-              className="w-full bg-[#0A0A0A] border border-[#333] rounded-lg px-3 py-2 text-xs text-white placeholder-[#555] outline-none focus:border-[#444] transition-colors"
-            />
-
             {mode === 'url' ? (
-              <div className="flex gap-2">
+              <>
                 <input
-                  type="url"
-                  value={photoUrl}
-                  onChange={e => setPhotoUrl(e.target.value)}
-                  placeholder="https://..."
-                  className="flex-1 bg-[#0A0A0A] border border-[#333] rounded-lg px-3 py-2 text-xs text-white placeholder-[#555] outline-none focus:border-[#444] transition-colors"
+                  value={caption}
+                  onChange={e => setCaption(e.target.value)}
+                  placeholder="Legenda opcional"
+                  className="w-full bg-[#0A0A0A] border border-[#333] rounded-lg px-3 py-2 text-xs text-white placeholder-[#555] outline-none focus:border-[#444] transition-colors"
                 />
-                <button
-                  type="button"
-                  onClick={handleAddUrl}
-                  disabled={!photoUrl.trim()}
-                  className="px-3 py-2 bg-[#E50914] hover:bg-[#F40612] disabled:opacity-40 rounded-lg text-xs text-white font-medium transition-colors"
-                >
-                  Adicionar
-                </button>
-              </div>
+                <div className="flex gap-2">
+                  <input
+                    type="url"
+                    value={photoUrl}
+                    onChange={e => setPhotoUrl(e.target.value)}
+                    placeholder="https://..."
+                    className="flex-1 bg-[#0A0A0A] border border-[#333] rounded-lg px-3 py-2 text-xs text-white placeholder-[#555] outline-none focus:border-[#444] transition-colors"
+                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddUrl() } }}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddUrl}
+                    disabled={!photoUrl.trim()}
+                    className="shrink-0 flex items-center gap-1 px-3 py-2 bg-[#333] hover:bg-[#444] disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs rounded-lg transition-colors"
+                  >
+                    <Plus size={13} />
+                    Adicionar
+                  </button>
+                </div>
+              </>
             ) : (
-              <div>
-                <input
-                  ref={fileRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handleFileChange}
-                />
-                <button
-                  type="button"
+              <>
+                <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={handleFileChange} />
+                <div
+                  onDragOver={e => { e.preventDefault(); setDragging(true) }}
+                  onDragLeave={() => setDragging(false)}
+                  onDrop={handleDrop}
                   onClick={() => fileRef.current?.click()}
-                  className="w-full flex items-center justify-center gap-2 px-3 py-2 border-2 border-dashed border-[#333] hover:border-[#555] rounded-lg text-xs text-[#666] hover:text-[#B3B3B3] transition-colors"
+                  className={`w-full flex flex-col items-center justify-center gap-1.5 px-3 py-5 border-2 border-dashed rounded-lg cursor-pointer transition-all ${
+                    dragging ? 'border-[#E50914] bg-[#E50914]/10 text-[#E50914]' : 'border-[#333] hover:border-[#555] text-[#666] hover:text-[#B3B3B3]'
+                  }`}
                 >
-                  <Upload size={13} />
-                  Selecionar arquivo
-                </button>
-              </div>
+                  <Upload size={18} />
+                  <span className="text-xs">Arraste fotos aqui ou clique para selecionar</span>
+                  <span className="text-[10px] text-[#444]">Múltiplos arquivos · JPG, PNG, WebP · máx. 10 MB cada</span>
+                </div>
+              </>
             )}
           </div>
         )}
