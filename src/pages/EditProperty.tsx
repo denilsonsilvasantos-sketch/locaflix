@@ -60,6 +60,7 @@ export function EditProperty() {
   const [catalog, setCatalog] = useState<AmenityCatalog[]>([])
   const [selectedAmenityIds, setSelectedAmenityIds] = useState<Set<string>>(new Set())
   const [selectedHomeTags, setSelectedHomeTags] = useState<Set<string>>(new Set())
+  const [planValue, setPlanValue] = useState<'STANDARD' | 'DESTAQUE'>('STANDARD')
   const [customAmenities, setCustomAmenities] = useState<{ id: string; category: string; name: string }[]>([])
   const [customForm, setCustomForm] = useState({ category: 'Cozinha', name: '' })
 
@@ -157,6 +158,8 @@ export function EditProperty() {
     if (Array.isArray(prop.home_tags) && prop.home_tags.length > 0) {
       setSelectedHomeTags(new Set(prop.home_tags as string[]))
     }
+
+    setPlanValue(prop.plan === 'DESTAQUE' ? 'DESTAQUE' : 'STANDARD')
 
     setCoverPhotoUrl(prop.photos?.[0] ?? null)
 
@@ -888,41 +891,74 @@ export function EditProperty() {
 
           {/* Categorias da página inicial — apenas ADMIN */}
           {profile?.role === 'ADMIN' && (
-            <section className="bg-[#1F1F1F] border border-[#F5A623]/30 rounded-2xl p-6 space-y-4">
+            <section className="bg-[#1F1F1F] border border-[#F5A623]/30 rounded-2xl p-6 space-y-5">
               <div>
                 <h2 className="font-display text-lg font-bold text-white flex items-center gap-2">
                   <Star size={16} className="text-[#F5A623]" />
-                  Categorias da página inicial
+                  Destaque e Categorias da página inicial
                 </h2>
-                <p className="text-xs text-[#666] mt-0.5">Escolha em quais seções este imóvel aparecerá na home</p>
+                <p className="text-xs text-[#666] mt-0.5">Controle onde este imóvel aparece na home</p>
               </div>
-              <div className="flex flex-wrap gap-2">
-                {([
-                  { tag: 'praia',    label: 'Na Beira da Praia' },
-                  { tag: 'campo',    label: 'No Campo e Serra' },
-                  { tag: 'luxo',     label: 'Luxo & Exclusividade' },
-                  { tag: 'economico',label: 'Ótimo Custo-Benefício' },
-                ] as const).map(({ tag, label }) => {
-                  const active = selectedHomeTags.has(tag)
-                  return (
+
+              {/* Plano — hero banner */}
+              <div>
+                <p className="text-xs font-semibold text-[#B3B3B3] uppercase tracking-wide mb-2">Plano (hero banner)</p>
+                <div className="flex gap-2">
+                  {(['STANDARD', 'DESTAQUE'] as const).map(pl => (
                     <button
-                      key={tag}
+                      key={pl}
                       type="button"
-                      onClick={() => setSelectedHomeTags(prev => {
-                        const next = new Set(prev)
-                        if (next.has(tag)) next.delete(tag); else next.add(tag)
-                        return next
-                      })}
+                      onClick={async () => {
+                        const { error } = await supabase.from('properties').update({ plan: pl }).eq('id', id!)
+                        if (error) return
+                        setForm(f => ({ ...f }))
+                        setPlanValue(pl)
+                      }}
                       className={`text-sm px-4 py-2 rounded-xl border transition-all ${
-                        active ? 'bg-[#F5A623] border-[#F5A623] text-black font-semibold' : 'border-[#333] text-[#B3B3B3] hover:border-[#F5A623]/50'
+                        planValue === pl
+                          ? pl === 'DESTAQUE'
+                            ? 'bg-[#F5A623] border-[#F5A623] text-black font-semibold'
+                            : 'bg-[#2A2A2A] border-[#555] text-white font-semibold'
+                          : 'border-[#333] text-[#555] hover:border-[#555]'
                       }`}
                     >
-                      {label}
+                      {pl === 'DESTAQUE' ? '★ DESTAQUE' : 'STANDARD'}
                     </button>
-                  )
-                })}
+                  ))}
+                </div>
+                <p className="text-xs text-[#555] mt-1.5">DESTAQUE aparece no hero banner e na seção "Em Destaque"</p>
               </div>
-              <p className="text-xs text-[#555]">"Em Destaque" e hero banner são controlados pelo Plano do imóvel (DESTAQUE).</p>
+
+              {/* Tags — seções da home */}
+              <div>
+                <p className="text-xs font-semibold text-[#B3B3B3] uppercase tracking-wide mb-2">Seções da home</p>
+                <div className="flex flex-wrap gap-2">
+                  {([
+                    { tag: 'praia',    label: 'Na Beira da Praia' },
+                    { tag: 'campo',    label: 'No Campo e Serra' },
+                    { tag: 'luxo',     label: 'Luxo & Exclusividade' },
+                    { tag: 'economico',label: 'Ótimo Custo-Benefício' },
+                  ] as const).map(({ tag, label }) => {
+                    const active = selectedHomeTags.has(tag)
+                    return (
+                      <button
+                        key={tag}
+                        type="button"
+                        onClick={() => setSelectedHomeTags(prev => {
+                          const next = new Set(prev)
+                          if (next.has(tag)) next.delete(tag); else next.add(tag)
+                          return next
+                        })}
+                        className={`text-sm px-4 py-2 rounded-xl border transition-all ${
+                          active ? 'bg-[#F5A623] border-[#F5A623] text-black font-semibold' : 'border-[#333] text-[#B3B3B3] hover:border-[#F5A623]/50'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
             </section>
           )}
 

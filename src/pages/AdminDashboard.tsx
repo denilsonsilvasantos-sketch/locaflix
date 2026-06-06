@@ -8,7 +8,7 @@ import {
   LayoutDashboard, Home, Users, ShieldCheck, DollarSign, Send,
   Settings, Menu, X, LogOut, Check, TrendingUp, Building2, CheckCircle2,
   Banknote, AlertTriangle, UserPlus, Ban, Search, Bell, RefreshCw, Plus, Eye, MessageSquare, Trash2,
-  Calendar, Pencil,
+  Calendar, Pencil, Star,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { Logo } from '../components/layout/Logo'
@@ -364,6 +364,14 @@ export function AdminDashboard() {
     toast('info','Imóvel reprovado')
   }
 
+  async function togglePlan(id: string, currentPlan: string) {
+    const newPlan = currentPlan === 'DESTAQUE' ? 'STANDARD' : 'DESTAQUE'
+    const { error } = await supabase.from('properties').update({ plan: newPlan }).eq('id', id)
+    if (error) { toast('error','Erro', error.message); return }
+    setProperties(prev => prev.map(p => p.id === id ? { ...p, plan: newPlan as 'STANDARD' | 'DESTAQUE' } : p))
+    toast('success', newPlan === 'DESTAQUE' ? 'Promovido para Destaque' : 'Removido do Destaque')
+  }
+
   async function approveKYC(uid: string) {
     const { error } = await supabase.from('users').update({ kyc_status: 'APROVADO' }).eq('id', uid)
     if (error) { toast('error','Erro', error.message); return }
@@ -696,7 +704,14 @@ export function AdminDashboard() {
                             <td className="px-4 py-3 hidden md:table-cell text-[#666] text-xs">{p.type}</td>
                             <td className="px-4 py-3 hidden lg:table-cell text-[#666] text-xs">{(p.owner as UserProfile)?.name ?? '—'}</td>
                             <td className="px-4 py-3 text-white text-xs font-medium">{formatCurrency(p.price_per_night)}</td>
-                            <td className="px-4 py-3"><PropBadge status={p.status} /></td>
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <PropBadge status={p.status} />
+                                {p.plan === 'DESTAQUE' && (
+                                  <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-[#F5A623]/20 text-[#F5A623]">DESTAQUE</span>
+                                )}
+                              </div>
+                            </td>
                             <td className="px-4 py-3">
                               <div className="flex items-center justify-end gap-1">
                                 <Link to={`/imovel/${p.id}`} target="_blank">
@@ -705,6 +720,19 @@ export function AdminDashboard() {
                                 <Link to={`/editar-imovel/${p.id}`} target="_blank">
                                   <button className="p-1.5 rounded-lg text-[#444] hover:text-[#F5A623] hover:bg-[#F5A623]/10 transition-colors" title="Editar"><Pencil size={13} /></button>
                                 </Link>
+                                {p.status === 'ATIVO' && (
+                                  <button
+                                    onClick={() => togglePlan(p.id, p.plan)}
+                                    title={p.plan === 'DESTAQUE' ? 'Remover Destaque' : 'Promover para Destaque'}
+                                    className={`p-1.5 rounded-lg transition-colors ${
+                                      p.plan === 'DESTAQUE'
+                                        ? 'text-[#F5A623] bg-[#F5A623]/10 hover:bg-[#F5A623]/20'
+                                        : 'text-[#444] hover:text-[#F5A623] hover:bg-[#F5A623]/10'
+                                    }`}
+                                  >
+                                    <Star size={13} className={p.plan === 'DESTAQUE' ? 'fill-[#F5A623]' : ''} />
+                                  </button>
+                                )}
                                 {p.status === 'PENDENTE' && (
                                   <>
                                     <button onClick={() => approveProperty(p.id)} className="p-1.5 rounded-lg text-[#46D369] hover:bg-[#46D369]/10 transition-colors"><Check size={13} /></button>
