@@ -107,39 +107,36 @@ app.post("/api/payments/create-installments", requireAuth, async (req, res) => {
       return;
     }
     const customerRes = await findOrCreateCustomer(customer);
-    const basePayload = {
+    const payment = await asaasRequest("POST", "/payments", {
       customer: customerRes.id,
+      billingType: "UNDEFINED",
       value,
       dueDate,
       description,
       externalReference,
       fine: { value: 2, type: "PERCENTAGE" },
       interest: { value: 1, type: "MONTHLY" }
-    };
-    const [pixPayment, boletoPayment] = await Promise.all([
-      asaasRequest("POST", "/payments", { ...basePayload, billingType: "PIX" }),
-      asaasRequest("POST", "/payments", { ...basePayload, billingType: "BOLETO" })
-    ]);
-    const pixQr = await asaasRequest("GET", `/payments/${pixPayment.id}/pixQrCode`);
+    });
+    const pixQr = await asaasRequest("GET", `/payments/${payment.id}/pixQrCode`);
     if (installment_id) {
-      await adminSupabase.from("installments").update({ asaas_payment_id: pixPayment.id }).eq("id", installment_id);
+      await adminSupabase.from("installments").update({ asaas_payment_id: payment.id }).eq("id", installment_id);
     }
     res.json({
       pix: {
-        payment_id: pixPayment.id,
-        status: pixPayment.status,
+        payment_id: payment.id,
+        status: payment.status,
         pix_key: pixQr.payload,
         pix_qr_code: pixQr.encodedImage,
-        due_date: pixPayment.dueDate,
-        value: pixPayment.value
+        due_date: payment.dueDate,
+        value: payment.value
       },
       boleto: {
-        payment_id: boletoPayment.id,
-        status: boletoPayment.status,
-        boleto_url: boletoPayment.bankSlipUrl ?? "",
-        boleto_barcode: boletoPayment.identificationField ?? boletoPayment.nossoNumero ?? "",
-        due_date: boletoPayment.dueDate,
-        value: boletoPayment.value
+        payment_id: payment.id,
+        status: payment.status,
+        boleto_url: payment.bankSlipUrl ?? "",
+        boleto_barcode: payment.identificationField ?? payment.nossoNumero ?? "",
+        due_date: payment.dueDate,
+        value: payment.value
       }
     });
   } catch (err) {
