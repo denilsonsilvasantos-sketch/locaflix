@@ -368,6 +368,7 @@ app.get('/api/test/asaas', async (req: Request, res: Response) => {
   try {
     const customerRes = await findOrCreateCustomer({
       name: 'Locaflix Teste',
+      cpf: '35101515850',
       email: 'teste@locaflix.com.br',
     })
 
