@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+﻿import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import {
@@ -557,7 +557,7 @@ export function PropertyDetails() {
                 }}
                 className="shrink-0 px-3 py-1.5 text-xs font-medium border border-[#333] rounded-full text-[#B3B3B3] hover:border-[#555] hover:text-white transition-colors"
               >
-                {g.name} <span className="text-[#555]">({g.photos.length})</span>
+                {g.name} <span className="text-[#888]">({g.photos.length})</span>
               </button>
             ))}
           </div>
@@ -656,7 +656,7 @@ export function PropertyDetails() {
                   <div className="space-y-5">
                     {allCategories.map(category => (
                       <div key={category}>
-                        <h3 className="text-xs font-bold text-[#555] uppercase tracking-wider mb-3">{category}</h3>
+                        <h3 className="text-xs font-bold text-[#888] uppercase tracking-wider mb-3">{category}</h3>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                           {(byCategory[category] ?? []).map(pa => (
                             <div key={pa.amenity_id} className="flex items-center gap-2 text-sm text-[#B3B3B3]">
@@ -686,7 +686,7 @@ export function PropertyDetails() {
                   ))}
                 </div>
               ) : (
-                <p className="text-sm text-[#666]">Detalhes em breve.</p>
+                <p className="text-sm text-[#999]">Detalhes em breve.</p>
               )}
             </section>
 
@@ -738,7 +738,7 @@ export function PropertyDetails() {
                 <div>
                   <p className="text-xs text-[#B3B3B3]">Anfitrião</p>
                   <p className="font-semibold text-white">{property.owner.name?.split(' ')[0]}</p>
-                  <p className="text-xs text-[#666] mt-0.5">
+                  <p className="text-xs text-[#999] mt-0.5">
                     Membro desde {(() => { const y = new Date(property.owner.created_at ?? property.created_at ?? '').getFullYear(); return isNaN(y) ? '—' : y })()}
                   </p>
                 </div>
@@ -768,7 +768,7 @@ export function PropertyDetails() {
                 ) : (
                   <div className="mb-5">
                     <p className="text-lg font-semibold text-[#B3B3B3]">Selecione as datas</p>
-                    <p className="text-xs text-[#555] mt-0.5">para ver o preço e o parcelamento</p>
+                    <p className="text-xs text-[#888] mt-0.5">para ver o preço e o parcelamento</p>
                   </div>
                 )}
 
@@ -802,11 +802,11 @@ export function PropertyDetails() {
                           <p className="text-[9px] text-[#B3B3B3] uppercase font-semibold">Check-in</p>
                           <p className="text-sm font-semibold text-white">
                             {format(new Date(checkIn + 'T00:00:00'), 'dd MMM', { locale: ptBR })}
-                            <span className="text-[#666] font-normal ml-2">→ selecione saída</span>
+                            <span className="text-[#999] font-normal ml-2">→ selecione saída</span>
                           </p>
                         </div>
                       ) : (
-                        <p className="text-sm text-[#666]">Selecionar datas</p>
+                        <p className="text-sm text-[#999]">Selecionar datas</p>
                       )}
                     </div>
                   </button>
@@ -825,7 +825,7 @@ export function PropertyDetails() {
 
                 {/* Guests */}
                 <div className="border border-[#333] rounded-xl p-3 mb-5">
-                  <p className="text-[10px] font-bold text-[#B3B3B3] uppercase tracking-wide mb-1">Hóspedes</p>
+                  <p className="text-xs font-bold text-[#B3B3B3] uppercase tracking-wide mb-1">Hóspedes</p>
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-white">{guests} {guests === 1 ? 'hóspede' : 'hóspedes'}</span>
                     <div className="flex items-center gap-2">
@@ -858,7 +858,7 @@ export function PropertyDetails() {
                 <Button onClick={handleReserve} fullWidth size="lg" disabled={dateConflict && nights > 0}>
                   Reservar
                 </Button>
-                <p className="text-center text-xs text-[#666] mt-2">Sem cobrança ainda</p>
+                <p className="text-center text-xs text-[#999] mt-2">Sem cobrança ainda</p>
 
                 {hasActiveBooking && (
                   <Link to={APP_ROUTES.MESSAGES} className="mt-3 block">
@@ -885,7 +885,7 @@ export function PropertyDetails() {
                         >
                           <span className="text-white flex items-center gap-1.5">
                             Total:
-                            <Info size={13} className="text-[#555] group-hover:text-[#B3B3B3] transition-colors" />
+                            <Info size={13} className="text-[#888] group-hover:text-[#B3B3B3] transition-colors" />
                           </span>
                           <span className="text-[#F5A623] text-base underline underline-offset-2 decoration-dotted decoration-[#F5A623]/50">
                             {formatCurrency(grandTotal)}
@@ -896,7 +896,7 @@ export function PropertyDetails() {
                           <div className="absolute bottom-full right-0 mb-2 w-64 bg-[#1A1A1A] border border-[#333] rounded-xl shadow-2xl p-4 z-30">
                             <div className="flex items-center justify-between mb-3">
                               <p className="text-xs font-semibold text-white">Detalhes do preço</p>
-                              <button onClick={() => setPricePopoverOpen(false)} className="text-[#555] hover:text-white transition-colors">
+                              <button onClick={() => setPricePopoverOpen(false)} className="text-[#888] hover:text-white transition-colors">
                                 <X size={14} />
                               </button>
                             </div>
@@ -906,8 +906,8 @@ export function PropertyDetails() {
                                 <span className="text-white">{formatCurrency(grandTotal)}</span>
                               </div>
                               <div className="flex justify-between text-xs">
-                                <span className="text-[#666]">no pix/boleto</span>
-                                <span className="text-[#666]">{formatCurrency(grandTotal)}</span>
+                                <span className="text-[#999]">no pix/boleto</span>
+                                <span className="text-[#999]">{formatCurrency(grandTotal)}</span>
                               </div>
                             </div>
                             {maxInst > 1 && (
@@ -942,7 +942,7 @@ export function PropertyDetails() {
           ) : (
             <>
               <p className="text-xs text-[#B3B3B3]">Selecione as datas</p>
-              <p className="text-sm text-[#555]">para ver o preço</p>
+              <p className="text-sm text-[#888]">para ver o preço</p>
             </>
           )}
         </div>
@@ -957,7 +957,7 @@ export function PropertyDetails() {
 function Stat({ icon, label }: { icon: React.ReactNode; label: string }) {
   return (
     <div className="flex items-center gap-1.5 text-sm text-[#B3B3B3]">
-      <span className="text-[#666]">{icon}</span>
+      <span className="text-[#999]">{icon}</span>
       {label}
     </div>
   )
@@ -1006,7 +1006,7 @@ function AvailabilityReadOnly({ blockedDates }: { blockedDates: string[] }) {
         <p className="text-sm font-semibold text-white capitalize mb-3 text-center">{label}</p>
         <div className="grid grid-cols-7 gap-y-1 text-center">
           {DAYS_SHORT.map(d => (
-            <div key={d} className="text-[10px] font-semibold text-[#555] pb-1">{d}</div>
+            <div key={d} className="text-xs font-semibold text-[#888] pb-1">{d}</div>
           ))}
           {cells}
         </div>
@@ -1022,14 +1022,14 @@ function AvailabilityReadOnly({ blockedDates }: { blockedDates: string[] }) {
           type="button"
           onClick={() => setMonthOffset(o => Math.max(0, o - 2))}
           disabled={monthOffset === 0}
-          className="w-8 h-8 flex items-center justify-center rounded-lg text-[#555] hover:text-white hover:bg-[#2A2A2A] disabled:opacity-30 disabled:cursor-default transition-colors"
+          className="w-8 h-8 flex items-center justify-center rounded-lg text-[#888] hover:text-white hover:bg-[#2A2A2A] disabled:opacity-30 disabled:cursor-default transition-colors"
         >
           <ChevronLeft size={16} />
         </button>
         <button
           type="button"
           onClick={() => setMonthOffset(o => o + 2)}
-          className="w-8 h-8 flex items-center justify-center rounded-lg text-[#555] hover:text-white hover:bg-[#2A2A2A] transition-colors"
+          className="w-8 h-8 flex items-center justify-center rounded-lg text-[#888] hover:text-white hover:bg-[#2A2A2A] transition-colors"
         >
           <ChevronRight size={16} />
         </button>
@@ -1042,11 +1042,11 @@ function AvailabilityReadOnly({ blockedDates }: { blockedDates: string[] }) {
       <div className="flex items-center gap-4 mt-4 pt-4 border-t border-[#333]">
         <div className="flex items-center gap-1.5">
           <div className="w-3 h-3 rounded-full bg-[#1F1F1F] border border-[#444]" />
-          <span className="text-xs text-[#666]">Disponível</span>
+          <span className="text-xs text-[#999]">Disponível</span>
         </div>
         <div className="flex items-center gap-1.5">
           <div className="w-3 h-3 rounded-full bg-[#2A0A0A] border border-[#E50914]/50" />
-          <span className="text-xs text-[#666]">Indisponível</span>
+          <span className="text-xs text-[#999]">Indisponível</span>
         </div>
       </div>
     </div>
@@ -1084,7 +1084,7 @@ function TestimonialsSection() {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-white truncate">{t.name}</p>
-                <p className="text-xs text-[#555]">{t.date}</p>
+                <p className="text-xs text-[#888]">{t.date}</p>
               </div>
               <div className="flex items-center gap-0.5 flex-shrink-0">
                 {[1,2,3,4,5].map(s => (
@@ -1177,9 +1177,9 @@ function ReviewCard({ review, currentPropertyId }: { review: ReviewWithProperty;
             <p className="text-sm font-semibold text-white truncate">{name}</p>
             <RatingStars value={review.rating} size={12} />
           </div>
-          <p className="text-xs text-[#555] mt-0.5">{formatReviewDate(review.created_at)}</p>
+          <p className="text-xs text-[#888] mt-0.5">{formatReviewDate(review.created_at)}</p>
           {showProperty && (
-            <p className="text-[11px] text-[#666] mt-0.5 truncate">Imóvel: {review.property!.name}</p>
+            <p className="text-xs text-[#999] mt-0.5 truncate">Imóvel: {review.property!.name}</p>
           )}
         </div>
       </div>

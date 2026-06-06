@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+﻿import { useEffect, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
@@ -453,10 +453,10 @@ export function AdminDashboard() {
             <Logo size="sm" />
             <div className="flex items-center gap-1.5 mt-0.5">
               <div className="w-1.5 h-1.5 rounded-full bg-[#E50914]" />
-              <span className="text-[10px] font-bold text-[#E50914] uppercase tracking-widest">Painel Admin</span>
+              <span className="text-xs font-bold text-[#E50914] uppercase tracking-widest">Painel Admin</span>
             </div>
           </div>
-          <button className="lg:hidden text-[#555] hover:text-white" onClick={() => setSidebarOpen(false)}>
+          <button className="lg:hidden text-[#888] hover:text-white" onClick={() => setSidebarOpen(false)}>
             <X size={18} />
           </button>
         </div>
@@ -494,18 +494,18 @@ export function AdminDashboard() {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-xs font-semibold text-white truncate">{profile?.name ?? 'Admin'}</p>
-              <p className="text-[10px] text-[#444] truncate">{user?.email}</p>
+              <p className="text-xs text-[#444] truncate">{user?.email}</p>
             </div>
           </div>
           <Link
             to="/mensagens"
-            className="w-full flex items-center gap-2 px-3 py-2 text-xs text-[#555] hover:text-white hover:bg-[#1A1A1A] rounded-lg transition-colors mb-1"
+            className="w-full flex items-center gap-2 px-3 py-2 text-xs text-[#888] hover:text-white hover:bg-[#1A1A1A] rounded-lg transition-colors mb-1"
           >
             <MessageSquare size={13} /> Mensagens
           </Link>
           <button
             onClick={async () => { await signOut() }}
-            className="w-full flex items-center gap-2 px-3 py-2 text-xs text-[#555] hover:text-[#E50914] hover:bg-[#1A1A1A] rounded-lg transition-colors"
+            className="w-full flex items-center gap-2 px-3 py-2 text-xs text-[#888] hover:text-[#E50914] hover:bg-[#1A1A1A] rounded-lg transition-colors"
           >
             <LogOut size={13} /> Sair do painel
           </button>
@@ -516,17 +516,17 @@ export function AdminDashboard() {
       <div className="flex-1 min-w-0 flex flex-col">
         {/* Header */}
         <header className="h-14 bg-[#141414] border-b border-[#1F1F1F] flex items-center px-4 lg:px-6 gap-3 sticky top-0 z-30">
-          <button className="lg:hidden text-[#555] hover:text-white" onClick={() => setSidebarOpen(true)}>
+          <button className="lg:hidden text-[#888] hover:text-white" onClick={() => setSidebarOpen(true)}>
             <Menu size={20} />
           </button>
           <h1 className="text-sm font-semibold text-white flex-1">
             {NAV_ITEMS.find(n => n.id === tab)?.label ?? 'Dashboard'}
           </h1>
-          <button onClick={loadDashboard} className="flex items-center gap-1.5 text-xs text-[#555] hover:text-white transition-colors">
+          <button onClick={loadDashboard} className="flex items-center gap-1.5 text-xs text-[#888] hover:text-white transition-colors">
             <RefreshCw size={13} />
             <span className="hidden sm:inline">Atualizar</span>
           </button>
-          <Link to="/mensagens" className="relative text-[#555] hover:text-white transition-colors">
+          <Link to="/mensagens" className="relative text-[#888] hover:text-white transition-colors">
             <MessageSquare size={17} />
             {unreadCount > 0 && (
               <span className="absolute -top-1.5 -right-1.5 min-w-[14px] h-3.5 bg-[#E50914] rounded-full text-[9px] font-bold text-white flex items-center justify-center px-0.5">
@@ -536,7 +536,7 @@ export function AdminDashboard() {
           </Link>
           <div className="flex items-center gap-1.5">
             <div className="w-1.5 h-1.5 rounded-full bg-[#46D369] animate-pulse" />
-            <span className="text-[10px] text-[#444] hidden sm:inline">Online</span>
+            <span className="text-xs text-[#444] hidden sm:inline">Online</span>
           </div>
         </header>
 
@@ -568,7 +568,7 @@ export function AdminDashboard() {
                 <div className="xl:col-span-2 bg-[#1A1A1A] border border-[#222] rounded-xl p-5">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-sm font-semibold text-white">Receita últimos 6 meses</h3>
-                    <div className="flex gap-4 text-[10px] text-[#555]">
+                    <div className="flex gap-4 text-xs text-[#888]">
                       <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-sm bg-[#E50914] inline-block" />GMV</span>
                       <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-sm bg-[#F5A623] inline-block" />Receita</span>
                     </div>
@@ -616,7 +616,7 @@ export function AdminDashboard() {
                           <div key={d.state} className="flex items-center justify-between text-xs">
                             <span className="flex items-center gap-2">
                               <span className="w-2 h-2 rounded-full flex-shrink-0 inline-block" style={{ background: PIE_COLORS[i % PIE_COLORS.length] }} />
-                              <span className="text-[#666]">{d.state}</span>
+                              <span className="text-[#999]">{d.state}</span>
                             </span>
                             <span className="text-white font-medium">{d.value}</span>
                           </div>
@@ -694,7 +694,7 @@ export function AdminDashboard() {
                               <div className="flex items-center gap-3">
                                 {(p.photos ?? [])[0]
                                   ? <img src={p.photos![0]} alt="" className="w-10 h-10 rounded-lg object-cover flex-shrink-0" />
-                                  : <div className="w-10 h-10 rounded-lg flex-shrink-0 bg-[#222] flex items-center justify-center"><Home size={16} className="text-[#555]" /></div>
+                                  : <div className="w-10 h-10 rounded-lg flex-shrink-0 bg-[#222] flex items-center justify-center"><Home size={16} className="text-[#888]" /></div>
                                 }
                                 <div>
                                   <p className="text-white text-sm font-medium line-clamp-1">{p.name}</p>
@@ -702,14 +702,14 @@ export function AdminDashboard() {
                                 </div>
                               </div>
                             </td>
-                            <td className="px-4 py-3 hidden md:table-cell text-[#666] text-xs">{p.type}</td>
-                            <td className="px-4 py-3 hidden lg:table-cell text-[#666] text-xs">{(p.owner as UserProfile)?.name ?? '—'}</td>
+                            <td className="px-4 py-3 hidden md:table-cell text-[#999] text-xs">{p.type}</td>
+                            <td className="px-4 py-3 hidden lg:table-cell text-[#999] text-xs">{(p.owner as UserProfile)?.name ?? '—'}</td>
                             <td className="px-4 py-3 text-white text-xs font-medium">{formatCurrency(p.price_per_night)}</td>
                             <td className="px-4 py-3">
                               <div className="flex items-center gap-1.5 flex-wrap">
                                 <PropBadge status={p.status} />
                                 {p.plan === 'DESTAQUE' && (
-                                  <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-[#F5A623]/20 text-[#F5A623]">DESTAQUE</span>
+                                  <span className="text-xs font-bold px-2 py-0.5 rounded bg-[#F5A623]/20 text-[#F5A623]">DESTAQUE</span>
                                 )}
                               </div>
                             </td>
@@ -760,7 +760,7 @@ export function AdminDashboard() {
             <div className="space-y-4">
               <div className="flex items-center justify-between gap-3 flex-wrap">
                 <h2 className="text-lg font-bold text-white">Todas as Reservas</h2>
-                <span className="text-xs text-[#555]">{adminBookings.length} reservas</span>
+                <span className="text-xs text-[#888]">{adminBookings.length} reservas</span>
               </div>
               {loadingTab ? <Skeleton /> : (
                 <div className="bg-[#1A1A1A] border border-[#222] rounded-xl overflow-hidden">
@@ -786,36 +786,36 @@ export function AdminDashboard() {
                           const hasOverdue = insts.some(i => i.status === 'ATRASADO')
                           return (
                             <tr key={b.id} className="border-b border-[#1F1F1F] hover:bg-[#1F1F1F] transition-colors">
-                              <td className="px-4 py-3 text-[#555] font-mono">{b.booking_number ?? b.id.slice(0,8)}</td>
+                              <td className="px-4 py-3 text-[#888] font-mono">{b.booking_number ?? b.id.slice(0,8)}</td>
                               <td className="px-4 py-3">
                                 <div className="flex items-center gap-2">
                                   {(b.property?.photos ?? [])[0]
                                     ? <img src={b.property!.photos[0]} alt="" className="w-8 h-8 rounded-lg object-cover flex-shrink-0" />
-                                    : <div className="w-8 h-8 rounded-lg flex-shrink-0 bg-[#333] flex items-center justify-center"><Home size={13} className="text-[#555]" /></div>
+                                    : <div className="w-8 h-8 rounded-lg flex-shrink-0 bg-[#333] flex items-center justify-center"><Home size={13} className="text-[#888]" /></div>
                                   }
                                   <div className="min-w-0">
                                     <p className="text-white font-medium line-clamp-1">{b.property?.name ?? '—'}</p>
-                                    <p className="text-[#555]">{b.property?.city}, {b.property?.state}</p>
+                                    <p className="text-[#888]">{b.property?.city}, {b.property?.state}</p>
                                   </div>
                                 </div>
                               </td>
                               <td className="px-4 py-3">
                                 <p className="text-white">{(b.guest as { name?: string })?.name ?? '—'}</p>
-                                <p className="text-[#555]">{(b.guest as { email?: string })?.email ?? ''}</p>
+                                <p className="text-[#888]">{(b.guest as { email?: string })?.email ?? ''}</p>
                               </td>
                               <td className="px-4 py-3">
                                 <p className="text-white">{(b.owner as { name?: string })?.name ?? '—'}</p>
                               </td>
                               <td className="px-4 py-3 text-[#B3B3B3]">
                                 {formatShortDate(b.check_in)} → {formatShortDate(b.check_out)}
-                                <p className="text-[#555]">{b.nights}n</p>
+                                <p className="text-[#888]">{b.nights}n</p>
                               </td>
                               <td className="px-4 py-3 text-right text-[#F5A623] font-bold">
                                 {formatCurrency(b.total_price)}
                               </td>
                               <td className="px-4 py-3">
                                 {insts.length === 0 ? (
-                                  <span className="text-[#555]">—</span>
+                                  <span className="text-[#888]">—</span>
                                 ) : hasOverdue ? (
                                   <span className="px-2 py-0.5 rounded-full bg-[#E50914]/20 text-[#E50914] border border-[#E50914]/30">Atrasado</span>
                                 ) : (
@@ -852,7 +852,7 @@ export function AdminDashboard() {
                   {(['clientes','proprietarios'] as const).map(st => (
                     <button key={st} onClick={() => setUserSubTab(st)}
                       className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors
-                        ${userSubTab === st ? 'bg-[#E50914] text-white' : 'text-[#555] hover:text-white'}`}
+                        ${userSubTab === st ? 'bg-[#E50914] text-white' : 'text-[#888] hover:text-white'}`}
                     >
                       {st === 'clientes' ? 'Clientes' : 'Proprietários'}
                     </button>
@@ -895,7 +895,7 @@ export function AdminDashboard() {
                                 </div>
                               </div>
                             </td>
-                            <td className="px-4 py-3 hidden md:table-cell text-[#555] text-xs font-mono">
+                            <td className="px-4 py-3 hidden md:table-cell text-[#888] text-xs font-mono">
                               {u.cpf ? `***.***.${u.cpf.replace(/\D/g,'').slice(6,9)}-**` : '—'}
                             </td>
                             <td className="px-4 py-3"><KycBadge status={u.kyc_status} /></td>
@@ -904,7 +904,7 @@ export function AdminDashboard() {
                               <div className="flex items-center justify-end gap-1.5">
                                 {u.role === 'GUEST' && (
                                   <button onClick={() => makeOwner(u.id)}
-                                    className="flex items-center gap-1 px-2 py-1 text-[10px] font-bold text-[#F5A623] border border-[#F5A623]/30 rounded hover:bg-[#F5A623]/10 transition-colors whitespace-nowrap"
+                                    className="flex items-center gap-1 px-2 py-1 text-xs font-bold text-[#F5A623] border border-[#F5A623]/30 rounded hover:bg-[#F5A623]/10 transition-colors whitespace-nowrap"
                                   >
                                     <UserPlus size={11} /> ANFITRIÃO
                                   </button>
@@ -946,7 +946,7 @@ export function AdminDashboard() {
               {loadingTab ? <Skeleton /> : kycPending.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-24">
                   <ShieldCheck size={48} className="text-[#46D369] mb-4" />
-                  <p className="text-[#555] text-sm">Nenhuma verificação pendente</p>
+                  <p className="text-[#888] text-sm">Nenhuma verificação pendente</p>
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -1030,18 +1030,18 @@ export function AdminDashboard() {
                             <tr key={i.id} className="border-b border-[#1F1F1F] hover:bg-[#1F1F1F] transition-colors">
                               <td className="px-4 py-3">
                                 <p className="text-white text-xs font-medium">{(bk?.guest as UserProfile)?.name ?? (bk?.guest as UserProfile)?.email ?? '—'}</p>
-                                <p className="text-[#444] text-[11px] line-clamp-1">{(bk?.property as Property)?.name ?? '—'}</p>
+                                <p className="text-[#444] text-xs line-clamp-1">{(bk?.property as Property)?.name ?? '—'}</p>
                               </td>
-                              <td className="px-4 py-3 hidden md:table-cell text-[#666] text-xs">
+                              <td className="px-4 py-3 hidden md:table-cell text-[#999] text-xs">
                                 {i.type === 'ENTRADA' ? 'Entrada' : `Parcela ${i.number}`}
                               </td>
                               <td className="px-4 py-3 text-white text-xs font-semibold">{formatCurrency(i.value)}</td>
-                              <td className="px-4 py-3 hidden sm:table-cell text-[#555] text-xs">{formatShortDate(i.due_date)}</td>
+                              <td className="px-4 py-3 hidden sm:table-cell text-[#888] text-xs">{formatShortDate(i.due_date)}</td>
                               <td className="px-4 py-3"><InstallBadge status={i.status} /></td>
                               <td className="px-4 py-3 text-right">
                                 {i.status !== 'PAGO' && i.status !== 'CANCELADO' && (
                                   <button onClick={() => markInstallmentPaid(i.id)}
-                                    className="text-[10px] font-bold px-2 py-1 bg-[#46D369]/10 border border-[#46D369]/30 text-[#46D369] rounded hover:bg-[#46D369]/20 transition-colors whitespace-nowrap"
+                                    className="text-xs font-bold px-2 py-1 bg-[#46D369]/10 border border-[#46D369]/30 text-[#46D369] rounded hover:bg-[#46D369]/20 transition-colors whitespace-nowrap"
                                   >
                                     MARCAR PAGO
                                   </button>
@@ -1066,19 +1066,19 @@ export function AdminDashboard() {
             <div className="space-y-5">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="bg-[#1A1A1A] border border-[#222] rounded-xl p-5">
-                  <p className="text-[10px] text-[#444] uppercase tracking-wide mb-1">Bloqueados</p>
+                  <p className="text-xs text-[#444] uppercase tracking-wide mb-1">Bloqueados</p>
                   <p className="text-xl font-bold text-[#F5A623]">{formatCurrency(repassesBloqueados)}</p>
-                  <p className="text-[11px] text-[#333] mt-1">Aguardando conclusão das estadias</p>
+                  <p className="text-xs text-[#333] mt-1">Aguardando conclusão das estadias</p>
                 </div>
                 <div className="bg-[#1A1A1A] border border-[#222] rounded-xl p-5">
-                  <p className="text-[10px] text-[#444] uppercase tracking-wide mb-1">Prontos p/ Liberar</p>
+                  <p className="text-xs text-[#444] uppercase tracking-wide mb-1">Prontos p/ Liberar</p>
                   <p className="text-xl font-bold text-[#46D369]">{formatCurrency(repassesProntos)}</p>
-                  <p className="text-[11px] text-[#333] mt-1">Estadias concluídas, aguardando repasse</p>
+                  <p className="text-xs text-[#333] mt-1">Estadias concluídas, aguardando repasse</p>
                 </div>
                 <div className="bg-[#1A1A1A] border border-[#222] rounded-xl p-5">
-                  <p className="text-[10px] text-[#444] uppercase tracking-wide mb-1">Total Liquidado</p>
+                  <p className="text-xs text-[#444] uppercase tracking-wide mb-1">Total Liquidado</p>
                   <p className="text-xl font-bold text-white">{formatCurrency(0)}</p>
-                  <p className="text-[11px] text-[#333] mt-1">Repasses já realizados</p>
+                  <p className="text-xs text-[#333] mt-1">Repasses já realizados</p>
                 </div>
               </div>
 
@@ -1106,17 +1106,17 @@ export function AdminDashboard() {
                             <tr key={b.id} className="border-b border-[#1F1F1F] hover:bg-[#1F1F1F] transition-colors">
                               <td className="px-4 py-3">
                                 <p className="text-white text-xs font-medium">#{b.booking_number ?? b.id.slice(0,8)}</p>
-                                <p className="text-[#444] text-[11px]">{(b.guest as UserProfile)?.name ?? '—'}</p>
+                                <p className="text-[#444] text-xs">{(b.guest as UserProfile)?.name ?? '—'}</p>
                               </td>
-                              <td className="px-4 py-3 hidden md:table-cell text-[#666] text-xs line-clamp-1">
+                              <td className="px-4 py-3 hidden md:table-cell text-[#999] text-xs line-clamp-1">
                                 {(b.property as Property)?.name ?? '—'}
                               </td>
-                              <td className="px-4 py-3 hidden lg:table-cell text-[#666] text-xs">
+                              <td className="px-4 py-3 hidden lg:table-cell text-[#999] text-xs">
                                 {(b.owner as UserProfile)?.name ?? '—'}
                               </td>
                               <td className="px-4 py-3 text-white text-xs font-semibold">{formatCurrency(repasse)}</td>
                               <td className="px-4 py-3">
-                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                                <span className={`text-xs font-bold px-2 py-0.5 rounded ${
                                   b.status === 'CONCLUIDA' ? 'bg-[#46D369]/10 text-[#46D369]' : 'bg-[#F5A623]/10 text-[#F5A623]'
                                 }`}>
                                   {b.status === 'CONCLUIDA' ? 'PRONTO' : 'BLOQUEADO'}
@@ -1125,7 +1125,7 @@ export function AdminDashboard() {
                               <td className="px-4 py-3 text-right">
                                 {b.status === 'CONCLUIDA' && (
                                   <button onClick={() => liberarRepasse(b.id)}
-                                    className="text-[10px] font-bold px-2 py-1 bg-[#46D369]/10 border border-[#46D369]/30 text-[#46D369] rounded hover:bg-[#46D369]/20 transition-colors whitespace-nowrap"
+                                    className="text-xs font-bold px-2 py-1 bg-[#46D369]/10 border border-[#46D369]/30 text-[#46D369] rounded hover:bg-[#46D369]/20 transition-colors whitespace-nowrap"
                                   >
                                     LIBERAR MANUAL
                                   </button>
@@ -1158,7 +1158,7 @@ export function AdminDashboard() {
                   {(['dividido', 'unico'] as const).map(m => (
                     <button key={m} onClick={() => setFeeModel(m)}
                       className={`px-4 py-1.5 text-xs font-medium rounded-md transition-colors ${
-                        feeModel === m ? 'bg-[#E50914] text-white' : 'text-[#555] hover:text-white'
+                        feeModel === m ? 'bg-[#E50914] text-white' : 'text-[#888] hover:text-white'
                       }`}
                     >
                       {m === 'dividido' ? 'Dividido' : 'Único'}
@@ -1261,7 +1261,7 @@ export function AdminDashboard() {
                             <div key={idx} className="flex items-start gap-3 p-3 bg-[#111] border border-[#222] rounded-lg">
                               <div className="grid grid-cols-2 gap-3 flex-1">
                                 <div>
-                                  <label className="block text-[10px] text-[#555] mb-1">Dias antes checkin</label>
+                                  <label className="block text-xs text-[#888] mb-1">Dias antes checkin</label>
                                   <input type="number" min="0"
                                     value={rule.days_before}
                                     onChange={e => updateRule(policy.id, idx, 'days_before', Number(e.target.value))}
@@ -1269,7 +1269,7 @@ export function AdminDashboard() {
                                   />
                                 </div>
                                 <div>
-                                  <label className="block text-[10px] text-[#555] mb-1">% de reembolso</label>
+                                  <label className="block text-xs text-[#888] mb-1">% de reembolso</label>
                                   <input type="number" min="0" max="100"
                                     value={rule.refund_percentage}
                                     onChange={e => updateRule(policy.id, idx, 'refund_percentage', Number(e.target.value))}
@@ -1277,7 +1277,7 @@ export function AdminDashboard() {
                                   />
                                 </div>
                                 <div className="col-span-2">
-                                  <label className="block text-[10px] text-[#555] mb-1">Descrição</label>
+                                  <label className="block text-xs text-[#888] mb-1">Descrição</label>
                                   <input type="text"
                                     value={rule.description}
                                     onChange={e => updateRule(policy.id, idx, 'description', e.target.value)}
@@ -1296,7 +1296,7 @@ export function AdminDashboard() {
 
                           <button
                             onClick={() => addRule(policy.id)}
-                            className="flex items-center gap-2 w-full py-2.5 border border-dashed border-[#333] text-[#555] hover:text-white hover:border-[#555] rounded-lg text-xs transition-colors justify-center"
+                            className="flex items-center gap-2 w-full py-2.5 border border-dashed border-[#333] text-[#888] hover:text-white hover:border-[#555] rounded-lg text-xs transition-colors justify-center"
                           >
                             <Plus size={13} /> Adicionar regra
                           </button>
@@ -1349,11 +1349,11 @@ function KpiCard({ label, value, sub, icon, accent, green, danger }: {
   return (
     <div className="bg-[#1A1A1A] border border-[#222] rounded-xl p-4">
       <div className="flex items-center justify-between mb-2">
-        <span className="text-[10px] text-[#444] uppercase tracking-wide font-medium">{label}</span>
+        <span className="text-xs text-[#444] uppercase tracking-wide font-medium">{label}</span>
         <span className={iconColor}>{icon}</span>
       </div>
       <p className={`text-2xl font-bold ${color}`}>{value}</p>
-      {sub && <p className="text-[#333] text-[11px] mt-0.5">{sub}</p>}
+      {sub && <p className="text-[#333] text-xs mt-0.5">{sub}</p>}
     </div>
   )
 }
@@ -1361,32 +1361,32 @@ function KpiCard({ label, value, sub, icon, accent, green, danger }: {
 function PropBadge({ status }: { status: string }) {
   const m: Record<string,string> = {
     ATIVO:'bg-[#46D369]/10 text-[#46D369]', PENDENTE:'bg-[#F5A623]/10 text-[#F5A623]',
-    INATIVO:'bg-[#2A2A2A] text-[#555]',     REPROVADO:'bg-[#E50914]/10 text-[#E50914]',
+    INATIVO:'bg-[#2A2A2A] text-[#888]',     REPROVADO:'bg-[#E50914]/10 text-[#E50914]',
   }
-  return <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${m[status] ?? m.PENDENTE}`}>{status}</span>
+  return <span className={`text-xs font-bold px-2 py-0.5 rounded ${m[status] ?? m.PENDENTE}`}>{status}</span>
 }
 
 function KycBadge({ status }: { status: string }) {
   const m: Record<string,string> = {
     APROVADO:'bg-[#46D369]/10 text-[#46D369]', PENDENTE:'bg-[#F5A623]/10 text-[#F5A623]',
-    REPROVADO:'bg-[#E50914]/10 text-[#E50914]', INCOMPLETO:'bg-[#2A2A2A] text-[#555]',
+    REPROVADO:'bg-[#E50914]/10 text-[#E50914]', INCOMPLETO:'bg-[#2A2A2A] text-[#888]',
   }
-  return <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${m[status] ?? 'bg-[#2A2A2A] text-[#555]'}`}>{status}</span>
+  return <span className={`text-xs font-bold px-2 py-0.5 rounded ${m[status] ?? 'bg-[#2A2A2A] text-[#888]'}`}>{status}</span>
 }
 
 function RoleBadge({ role }: { role: string }) {
   const m: Record<string,string> = {
-    ADMIN:'bg-[#E50914]/20 text-[#E50914]', OWNER:'bg-[#F5A623]/20 text-[#F5A623]', GUEST:'bg-[#2A2A2A] text-[#555]',
+    ADMIN:'bg-[#E50914]/20 text-[#E50914]', OWNER:'bg-[#F5A623]/20 text-[#F5A623]', GUEST:'bg-[#2A2A2A] text-[#888]',
   }
-  return <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${m[role] ?? 'bg-[#2A2A2A] text-[#555]'}`}>{role}</span>
+  return <span className={`text-xs font-bold px-2 py-0.5 rounded ${m[role] ?? 'bg-[#2A2A2A] text-[#888]'}`}>{role}</span>
 }
 
 function InstallBadge({ status }: { status: string }) {
   const m: Record<string,string> = {
     PAGO:'bg-[#46D369]/10 text-[#46D369]', PENDENTE:'bg-[#F5A623]/10 text-[#F5A623]',
-    ATRASADO:'bg-[#E50914]/10 text-[#E50914]', CANCELADO:'bg-[#2A2A2A] text-[#555]',
+    ATRASADO:'bg-[#E50914]/10 text-[#E50914]', CANCELADO:'bg-[#2A2A2A] text-[#888]',
   }
-  return <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${m[status] ?? 'bg-[#2A2A2A] text-[#555]'}`}>{status}</span>
+  return <span className={`text-xs font-bold px-2 py-0.5 rounded ${m[status] ?? 'bg-[#2A2A2A] text-[#888]'}`}>{status}</span>
 }
 
 function BookingStatusBadge({ status }: { status: string }) {
@@ -1400,7 +1400,7 @@ function BookingStatusBadge({ status }: { status: string }) {
   const labels: Record<string,string> = {
     AGUARDANDO_PAGAMENTO:'Aguardando', PAGO:'Pago', PARCIAL:'Parcial', CONCLUIDA:'Concluída', CANCELADA:'Cancelada',
   }
-  return <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${m[status] ?? 'bg-[#2A2A2A] text-[#555]'}`}>{labels[status] ?? status}</span>
+  return <span className={`text-xs font-bold px-2 py-0.5 rounded ${m[status] ?? 'bg-[#2A2A2A] text-[#888]'}`}>{labels[status] ?? status}</span>
 }
 
 function Skeleton() {

@@ -1,4 +1,4 @@
-import { forwardRef } from 'react'
+﻿import { forwardRef } from 'react'
 import { cn } from '../../lib/utils'
 
 interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
@@ -57,7 +57,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
         )}
       </div>
       {error && <p className="text-xs text-red-400">{error}</p>}
-      {hint && !error && <p className="text-xs text-[#666]">{hint}</p>}
+      {hint && !error && <p className="text-xs text-[#999]">{hint}</p>}
     </div>
   )
 })

@@ -1,4 +1,4 @@
-import { Link, useLocation } from 'react-router-dom'
+﻿import { Link, useLocation } from 'react-router-dom'
 import { cn } from '../../lib/utils'
 
 interface NavItem {
@@ -36,7 +36,7 @@ export function DashboardLayout({ children, title, navItems }: DashboardLayoutPr
                 key={item.href}
                 to={item.href}
                 className={cn(
-                  'flex-shrink-0 flex flex-col items-center gap-0.5 px-4 py-3 text-[10px] font-medium border-b-2 transition-colors relative',
+                  'flex-shrink-0 flex flex-col items-center gap-0.5 px-4 py-3 text-xs font-medium border-b-2 transition-colors relative',
                   active
                     ? 'border-[#E50914] text-white'
                     : 'border-transparent text-[#B3B3B3] hover:text-white',

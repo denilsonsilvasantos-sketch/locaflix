@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+﻿import { useRef } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { PropertyCard } from './PropertyCard'
@@ -114,7 +114,7 @@ export function PropertyGrid({ properties, favoritedIds = new Set(), onFavoriteT
 
   if (properties.length === 0) {
     return (
-      <div className="text-center py-20 text-[#666]">
+      <div className="text-center py-20 text-[#999]">
         <p className="text-lg">{emptyMessage}</p>
       </div>
     )

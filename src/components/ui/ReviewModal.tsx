@@ -1,4 +1,4 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import { Star } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import type { Booking } from '../../types'
@@ -127,13 +127,13 @@ export function ReviewModal({ open, booking, onClose, onSuccess }: Props) {
             onChange={e => setComment(e.target.value)}
             placeholder="Conte como foi a estadia, a limpeza do imóvel, a comunicação com o anfitrião..."
             rows={4}
-            className="w-full bg-[#0A0A0A] border border-[#333] rounded-xl px-4 py-3 text-sm text-white placeholder:text-[#555] focus:outline-none focus:border-[#E50914] resize-none transition-colors"
+            className="w-full bg-[#0A0A0A] border border-[#333] rounded-xl px-4 py-3 text-sm text-white placeholder:text-[#888] focus:outline-none focus:border-[#E50914] resize-none transition-colors"
           />
           <div className="flex justify-between items-center mt-1.5">
-            <p className={`text-xs transition-colors ${charOk ? 'text-[#46D369]' : 'text-[#666]'}`}>
+            <p className={`text-xs transition-colors ${charOk ? 'text-[#46D369]' : 'text-[#999]'}`}>
               Mínimo {MIN_CHARS} caracteres
             </p>
-            <p className={`text-xs tabular-nums transition-colors ${charOk ? 'text-[#46D369]' : 'text-[#666]'}`}>
+            <p className={`text-xs tabular-nums transition-colors ${charOk ? 'text-[#46D369]' : 'text-[#999]'}`}>
               {trimmedLen} / {MIN_CHARS}
             </p>
           </div>
@@ -141,8 +141,8 @@ export function ReviewModal({ open, booking, onClose, onSuccess }: Props) {
 
         {/* Visibility info */}
         <div className="flex items-start gap-2 bg-[#141414] border border-[#2A2A2A] rounded-xl px-4 py-3">
-          <Star size={13} className="text-[#555] mt-0.5 flex-shrink-0" />
-          <p className="text-xs text-[#666] leading-relaxed">
+          <Star size={13} className="text-[#888] mt-0.5 flex-shrink-0" />
+          <p className="text-xs text-[#999] leading-relaxed">
             Sua avaliação ficará visível quando o anfitrião também avaliar a sua estadia,
             ou automaticamente após 14 dias do checkout.
           </p>

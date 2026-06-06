@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+﻿import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -99,7 +99,7 @@ export function Navbar() {
                   >
                     <div className="flex items-center justify-between mb-3">
                       <h3 className="font-display text-sm font-bold text-white">Central de Ajuda</h3>
-                      <button onClick={() => setHelpOpen(false)} className="text-[#666] hover:text-white transition-colors">
+                      <button onClick={() => setHelpOpen(false)} className="text-[#999] hover:text-white transition-colors">
                         <X size={14} />
                       </button>
                     </div>
@@ -112,7 +112,7 @@ export function Navbar() {
                         <Mail size={16} className="text-[#E50914] flex-shrink-0" />
                         <div>
                           <p className="text-xs font-semibold text-white">E-mail</p>
-                          <p className="text-[11px] text-[#B3B3B3]">suporte@locaflix.com.br</p>
+                          <p className="text-xs text-[#B3B3B3]">suporte@locaflix.com.br</p>
                         </div>
                       </a>
                       <a
@@ -124,11 +124,11 @@ export function Navbar() {
                         <MessageCircle size={16} className="text-[#25D366] flex-shrink-0" />
                         <div>
                           <p className="text-xs font-semibold text-white">WhatsApp</p>
-                          <p className="text-[11px] text-[#B3B3B3]">Atendimento rápido</p>
+                          <p className="text-xs text-[#B3B3B3]">Atendimento rápido</p>
                         </div>
                       </a>
                     </div>
-                    <p className="text-[10px] text-[#555] mt-4 text-center">Atendimento seg-sex, 9h às 18h</p>
+                    <p className="text-xs text-[#888] mt-4 text-center">Atendimento seg-sex, 9h às 18h</p>
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -145,7 +145,7 @@ export function Navbar() {
                   >
                     <MessageSquare size={18} />
                     {unreadMessages > 0 && (
-                      <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-[#E50914] rounded-full text-[10px] font-bold flex items-center justify-center text-white">
+                      <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-[#E50914] rounded-full text-xs font-bold flex items-center justify-center text-white">
                         {unreadMessages > 9 ? '9+' : unreadMessages}
                       </span>
                     )}
@@ -161,7 +161,7 @@ export function Navbar() {
                   >
                     <Bell size={18} />
                     {unreadNotifications > 0 && (
-                      <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-[#E50914] rounded-full text-[10px] font-bold flex items-center justify-center text-white">
+                      <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-[#E50914] rounded-full text-xs font-bold flex items-center justify-center text-white">
                         {unreadNotifications > 9 ? '9+' : unreadNotifications}
                       </span>
                     )}
@@ -203,7 +203,7 @@ export function Navbar() {
                             <p className="text-sm font-semibold text-white truncate">{profile?.name ?? 'Usuário'}</p>
                             <p className="text-xs text-[#B3B3B3] truncate">{user.email}</p>
                             {profile?.role === 'ADMIN' && (
-                              <span className="inline-block mt-1 text-[10px] font-bold text-[#E50914] bg-[#E50914]/10 px-2 py-0.5 rounded">ADMIN</span>
+                              <span className="inline-block mt-1 text-xs font-bold text-[#E50914] bg-[#E50914]/10 px-2 py-0.5 rounded">ADMIN</span>
                             )}
                           </div>
                         </div>
@@ -323,7 +323,7 @@ function MenuLink({
       {icon}
       <span className="flex-1">{label}</span>
       {badge && badge > 0 ? (
-        <span className="w-5 h-5 bg-[#E50914] rounded-full text-[10px] font-bold flex items-center justify-center text-white">
+        <span className="w-5 h-5 bg-[#E50914] rounded-full text-xs font-bold flex items-center justify-center text-white">
           {badge > 9 ? '9+' : badge}
         </span>
       ) : null}

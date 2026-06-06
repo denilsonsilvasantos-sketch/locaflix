@@ -1,9 +1,9 @@
-export function TermsOfUse() {
+﻿export function TermsOfUse() {
   return (
     <div className="min-h-screen bg-[#141414] pt-24 pb-16">
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
         <h1 className="font-display text-3xl font-bold text-white mb-2">Termos de Uso</h1>
-        <p className="text-xs text-[#555] mb-8">Última atualização: janeiro de 2025</p>
+        <p className="text-xs text-[#888] mb-8">Última atualização: janeiro de 2025</p>
 
         <div className="space-y-8 text-[#B3B3B3] text-sm leading-relaxed">
           <section>

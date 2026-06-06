@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+﻿import { useEffect, useRef, useState } from 'react'
 import { Bell, Calendar, Check, ChevronDown, ChevronLeft, DollarSign, Edit, Headphones, Heart, Home, MessageSquare, Paperclip, Send, ShieldCheck, Star, User, X, AlertTriangle, Clock, CheckCircle } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -541,8 +541,8 @@ export function MessagesPage() {
           <nav className="flex">
             {navItems.map(item => (
               <Link key={item.href} to={item.href}
-                className={`flex flex-col items-center gap-0.5 px-4 py-2.5 text-[10px] font-medium whitespace-nowrap transition-colors flex-shrink-0 ${
-                  item.key === 'mensagens' ? 'text-[#E50914] border-b-2 border-[#E50914]' : 'text-[#666] hover:text-white'
+                className={`flex flex-col items-center gap-0.5 px-4 py-2.5 text-xs font-medium whitespace-nowrap transition-colors flex-shrink-0 ${
+                  item.key === 'mensagens' ? 'text-[#E50914] border-b-2 border-[#E50914]' : 'text-[#999] hover:text-white'
                 }`}
               >
                 {item.icon}{item.label}
@@ -596,7 +596,7 @@ export function MessagesPage() {
             {displayedContacts.length === 0 ? (
               <div className="text-center py-12 px-4">
                 <MessageSquare size={32} className="mx-auto text-[#333] mb-3" />
-                <p className="text-xs text-[#666]">Nenhuma conversa ainda.</p>
+                <p className="text-xs text-[#999]">Nenhuma conversa ainda.</p>
                 <button onClick={() => setComposeOpen(true)} className="mt-3 text-xs text-[#E50914] hover:underline">
                   Nova mensagem
                 </button>
@@ -637,9 +637,9 @@ export function MessagesPage() {
                             </span>
                           )}
                         </div>
-                        <p className="text-xs text-[#666] truncate">{contact.lastMessage}</p>
+                        <p className="text-xs text-[#999] truncate">{contact.lastMessage}</p>
                         {cfg && (
-                          <span className="inline-flex items-center gap-1 mt-0.5 text-[10px] font-semibold"
+                          <span className="inline-flex items-center gap-1 mt-0.5 text-xs font-semibold"
                             style={{ color: cfg.color }}>
                             {cfg.icon}{cfg.label}
                           </span>
@@ -652,7 +652,7 @@ export function MessagesPage() {
                       <div className="absolute right-2 top-1/2 -translate-y-1/2">
                         <button
                           onClick={e => { e.stopPropagation(); setOpenStatusMenu(prev => prev === contact.id ? null : contact.id) }}
-                          className="w-6 h-6 flex items-center justify-center rounded text-[#555] hover:text-white hover:bg-[#333] transition-colors opacity-0 group-hover:opacity-100"
+                          className="w-6 h-6 flex items-center justify-center rounded text-[#888] hover:text-white hover:bg-[#333] transition-colors opacity-0 group-hover:opacity-100"
                           title="Alterar status"
                         >
                           <ChevronDown size={13} />
@@ -675,7 +675,7 @@ export function MessagesPage() {
                             ))}
                             <button
                               onClick={() => void setContactStatus(contact.id, null)}
-                              className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-[#555] hover:bg-[#2A2A2A] transition-colors border-t border-[#2A2A2A]"
+                              className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-[#888] hover:bg-[#2A2A2A] transition-colors border-t border-[#2A2A2A]"
                             >
                               <X size={11} /> Sem status
                             </button>
@@ -722,7 +722,7 @@ export function MessagesPage() {
                 <div className="flex-1 min-w-0">
                   <p className="font-semibold text-white text-sm">{activeContactName}</p>
                   {convStatusMap[activeContact.id] && (
-                    <span className="text-[10px] font-semibold" style={{ color: CONV_STATUS_CONFIG[convStatusMap[activeContact.id]!].color }}>
+                    <span className="text-xs font-semibold" style={{ color: CONV_STATUS_CONFIG[convStatusMap[activeContact.id]!].color }}>
                       {CONV_STATUS_CONFIG[convStatusMap[activeContact.id]!].label}
                     </span>
                   )}
@@ -732,7 +732,7 @@ export function MessagesPage() {
               {/* Messages */}
               <div className="flex-1 overflow-y-auto p-4 space-y-3">
                 {messages.length === 0 && (
-                  <p className="text-center text-sm text-[#666] py-8">
+                  <p className="text-center text-sm text-[#999] py-8">
                     {activeContact.id === SUPPORT_ID
                       ? 'Olá! Envie sua dúvida e nossa equipe responderá em breve.'
                       : 'Nenhuma mensagem ainda. Diga olá!'}
@@ -744,7 +744,7 @@ export function MessagesPage() {
                     : m.sender_id === user?.id
                   return (
                     <div key={m.id} className={`flex flex-col ${isOwn ? 'items-end' : 'items-start'}`}>
-                      {m.subject && <p className="text-[10px] text-[#666] mb-1 px-1">Assunto: {m.subject}</p>}
+                      {m.subject && <p className="text-xs text-[#999] mb-1 px-1">Assunto: {m.subject}</p>}
                       <div className={`max-w-[80%] rounded-2xl text-sm overflow-hidden ${
                         isOwn ? 'bg-[#E50914] text-white rounded-tr-sm' : 'bg-[#2A2A2A] text-white rounded-tl-sm'
                       }`}>
@@ -752,7 +752,7 @@ export function MessagesPage() {
                           ? <img src={m.content} alt="anexo" className="max-w-full rounded-2xl object-cover cursor-zoom-in" onClick={() => setLightboxSrc(m.content)} />
                           : <p className="whitespace-pre-wrap break-words px-4 py-2.5">{m.content}</p>
                         }
-                        <p className={`text-[10px] px-4 pb-2 ${isOwn ? 'text-white/60 text-right' : 'text-[#666]'}`}>
+                        <p className={`text-xs px-4 pb-2 ${isOwn ? 'text-white/60 text-right' : 'text-[#999]'}`}>
                           {new Date(m.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                         </p>
                       </div>
@@ -767,7 +767,7 @@ export function MessagesPage() {
                 <button
                   onClick={() => attachmentRef.current?.click()}
                   disabled={uploadingAttachment}
-                  className="w-10 h-10 bg-[#2A2A2A] border border-[#333] rounded-xl flex items-center justify-center text-[#666] hover:text-white hover:border-[#555] transition-colors disabled:opacity-50 flex-shrink-0"
+                  className="w-10 h-10 bg-[#2A2A2A] border border-[#333] rounded-xl flex items-center justify-center text-[#999] hover:text-white hover:border-[#555] transition-colors disabled:opacity-50 flex-shrink-0"
                   title="Anexar foto"
                 >
                   {uploadingAttachment
@@ -793,7 +793,7 @@ export function MessagesPage() {
               </div>
             </>
           ) : (
-            <div className="flex-1 flex flex-col items-center justify-center text-[#666] gap-4 p-6">
+            <div className="flex-1 flex flex-col items-center justify-center text-[#999] gap-4 p-6">
               <MessageSquare size={48} className="mb-2" />
               <p className="text-sm text-center">Selecione uma conversa</p>
               <button onClick={() => setComposeOpen(true)} className="text-sm text-[#E50914] hover:underline">
@@ -810,7 +810,7 @@ export function MessagesPage() {
           <div className="bg-[#1F1F1F] border border-[#333] rounded-2xl w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-5">
               <h3 className="font-display text-lg font-bold text-white">Nova mensagem</h3>
-              <button onClick={() => setComposeOpen(false)} className="text-[#666] hover:text-white transition-colors"><X size={20} /></button>
+              <button onClick={() => setComposeOpen(false)} className="text-[#999] hover:text-white transition-colors"><X size={20} /></button>
             </div>
             <div className="space-y-4">
               <div>
@@ -825,10 +825,10 @@ export function MessagesPage() {
                       <option value="" disabled>Selecione o destinatário</option>
                       {recipientList.map(r => <option key={r.id} value={r.id}>{r.name ?? 'Usuário'}</option>)}
                     </select>
-                    <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#666] pointer-events-none" />
+                    <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#999] pointer-events-none" />
                   </div>
                 ) : (
-                  <p className="text-xs text-[#666] bg-[#2A2A2A] border border-[#333] rounded-xl px-3 py-2.5">
+                  <p className="text-xs text-[#999] bg-[#2A2A2A] border border-[#333] rounded-xl px-3 py-2.5">
                     Nenhum contato disponível.
                   </p>
                 )}

@@ -1,4 +1,4 @@
-import { motion, AnimatePresence } from 'framer-motion'
+﻿import { motion, AnimatePresence } from 'framer-motion'
 import { X, CheckCircle, AlertCircle, Info, AlertTriangle } from 'lucide-react'
 import { useToast } from '../../hooks/useToast'
 import type { ToastType } from '../../types'
@@ -39,7 +39,7 @@ export function ToastContainer() {
             </div>
             <button
               onClick={() => dismiss(t.id)}
-              className="flex-shrink-0 text-[#666] hover:text-white transition-colors"
+              className="flex-shrink-0 text-[#999] hover:text-white transition-colors"
             >
               <X size={14} />
             </button>

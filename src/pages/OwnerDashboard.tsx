@@ -315,7 +315,7 @@ export function OwnerDashboard() {
       <aside className="hidden lg:flex flex-col fixed left-0 top-20 w-56 h-[calc(100vh-5rem)] bg-[#0F0F0F] border-r border-[#1F1F1F] z-30">
         <div className="px-5 py-5 border-b border-[#1F1F1F]">
           <Logo size="sm" />
-          <p className="text-[10px] text-[#555] mt-2 truncate">{profile?.name ?? 'Anfitrião'}</p>
+          <p className="text-xs text-[#888] mt-2 truncate">{profile?.name ?? 'Anfitrião'}</p>
         </div>
 
         <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">
@@ -363,7 +363,7 @@ export function OwnerDashboard() {
               <Link
                 key={item.href}
                 to={item.href}
-                className={`flex-shrink-0 flex flex-col items-center gap-0.5 px-4 py-3 text-[10px] font-medium border-b-2 transition-colors ${
+                className={`flex-shrink-0 flex flex-col items-center gap-0.5 px-4 py-3 text-xs font-medium border-b-2 transition-colors ${
                   active ? 'border-[#E50914] text-white' : 'border-transparent text-[#B3B3B3] hover:text-white'
                 }`}
               >
@@ -423,8 +423,8 @@ export function OwnerDashboard() {
 
                   {/* Nota sobre repasses */}
                   <div className="flex items-start gap-2.5 p-3.5 bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl mb-8">
-                    <Info size={14} className="text-[#555] flex-shrink-0 mt-0.5" />
-                    <p className="text-[11px] text-[#555] leading-relaxed">
+                    <Info size={14} className="text-[#888] flex-shrink-0 mt-0.5" />
+                    <p className="text-xs text-[#888] leading-relaxed">
                       <span className="text-[#B3B3B3] font-semibold">Sobre os valores: </span>
                       todos os valores exibidos são líquidos (após as taxas da plataforma). O repasse é liberado <strong className="text-[#B3B3B3]">1 dia após o checkout</strong> do hóspede, ou conforme a política de cancelamento aplicável em caso de cancelamento antecipado.
                     </p>
@@ -455,7 +455,7 @@ export function OwnerDashboard() {
                   <section className="mb-10">
                     <h2 className="font-display text-lg font-bold text-white mb-4">Reservas Recentes</h2>
                     {bookings.length === 0 ? (
-                      <div className="text-center py-10 text-[#555]">
+                      <div className="text-center py-10 text-[#888]">
                         <Calendar size={36} className="mx-auto mb-3" />
                         <p className="text-sm">Nenhuma reserva ainda.</p>
                       </div>
@@ -510,7 +510,7 @@ export function OwnerDashboard() {
                 <div>
                   <h2 className="font-display text-xl font-bold text-white mb-4">Reservas recebidas</h2>
                   {bookings.length === 0 ? (
-                    <div className="text-center py-16 text-[#555]">
+                    <div className="text-center py-16 text-[#888]">
                       <Calendar size={48} className="mx-auto mb-4" />
                       <p>Nenhuma reserva ainda.</p>
                     </div>
@@ -536,15 +536,15 @@ export function OwnerDashboard() {
                               <div className="min-w-0">
                                 <p className="font-semibold text-white text-sm">{b.guest?.name ?? 'Hóspede'}</p>
                                 <p className="text-xs text-[#B3B3B3]">{b.property?.name}</p>
-                                <p className="text-xs text-[#666]">{formatShortDate(b.check_in)} → {formatShortDate(b.check_out)}</p>
+                                <p className="text-xs text-[#999]">{formatShortDate(b.check_in)} → {formatShortDate(b.check_out)}</p>
                               </div>
                             </div>
                             <div className="text-right flex-shrink-0">
                               <StatusBadge status={b.status} />
                               {b.owner_confirmed
-                                ? <p className="text-[10px] text-[#46D369] mt-0.5">Aceita por você</p>
+                                ? <p className="text-xs text-[#46D369] mt-0.5">Aceita por você</p>
                                 : !['CANCELADA','CONCLUIDA'].includes(b.status) && (
-                                    <p className="text-[10px] text-[#F5A623] mt-0.5">Aguardando seu aceite</p>
+                                    <p className="text-xs text-[#F5A623] mt-0.5">Aguardando seu aceite</p>
                                   )
                               }
                             </div>
@@ -554,20 +554,20 @@ export function OwnerDashboard() {
                           <div className="mt-3 pt-3 border-t border-[#2A2A2A]">
                             <div className="grid grid-cols-3 gap-3 text-xs mb-2">
                               <div>
-                                <p className="text-[#555] mb-0.5">Valor da reserva</p>
+                                <p className="text-[#888] mb-0.5">Valor da reserva</p>
                                 <p className="text-[#B3B3B3] font-medium">{formatCurrency(b.subtotal)}</p>
                               </div>
                               <div>
-                                <p className="text-[#555] mb-0.5">Taxa plataforma</p>
+                                <p className="text-[#888] mb-0.5">Taxa plataforma</p>
                                 <p className="text-[#E50914] font-medium">− {formatCurrency(b.platform_fee)}</p>
                               </div>
                               <div>
-                                <p className="text-[#555] mb-0.5">Seu repasse</p>
+                                <p className="text-[#888] mb-0.5">Seu repasse</p>
                                 <p className="text-[#F5A623] font-bold">{formatCurrency(b.subtotal - b.platform_fee)}</p>
                               </div>
                             </div>
                             {!['CANCELADA'].includes(b.status) && (
-                              <p className="text-[10px] text-[#444]">
+                              <p className="text-xs text-[#444]">
                                 ⏱ Repasse disponível após checkout em {repasseDate}
                               </p>
                             )}
@@ -624,12 +624,12 @@ export function OwnerDashboard() {
                   <Card className="p-5">
                     <h3 className="text-sm font-semibold text-white mb-3">Histórico de pagamentos</h3>
                     {bookings.length === 0 ? (
-                      <p className="text-sm text-[#666]">Nenhum pagamento registrado.</p>
+                      <p className="text-sm text-[#999]">Nenhum pagamento registrado.</p>
                     ) : (
                       <div className="overflow-x-auto">
                         <table className="w-full text-sm min-w-[480px]">
                           <thead>
-                            <tr className="text-[#666] text-xs border-b border-[#333]">
+                            <tr className="text-[#999] text-xs border-b border-[#333]">
                               <th className="text-left pb-2">Reserva</th>
                               <th className="text-left pb-2">Hóspede</th>
                               <th className="text-right pb-2">Valor líquido</th>
@@ -654,7 +654,7 @@ export function OwnerDashboard() {
                   {/* ── Dados para Repasse ── */}
                   <Card className="p-5 mt-6">
                     <h3 className="text-sm font-semibold text-white mb-1">Dados para Repasse</h3>
-                    <p className="text-xs text-[#555] mb-4">Informe seus dados bancários para receber os repasses das reservas.</p>
+                    <p className="text-xs text-[#888] mb-4">Informe seus dados bancários para receber os repasses das reservas.</p>
                     <div className="space-y-4">
                       <Input
                         label="Chave Pix"
@@ -718,7 +718,7 @@ export function OwnerDashboard() {
                     )}
                   </div>
                   {reviews.length === 0 ? (
-                    <div className="text-center py-16 text-[#555]">
+                    <div className="text-center py-16 text-[#888]">
                       <Star size={48} className="mx-auto mb-4" />
                       <p className="text-sm">Nenhuma avaliação ainda.</p>
                       <p className="text-xs mt-1 text-[#444]">Avaliações aparecem aqui após as estadas dos hóspedes.</p>
@@ -802,7 +802,7 @@ export function OwnerDashboard() {
                             <p className="text-sm font-semibold text-white group-hover:text-[#E50914] transition-colors">
                               Imóvel de terceiros
                             </p>
-                            <p className="text-xs text-[#666] mt-0.5">Marque se o imóvel não está em seu nome</p>
+                            <p className="text-xs text-[#999] mt-0.5">Marque se o imóvel não está em seu nome</p>
                           </div>
                         </label>
                       </div>
@@ -873,7 +873,7 @@ export function OwnerDashboard() {
                         </Button>
                       )}
                       {!canSubmit && !isPending && (
-                        <p className="text-xs text-[#555] text-center">
+                        <p className="text-xs text-[#888] text-center">
                           Preencha todos os campos obrigatórios para enviar.
                         </p>
                       )}
@@ -907,7 +907,7 @@ export function OwnerDashboard() {
           <div className="bg-[#1F1F1F] border border-[#333] rounded-2xl w-full max-w-md p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-display text-base font-bold text-white">Cancelar reserva</h3>
-              <button onClick={() => setCancelBookingId(null)} className="text-[#666] hover:text-white transition-colors">
+              <button onClick={() => setCancelBookingId(null)} className="text-[#999] hover:text-white transition-colors">
                 <X size={18} />
               </button>
             </div>
@@ -971,9 +971,9 @@ function OwnerContractModal({
         <div className="flex items-center justify-between px-6 py-5 border-b border-[#2A2A2A]">
           <div>
             <h3 className="font-display text-base font-bold text-white">Aceite de Reserva</h3>
-            <p className="text-xs text-[#555] mt-0.5">{booking.booking_number}</p>
+            <p className="text-xs text-[#888] mt-0.5">{booking.booking_number}</p>
           </div>
-          <button onClick={onClose} className="text-[#666] hover:text-white transition-colors">
+          <button onClick={onClose} className="text-[#999] hover:text-white transition-colors">
             <X size={18} />
           </button>
         </div>
@@ -982,7 +982,7 @@ function OwnerContractModal({
 
           {/* Resumo da reserva */}
           <div className="bg-[#2A2A2A] rounded-xl p-4 space-y-2.5 text-sm">
-            <p className="text-[10px] font-bold text-[#555] uppercase tracking-widest mb-3">Resumo da reserva</p>
+            <p className="text-xs font-bold text-[#888] uppercase tracking-widest mb-3">Resumo da reserva</p>
             {[
               { label: 'Hóspede',   value: booking.guest?.name ?? '—' },
               { label: 'Imóvel',    value: booking.property?.name ?? '—' },
@@ -990,7 +990,7 @@ function OwnerContractModal({
               { label: 'Check-out', value: formatShortDate(booking.check_out) },
             ].map(row => (
               <div key={row.label} className="flex justify-between">
-                <span className="text-[#666]">{row.label}</span>
+                <span className="text-[#999]">{row.label}</span>
                 <span className="text-white font-medium text-right max-w-[60%] truncate">{row.value}</span>
               </div>
             ))}
@@ -998,13 +998,13 @@ function OwnerContractModal({
 
           {/* Detalhamento financeiro */}
           <div className="bg-[#2A2A2A] rounded-xl p-4 space-y-2.5 text-sm">
-            <p className="text-[10px] font-bold text-[#555] uppercase tracking-widest mb-3">Detalhamento financeiro</p>
+            <p className="text-xs font-bold text-[#888] uppercase tracking-widest mb-3">Detalhamento financeiro</p>
             <div className="flex justify-between">
-              <span className="text-[#666]">Valor da reserva (hospedagem)</span>
+              <span className="text-[#999]">Valor da reserva (hospedagem)</span>
               <span className="text-white">{formatCurrency(booking.subtotal)}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-[#666]">Taxa da plataforma</span>
+              <span className="text-[#999]">Taxa da plataforma</span>
               <span className="text-[#E50914]">− {formatCurrency(booking.platform_fee)}</span>
             </div>
             <div className="flex justify-between border-t border-[#333] pt-2.5">
@@ -1012,8 +1012,8 @@ function OwnerContractModal({
               <span className="text-[#F5A623] font-bold text-base">{formatCurrency(netValue)}</span>
             </div>
             <div className="flex items-start gap-2 mt-2 pt-2 border-t border-[#333]">
-              <Info size={13} className="text-[#555] flex-shrink-0 mt-0.5" />
-              <p className="text-[11px] text-[#555] leading-relaxed">
+              <Info size={13} className="text-[#888] flex-shrink-0 mt-0.5" />
+              <p className="text-xs text-[#888] leading-relaxed">
                 O repasse é liberado <strong className="text-[#B3B3B3]">1 dia após o checkout</strong> ({repasseDate}).
                 Em caso de cancelamento, o valor segue a política de cancelamento do imóvel.
               </p>
@@ -1022,7 +1022,7 @@ function OwnerContractModal({
 
           {/* Termos */}
           <div className="bg-[#2A2A2A] rounded-xl p-4">
-            <p className="text-[10px] font-bold text-[#555] uppercase tracking-widest mb-3">Ao aceitar você se compromete a</p>
+            <p className="text-xs font-bold text-[#888] uppercase tracking-widest mb-3">Ao aceitar você se compromete a</p>
             <div className="space-y-2">
               {[
                 'Manter o imóvel disponível nas datas reservadas',
@@ -1086,16 +1086,16 @@ function PropertyRow({ property, onToggle }: { property: Property; onToggle: (p:
       <div className="p-4 flex items-center gap-4">
         {property.photos?.[0]
           ? <img src={property.photos[0]} alt="" className="w-16 h-16 rounded-xl object-cover flex-shrink-0" />
-          : <div className="w-16 h-16 rounded-xl flex-shrink-0 bg-[#2A2A2A] flex items-center justify-center"><Home size={22} className="text-[#555]" /></div>
+          : <div className="w-16 h-16 rounded-xl flex-shrink-0 bg-[#2A2A2A] flex items-center justify-center"><Home size={22} className="text-[#888]" /></div>
         }
         <div className="flex-1 min-w-0">
           <p className="font-semibold text-white text-sm line-clamp-1">{property.name}</p>
           <p className="text-xs text-[#B3B3B3]">{property.city}, {property.state}</p>
           <div className="flex items-center gap-2 mt-1">
             <PropertyStatusBadge status={property.status} />
-            <span className="text-xs text-[#666]">{formatCurrency(property.price_per_night)}/noite</span>
+            <span className="text-xs text-[#999]">{formatCurrency(property.price_per_night)}/noite</span>
           </div>
-          <Link to={APP_ROUTES.EDIT_PROPERTY(property.id)} className="inline-block mt-1 text-[10px] text-[#F5A623] hover:underline">
+          <Link to={APP_ROUTES.EDIT_PROPERTY(property.id)} className="inline-block mt-1 text-xs text-[#F5A623] hover:underline">
             Configurar disponibilidade →
           </Link>
         </div>
@@ -1124,7 +1124,7 @@ function PropertyRow({ property, onToggle }: { property: Property; onToggle: (p:
           >
             {property.status === 'ATIVO'
               ? <ToggleRight size={16} className="text-[#46D369]" />
-              : <ToggleLeft size={16} className="text-[#666]" />
+              : <ToggleLeft size={16} className="text-[#999]" />
             }
           </button>
         </div>
@@ -1250,7 +1250,7 @@ function PricePeriodsManager({ propertyId, defaultPrice }: { propertyId: string;
         <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-4 space-y-3">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <div>
-              <label className="text-xs text-[#666] block mb-1">Tipo</label>
+              <label className="text-xs text-[#999] block mb-1">Tipo</label>
               <select
                 value={form.period_type}
                 onChange={e => handleTypeChange(e.target.value as PeriodType)}
@@ -1262,7 +1262,7 @@ function PricePeriodsManager({ propertyId, defaultPrice }: { propertyId: string;
               </select>
             </div>
             <div>
-              <label className="text-xs text-[#666] block mb-1">Nome</label>
+              <label className="text-xs text-[#999] block mb-1">Nome</label>
               <input
                 value={form.name}
                 onChange={e => updForm({ name: e.target.value })}
@@ -1272,7 +1272,7 @@ function PricePeriodsManager({ propertyId, defaultPrice }: { propertyId: string;
           </div>
           <div className={`grid gap-2 ${needsDates ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-2'}`}>
             <div>
-              <label className="text-xs text-[#666] block mb-1">Preço/noite (R$)</label>
+              <label className="text-xs text-[#999] block mb-1">Preço/noite (R$)</label>
               <input
                 type="number" min="1" step="0.01"
                 value={form.price_per_night}
@@ -1282,7 +1282,7 @@ function PricePeriodsManager({ propertyId, defaultPrice }: { propertyId: string;
               />
             </div>
             <div>
-              <label className="text-xs text-[#666] block mb-1">Prioridade</label>
+              <label className="text-xs text-[#999] block mb-1">Prioridade</label>
               <input
                 type="number" min="0"
                 value={form.priority}
@@ -1293,7 +1293,7 @@ function PricePeriodsManager({ propertyId, defaultPrice }: { propertyId: string;
             {needsDates && (
               <>
                 <div>
-                  <label className="text-xs text-[#666] block mb-1">Início</label>
+                  <label className="text-xs text-[#999] block mb-1">Início</label>
                   <input
                     type="date"
                     value={form.start_date}
@@ -1302,7 +1302,7 @@ function PricePeriodsManager({ propertyId, defaultPrice }: { propertyId: string;
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-[#666] block mb-1">Fim</label>
+                  <label className="text-xs text-[#999] block mb-1">Fim</label>
                   <input
                     type="date"
                     value={form.end_date}
@@ -1324,7 +1324,7 @@ function PricePeriodsManager({ propertyId, defaultPrice }: { propertyId: string;
           <div className="w-5 h-5 border-2 border-[#E50914] border-t-transparent rounded-full animate-spin mx-auto" />
         </div>
       ) : periods.length === 0 ? (
-        <p className="text-xs text-[#555] text-center py-3">
+        <p className="text-xs text-[#888] text-center py-3">
           Nenhum período configurado — será usado o preço base ({formatCurrency(defaultPrice)}/noite) para todas as diárias.
         </p>
       ) : (
@@ -1337,12 +1337,12 @@ function PricePeriodsManager({ propertyId, defaultPrice }: { propertyId: string;
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <p className="text-xs font-semibold text-white truncate">{p.name}</p>
-                  <span className="text-[10px] text-[#555] shrink-0">prio {p.priority}</span>
+                  <span className="text-xs text-[#888] shrink-0">prio {p.priority}</span>
                 </div>
                 <div className="flex items-center gap-2 mt-0.5">
-                  <span className="text-[10px] text-[#666]">{PERIOD_TYPE_LABELS[p.period_type]}</span>
+                  <span className="text-xs text-[#999]">{PERIOD_TYPE_LABELS[p.period_type]}</span>
                   {p.start_date && p.end_date && (
-                    <span className="text-[10px] text-[#555]">· {p.start_date} → {p.end_date}</span>
+                    <span className="text-xs text-[#888]">· {p.start_date} → {p.end_date}</span>
                   )}
                 </div>
               </div>
@@ -1350,14 +1350,14 @@ function PricePeriodsManager({ propertyId, defaultPrice }: { propertyId: string;
               <div className="flex items-center gap-1 shrink-0">
                 <button
                   onClick={() => handleToggle(p)}
-                  className="w-7 h-7 rounded-lg bg-[#2A2A2A] flex items-center justify-center text-[#666] hover:text-white transition-colors"
+                  className="w-7 h-7 rounded-lg bg-[#2A2A2A] flex items-center justify-center text-[#999] hover:text-white transition-colors"
                   title={p.active ? 'Desativar' : 'Ativar'}
                 >
                   {p.active ? <ToggleRight size={13} className="text-[#46D369]" /> : <ToggleLeft size={13} />}
                 </button>
                 <button
                   onClick={() => handleDelete(p.id)}
-                  className="w-7 h-7 rounded-lg bg-[#2A2A2A] flex items-center justify-center text-[#666] hover:text-[#E50914] transition-colors"
+                  className="w-7 h-7 rounded-lg bg-[#2A2A2A] flex items-center justify-center text-[#999] hover:text-[#E50914] transition-colors"
                 >
                   <Trash2 size={12} />
                 </button>
@@ -1547,7 +1547,7 @@ function CalendarioTab({ properties }: { properties: Property[] }) {
         </p>
         <div className="grid grid-cols-7 gap-px text-center mb-1">
           {DAYS_SHORT.map(d => (
-            <div key={d} className="text-[10px] text-[#555] font-medium py-1">{d}</div>
+            <div key={d} className="text-xs text-[#888] font-medium py-1">{d}</div>
           ))}
         </div>
         <div className="grid grid-cols-7 gap-px">
@@ -1566,10 +1566,10 @@ function CalendarioTab({ properties }: { properties: Property[] }) {
               <button
                 key={dateStr}
                 onClick={() => setSelectedDay(isSelected ? null : dateStr)}
-                className={`relative h-8 w-full rounded text-[11px] font-medium transition-all ${
+                className={`relative h-8 w-full rounded text-xs font-medium transition-all ${
                   isPast ? 'text-[#333] cursor-default' :
                   isSelected ? 'ring-2 ring-white text-white' :
-                  event ? 'text-white hover:opacity-80' : 'text-[#666] hover:text-white hover:bg-[#2A2A2A]'
+                  event ? 'text-white hover:opacity-80' : 'text-[#999] hover:text-white hover:bg-[#2A2A2A]'
                 }`}
                 style={color ? { backgroundColor: color + '33', color } : {}}
               >
@@ -1605,7 +1605,7 @@ function CalendarioTab({ properties }: { properties: Property[] }) {
 
   if (properties.length === 0) {
     return (
-      <div className="text-center py-20 text-[#555]">
+      <div className="text-center py-20 text-[#888]">
         <CalendarRange size={48} className="mx-auto mb-4" />
         <p>Você ainda não tem imóveis para sincronizar.</p>
       </div>
@@ -1653,7 +1653,7 @@ function CalendarioTab({ properties }: { properties: Property[] }) {
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full" style={{ backgroundColor: connected ? color : '#555' }} />
                   <span className="text-sm font-semibold text-white">{provider === 'AIRBNB' ? 'Airbnb' : 'Booking'}</span>
-                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${connected ? 'bg-green-500/20 text-green-400' : 'bg-[#333] text-[#555]'}`}>
+                  <span className={`text-xs font-bold px-2 py-0.5 rounded ${connected ? 'bg-green-500/20 text-green-400' : 'bg-[#333] text-[#888]'}`}>
                     {connected ? 'Conectado' : 'Não configurado'}
                   </span>
                 </div>
@@ -1669,17 +1669,17 @@ function CalendarioTab({ properties }: { properties: Property[] }) {
                 )}
               </div>
               {connected && lastSync && (
-                <p className="text-[11px] text-[#666]">
+                <p className="text-xs text-[#999]">
                   Última sync: {new Date(lastSync).toLocaleString('pt-BR')}
                 </p>
               )}
               {syncError && (
-                <p className="text-[11px] text-[#E50914] bg-[#E50914]/10 rounded-lg px-3 py-2">
+                <p className="text-xs text-[#E50914] bg-[#E50914]/10 rounded-lg px-3 py-2">
                   Erro: {syncError}
                 </p>
               )}
               {!connected && (
-                <p className="text-[11px] text-[#555]">
+                <p className="text-xs text-[#888]">
                   Configure a URL iCal na edição do imóvel para ativar.
                 </p>
               )}
@@ -1694,7 +1694,7 @@ function CalendarioTab({ properties }: { properties: Property[] }) {
           <Link2 size={14} className="text-[#22C55E]" />
           <p className="text-sm font-semibold text-white">URL do seu calendário Locaflix</p>
         </div>
-        <p className="text-xs text-[#666]">Copie esta URL e importe no Airbnb e Booking para eles verem as reservas da Locaflix.</p>
+        <p className="text-xs text-[#999]">Copie esta URL e importe no Airbnb e Booking para eles verem as reservas da Locaflix.</p>
         <div className="flex gap-2">
           <div className="flex-1 bg-[#0A0A0A] border border-[#222] rounded-xl px-3 py-2 text-xs text-[#B3B3B3] truncate font-mono">
             {icalUrl}
@@ -1725,16 +1725,16 @@ function CalendarioTab({ properties }: { properties: Property[] }) {
           <button
             onClick={() => { setMonthOffset(o => Math.max(0, o - 2)); setSelectedDay(null) }}
             disabled={monthOffset === 0}
-            className="p-2 rounded-lg border border-[#333] text-[#666] hover:text-white hover:border-[#555] disabled:opacity-30 transition-all"
+            className="p-2 rounded-lg border border-[#333] text-[#999] hover:text-white hover:border-[#555] disabled:opacity-30 transition-all"
           >
             <ChevronLeft size={16} />
           </button>
-          <span className="text-xs text-[#666]">
+          <span className="text-xs text-[#999]">
             {monthOffset === 0 ? 'Meses atuais' : `+${monthOffset} meses`}
           </span>
           <button
             onClick={() => { setMonthOffset(o => o + 2); setSelectedDay(null) }}
-            className="p-2 rounded-lg border border-[#333] text-[#666] hover:text-white hover:border-[#555] transition-all"
+            className="p-2 rounded-lg border border-[#333] text-[#999] hover:text-white hover:border-[#555] transition-all"
           >
             <ChevronRight size={16} />
           </button>
@@ -1749,7 +1749,7 @@ function CalendarioTab({ properties }: { properties: Property[] }) {
           <div className="mt-5 pt-5 border-t border-[#333]">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-xs text-[#666] mb-1">{fmtDate(selectedDay)}</p>
+                <p className="text-xs text-[#999] mb-1">{fmtDate(selectedDay)}</p>
                 {selectedEvent ? (
                   <>
                     <div className="flex items-center gap-2">
@@ -1757,7 +1757,7 @@ function CalendarioTab({ properties }: { properties: Property[] }) {
                       <p className="text-sm font-semibold text-white">{SOURCE_LABELS[selectedEvent.source]}</p>
                     </div>
                     <p className="text-xs text-[#B3B3B3] mt-1">{selectedEvent.label}</p>
-                    <p className="text-xs text-[#666] mt-0.5">
+                    <p className="text-xs text-[#999] mt-0.5">
                       {fmtDate(selectedEvent.startDate)} → {fmtDate(selectedEvent.endDate)}
                     </p>
                   </>
@@ -1774,7 +1774,7 @@ function CalendarioTab({ properties }: { properties: Property[] }) {
                   Desbloquear
                 </button>
               )}
-              <button onClick={() => setSelectedDay(null)} className="text-[#555] hover:text-white ml-auto flex-shrink-0">
+              <button onClick={() => setSelectedDay(null)} className="text-[#888] hover:text-white ml-auto flex-shrink-0">
                 <X size={14} />
               </button>
             </div>
@@ -1790,7 +1790,7 @@ function CalendarioTab({ properties }: { properties: Property[] }) {
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div>
-            <label className="text-xs text-[#666] block mb-1">Início</label>
+            <label className="text-xs text-[#999] block mb-1">Início</label>
             <input
               type="date"
               value={blockForm.start}
@@ -1800,7 +1800,7 @@ function CalendarioTab({ properties }: { properties: Property[] }) {
             />
           </div>
           <div>
-            <label className="text-xs text-[#666] block mb-1">Fim</label>
+            <label className="text-xs text-[#999] block mb-1">Fim</label>
             <input
               type="date"
               value={blockForm.end}
@@ -1810,7 +1810,7 @@ function CalendarioTab({ properties }: { properties: Property[] }) {
             />
           </div>
           <div>
-            <label className="text-xs text-[#666] block mb-1">Motivo (opcional)</label>
+            <label className="text-xs text-[#999] block mb-1">Motivo (opcional)</label>
             <input
               type="text"
               value={blockForm.notes}
@@ -1832,12 +1832,12 @@ function CalendarioTab({ properties }: { properties: Property[] }) {
         {/* Lista de bloqueios manuais */}
         {manualBlocks.length > 0 && (
           <div className="space-y-2 pt-2 border-t border-[#2A2A2A]">
-            <p className="text-xs text-[#555] font-semibold uppercase tracking-wide">Bloqueios manuais ativos</p>
+            <p className="text-xs text-[#888] font-semibold uppercase tracking-wide">Bloqueios manuais ativos</p>
             {manualBlocks.map(blk => (
               <div key={blk.id} className="flex items-center justify-between gap-3 bg-[#0A0A0A] border border-[#222] rounded-xl px-4 py-3">
                 <div className="flex-1 min-w-0">
                   <p className="text-sm text-white">{fmtDate(blk.start_date)} → {fmtDate(blk.end_date)}</p>
-                  {blk.notes && <p className="text-xs text-[#666] truncate">{blk.notes}</p>}
+                  {blk.notes && <p className="text-xs text-[#999] truncate">{blk.notes}</p>}
                 </div>
                 <button
                   onClick={() => void handleRemoveBlock(blk.id)}
@@ -1858,10 +1858,10 @@ function PropertyStatusBadge({ status }: { status: string }) {
   const map: Record<string, string> = {
     ATIVO: 'bg-[#46D369]/20 text-[#46D369]',
     PENDENTE: 'bg-[#F5A623]/20 text-[#F5A623]',
-    INATIVO: 'bg-[#333] text-[#666]',
+    INATIVO: 'bg-[#333] text-[#999]',
     REPROVADO: 'bg-[#E50914]/20 text-[#E50914]',
   }
-  return <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${map[status] ?? map.PENDENTE}`}>{status}</span>
+  return <span className={`text-xs font-bold px-2 py-0.5 rounded ${map[status] ?? map.PENDENTE}`}>{status}</span>
 }
 
 function StatusBadge({ status }: { status: string }) {

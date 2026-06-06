@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+﻿import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Home as HouseIcon, Info, LayoutList, Map, SlidersHorizontal, X, Star, MapPin } from 'lucide-react'
 import { supabase } from '../lib/supabase'
@@ -296,7 +296,7 @@ export function Home() {
                   <span className="text-sm font-semibold text-[#F5A623]">{currentHero.rating?.toFixed(1)}</span>
                   <span className="text-sm text-[#B3B3B3]">({currentHero.reviews_count} avaliações)</span>
                 </div>
-                <span className="text-[#666]">·</span>
+                <span className="text-[#999]">·</span>
                 <div className="flex items-center gap-1 text-[#B3B3B3] text-sm">
                   <MapPin size={13} />
                   {currentHero.city}, {currentHero.state}
@@ -452,7 +452,7 @@ export function Home() {
                         onChange={e => setFilters(f => ({ ...f, min_price: e.target.value ? Number(e.target.value) : undefined }))}
                         className="w-full bg-[#2A2A2A] border border-[#333] rounded-lg px-3 py-2 text-sm text-white placeholder-[#666] outline-none focus:ring-1 focus:ring-[#E50914]"
                       />
-                      <span className="text-[#666]">–</span>
+                      <span className="text-[#999]">–</span>
                       <input
                         type="number"
                         placeholder="Max"
@@ -487,7 +487,7 @@ export function Home() {
                     {(filters.amenity_ids?.length ?? 0) > 0 && (
                       <button
                         onClick={() => setFilters(f => ({ ...f, amenity_ids: [] }))}
-                        className="text-[10px] text-[#E50914] hover:underline"
+                        className="text-xs text-[#E50914] hover:underline"
                       >
                         Limpar ({filters.amenity_ids?.length})
                       </button>
@@ -537,10 +537,10 @@ export function Home() {
                                 onClick={() => toggleCategory(category)}
                                 className="w-full flex items-center justify-between px-3 py-2 text-left"
                               >
-                                <span className="text-[10px] font-bold text-[#888] uppercase truncate">{category}</span>
+                                <span className="text-xs font-bold text-[#888] uppercase truncate">{category}</span>
                                 <div className="flex items-center gap-1 flex-shrink-0">
-                                  {activeInCat > 0 && <span className="text-[10px] font-bold text-[#E50914]">{activeInCat}</span>}
-                                  {isOpen ? <ChevronUp size={10} className="text-[#555]" /> : <ChevronDown size={10} className="text-[#555]" />}
+                                  {activeInCat > 0 && <span className="text-xs font-bold text-[#E50914]">{activeInCat}</span>}
+                                  {isOpen ? <ChevronUp size={10} className="text-[#888]" /> : <ChevronDown size={10} className="text-[#888]" />}
                                 </div>
                               </button>
                               {isOpen && (
@@ -551,7 +551,7 @@ export function Home() {
                                       <button
                                         key={item.id}
                                         onClick={() => toggleAmenityFilter(item.id)}
-                                        className={`text-[10px] px-2 py-1 rounded border transition-colors ${isActive ? 'bg-[#E50914] border-[#E50914] text-white' : 'border-[#444] text-[#999] hover:border-[#666]'}`}
+                                        className={`text-xs px-2 py-1 rounded border transition-colors ${isActive ? 'bg-[#E50914] border-[#E50914] text-white' : 'border-[#444] text-[#999] hover:border-[#666]'}`}
                                       >
                                         {item.name}
                                       </button>
@@ -576,13 +576,13 @@ export function Home() {
           <div className="flex gap-1 bg-[#1A1A1A] border border-[#222] p-1 rounded-lg">
             <button
               onClick={() => setView('list')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${view === 'list' ? 'bg-[#E50914] text-white' : 'text-[#555] hover:text-white'}`}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${view === 'list' ? 'bg-[#E50914] text-white' : 'text-[#888] hover:text-white'}`}
             >
               <LayoutList size={12} /> Lista
             </button>
             <button
               onClick={() => setView('map')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${view === 'map' ? 'bg-[#E50914] text-white' : 'text-[#555] hover:text-white'}`}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${view === 'map' ? 'bg-[#E50914] text-white' : 'text-[#888] hover:text-white'}`}
             >
               <Map size={12} /> Mapa
             </button>
@@ -608,7 +608,7 @@ export function Home() {
         ) : (
           <div className="flex flex-col gap-12">
             {!loading && properties.length === 0 ? (
-              <div className="text-center py-20 text-[#666]">
+              <div className="text-center py-20 text-[#999]">
                 <p className="text-lg">Nenhum imóvel disponível no momento.</p>
                 <p className="text-sm mt-2 text-[#444]">Volte em breve para ver novidades.</p>
               </div>

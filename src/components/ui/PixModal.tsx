@@ -1,4 +1,4 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import { Copy, Check } from 'lucide-react'
 import { Modal } from './Modal'
 import { Button } from './Button'
@@ -31,7 +31,7 @@ export function PixModal({ open, onClose, pix }: PixModalProps) {
         <div className="text-center">
           <p className="text-[#B3B3B3] text-sm mb-1">Valor a pagar</p>
           <p className="text-3xl font-bold text-white">{formatCurrency(pix.value)}</p>
-          <p className="text-xs text-[#666] mt-1">Vence em {formatDate(pix.due_date)}</p>
+          <p className="text-xs text-[#999] mt-1">Vence em {formatDate(pix.due_date)}</p>
         </div>
 
         {/* QR Code */}
@@ -49,7 +49,7 @@ export function PixModal({ open, onClose, pix }: PixModalProps) {
 
         {/* Copia e cola */}
         <div>
-          <p className="text-xs text-[#666] mb-2 text-center">Ou copie o código Pix</p>
+          <p className="text-xs text-[#999] mb-2 text-center">Ou copie o código Pix</p>
           <div className="flex gap-2">
             <div className="flex-1 bg-[#0A0A0A] border border-[#333] rounded-xl px-3 py-2 text-xs text-[#B3B3B3] truncate font-mono">
               {pix.pix_key}
@@ -75,7 +75,7 @@ export function PixModal({ open, onClose, pix }: PixModalProps) {
           </Button>
         </div>
 
-        <p className="text-center text-xs text-[#555]">
+        <p className="text-center text-xs text-[#888]">
           Ambiente sandbox — use dados de teste do Asaas
         </p>
       </div>

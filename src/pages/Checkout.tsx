@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+﻿import { useEffect, useState } from 'react'
 import { useParams, useSearchParams, useNavigate, Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Check, ChevronRight, FileText, CreditCard, User, AlertTriangle, ShieldCheck, Calendar, MapPin, Home, Star } from 'lucide-react'
@@ -467,7 +467,7 @@ export function Checkout() {
                 }`}>
                   {step > s.id ? <Check size={14} /> : s.icon}
                 </div>
-                <span className={`text-[10px] mt-1 font-medium hidden sm:block ${step >= s.id ? 'text-white' : 'text-[#444]'}`}>
+                <span className={`text-xs mt-1 font-medium hidden sm:block ${step >= s.id ? 'text-white' : 'text-[#444]'}`}>
                   {s.label}
                 </span>
               </div>
@@ -525,7 +525,7 @@ export function Checkout() {
                                       <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: d.color }} />
                                       <div>
                                         <p className="text-xs font-semibold" style={{ color: d.color }}>{d.label}</p>
-                                        <p className="text-xs text-[#666]">
+                                        <p className="text-xs text-[#999]">
                                           {d.refundPercent > 0
                                             ? `Cancele até ${format(d.date, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}`
                                             : `A partir de ${format(d.date, "dd/MM/yyyy", { locale: ptBR })}`
@@ -701,7 +701,7 @@ export function Checkout() {
                       <div className="bg-[#0A0A0A] border border-[#333] rounded-xl overflow-hidden mb-5">
                         <div className="px-4 py-2 border-b border-[#333] flex items-center justify-between">
                           <p className="text-xs font-semibold text-[#B3B3B3] uppercase tracking-wide">Calendário de pagamentos</p>
-                          <p className="text-xs text-[#666]">+R$ 1,99 por parcela</p>
+                          <p className="text-xs text-[#999]">+R$ 1,99 por parcela</p>
                         </div>
                         <div className="divide-y divide-[#1F1F1F]">
                           {installmentPreviews.map(p => (
@@ -713,7 +713,7 @@ export function Checkout() {
                               </div>
                               <div className="text-right">
                                 <p className="text-sm font-bold text-white">{formatCurrency(p.value)}</p>
-                                <p className="text-xs text-[#666]">Vence {formatDate(p.due_date)}</p>
+                                <p className="text-xs text-[#999]">Vence {formatDate(p.due_date)}</p>
                               </div>
                             </div>
                           ))}
@@ -899,7 +899,7 @@ function CheckoutSuccess({
               <div className="flex items-start justify-between gap-2 mb-3">
                 <div>
                   <h2 className="font-semibold text-white text-sm line-clamp-1">{property.name}</h2>
-                  <p className="text-xs text-[#666] flex items-center gap-1 mt-0.5">
+                  <p className="text-xs text-[#999] flex items-center gap-1 mt-0.5">
                     <MapPin size={10} /> {property.city}, {property.state}
                   </p>
                 </div>
@@ -910,20 +910,20 @@ function CheckoutSuccess({
               </div>
               <div className="grid grid-cols-3 gap-2 text-center">
                 <div className="bg-[#0A0A0A] rounded-xl p-2.5">
-                  <p className="text-[10px] text-[#555] uppercase tracking-wide mb-0.5">Check-in</p>
+                  <p className="text-xs text-[#888] uppercase tracking-wide mb-0.5">Check-in</p>
                   <p className="text-white text-xs font-semibold">{fmt(checkIn)}</p>
                 </div>
                 <div className="bg-[#0A0A0A] rounded-xl p-2.5">
-                  <p className="text-[10px] text-[#555] uppercase tracking-wide mb-0.5">Noites</p>
+                  <p className="text-xs text-[#888] uppercase tracking-wide mb-0.5">Noites</p>
                   <p className="text-white text-xs font-semibold">{nights}</p>
                 </div>
                 <div className="bg-[#0A0A0A] rounded-xl p-2.5">
-                  <p className="text-[10px] text-[#555] uppercase tracking-wide mb-0.5">Check-out</p>
+                  <p className="text-xs text-[#888] uppercase tracking-wide mb-0.5">Check-out</p>
                   <p className="text-white text-xs font-semibold">{fmt(checkOut)}</p>
                 </div>
               </div>
               <div className="flex items-center justify-between mt-3 pt-3 border-t border-[#2A2A2A]">
-                <span className="text-xs text-[#666]">{guestsCount} hóspede{guestsCount !== 1 ? 's' : ''}</span>
+                <span className="text-xs text-[#999]">{guestsCount} hóspede{guestsCount !== 1 ? 's' : ''}</span>
                 <span className="text-sm font-bold text-[#F5A623]">{formatCurrency(total)}</span>
               </div>
             </div>

@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom'
+﻿import { Link } from 'react-router-dom'
 import { APP_ROUTES } from '../../constants'
 import { Logo } from './Logo'
 
@@ -12,7 +12,7 @@ export function Footer() {
             <Link to={APP_ROUTES.HOME}>
               <Logo size="lg" />
             </Link>
-            <p className="mt-3 text-sm text-[#666] leading-relaxed">
+            <p className="mt-3 text-sm text-[#999] leading-relaxed">
               Aluguel de imóveis por temporada com parcelamento via Pix e Boleto. Sua viagem dos sonhos em parcelas que cabem no bolso.
             </p>
           </div>
@@ -64,7 +64,7 @@ export function Footer() {
 function FooterLink({ to, label }: { to: string; label: string }) {
   return (
     <li>
-      <Link to={to} className="text-sm text-[#666] hover:text-[#B3B3B3] transition-colors">
+      <Link to={to} className="text-sm text-[#999] hover:text-[#B3B3B3] transition-colors">
         {label}
       </Link>
     </li>

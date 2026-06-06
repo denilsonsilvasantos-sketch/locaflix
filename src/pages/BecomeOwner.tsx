@@ -1,4 +1,4 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Home, DollarSign, Shield, Star, ArrowRight, Check } from 'lucide-react'
@@ -84,14 +84,14 @@ export function BecomeOwner() {
                 {b.icon}
               </div>
               <p className="text-sm font-semibold text-white mb-0.5">{b.title}</p>
-              <p className="text-xs text-[#666]">{b.desc}</p>
+              <p className="text-xs text-[#999]">{b.desc}</p>
             </div>
           ))}
         </div>
 
         {/* What happens */}
         <div className="bg-[#1F1F1F] border border-[#333] rounded-xl p-5 mb-6">
-          <p className="text-xs font-semibold text-[#666] uppercase tracking-wide mb-3">O que acontece ao confirmar</p>
+          <p className="text-xs font-semibold text-[#999] uppercase tracking-wide mb-3">O que acontece ao confirmar</p>
           {[
             'Seu perfil é atualizado para Anfitrião',
             'Você acessa o painel completo de gestão',
@@ -110,7 +110,7 @@ export function BecomeOwner() {
           <ArrowRight size={16} className="ml-2" />
         </Button>
 
-        <p className="text-center text-xs text-[#555] mt-4">
+        <p className="text-center text-xs text-[#888] mt-4">
           <Link to={APP_ROUTES.GUEST_DASHBOARD} className="hover:text-[#B3B3B3] transition-colors">
             Voltar para minha conta
           </Link>

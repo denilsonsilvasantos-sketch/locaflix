@@ -1,4 +1,4 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { ChevronLeft, ChevronRight, Heart, Star, MapPin, Users, BedDouble, Wifi, Waves, Wind, Car, PawPrint } from 'lucide-react'
@@ -155,13 +155,13 @@ export function PropertyCard({ property, onFavoriteToggle, isFavorited = false, 
           </div>
 
           <div className="flex items-center gap-1 mt-1">
-            <MapPin size={11} className="text-[#666]" />
+            <MapPin size={11} className="text-[#999]" />
             <span className="text-xs text-[#B3B3B3]">
               {property.neighborhood ? `${property.neighborhood}, ` : ''}{property.city} · {property.state}
             </span>
           </div>
 
-          <div className="flex items-center gap-3 mt-1.5 text-xs text-[#666]">
+          <div className="flex items-center gap-3 mt-1.5 text-xs text-[#999]">
             <span className="flex items-center gap-1">
               <BedDouble size={11} />
               {property.bedrooms} {property.bedrooms === 1 ? 'quarto' : 'quartos'}
@@ -175,13 +175,13 @@ export function PropertyCard({ property, onFavoriteToggle, isFavorited = false, 
           <div className="mt-2">
             {hasDates && nights > 0 ? (
               <div>
-                <p className="text-[11px] text-[#B3B3B3]">sua assinatura mensal será de:</p>
+                <p className="text-xs text-[#B3B3B3]">sua assinatura mensal será de:</p>
                 <p className="text-base font-bold text-white">
                   até {maxInstallments}x de {formatCurrency(installmentValue)}
                 </p>
               </div>
             ) : (
-              <p className="text-xs text-[#555] italic">Selecione as datas para ver o preço</p>
+              <p className="text-xs text-[#888] italic">Selecione as datas para ver o preço</p>
             )}
           </div>
 
@@ -199,7 +199,7 @@ export function PropertyCard({ property, onFavoriteToggle, isFavorited = false, 
             return (
               <div className="flex items-center gap-2.5 mt-1.5 flex-wrap">
                 {badges.map(b => (
-                  <span key={b.key} className="flex items-center gap-0.5 text-[10px] text-[#777]">
+                  <span key={b.key} className="flex items-center gap-0.5 text-xs text-[#777]">
                     {b.key === 'wifi'    && <Wifi     size={9} />}
                     {b.key === 'pool'    && <Waves    size={9} />}
                     {b.key === 'ac'      && <Wind     size={9} />}

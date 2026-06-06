@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react'
+﻿import { useEffect, useRef, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Search, MapPin, Calendar, Users, ChevronDown, ChevronLeft, ChevronRight, X, Check } from 'lucide-react'
 import { format } from 'date-fns'
@@ -53,7 +53,7 @@ function Counter({
     <div className="flex items-center justify-between py-3.5 border-b border-[#2A2A2A] last:border-0">
       <div>
         <p className="text-sm font-medium text-white">{label}</p>
-        <p className="text-xs text-[#666]">{sub}</p>
+        <p className="text-xs text-[#999]">{sub}</p>
       </div>
       <div className="flex items-center gap-4">
         <button
@@ -275,7 +275,7 @@ export function SearchBar({ compact = false, defaultValues }: SearchBarProps) {
     <div className="space-y-4">
       <div>
         <p className="text-xs font-semibold text-[#B3B3B3] uppercase tracking-wide mb-2">Estado</p>
-        {availableStates.length === 0 ? <p className="text-xs text-[#555]">Carregando...</p> : (
+        {availableStates.length === 0 ? <p className="text-xs text-[#888]">Carregando...</p> : (
           <div className="relative">
             <select value={estado} onChange={e => { setEstado(e.target.value); setCidade(''); setBairro('') }}
               className="w-full bg-[#2A2A2A] border border-[#333] rounded-xl px-4 py-3 text-sm text-white outline-none focus:ring-2 focus:ring-[#E50914] appearance-none cursor-pointer">
@@ -284,7 +284,7 @@ export function SearchBar({ compact = false, defaultValues }: SearchBarProps) {
                 <option key={uf} value={uf}>{data.name} ({data.count} {data.count === 1 ? 'imóvel' : 'imóveis'})</option>
               ))}
             </select>
-            <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#666] pointer-events-none" />
+            <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#999] pointer-events-none" />
           </div>
         )}
       </div>
@@ -300,7 +300,7 @@ export function SearchBar({ compact = false, defaultValues }: SearchBarProps) {
                 <option key={city} value={city}>{city} ({data.count} {data.count === 1 ? 'imóvel' : 'imóveis'})</option>
               ))}
             </select>
-            <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#666] pointer-events-none" />
+            <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#999] pointer-events-none" />
           </div>
         </div>
       )}
@@ -308,7 +308,7 @@ export function SearchBar({ compact = false, defaultValues }: SearchBarProps) {
       {estado && cidade && availableNeighborhoods.length > 0 && (
         <div>
           <p className="text-xs font-semibold text-[#B3B3B3] uppercase tracking-wide mb-2">
-            Bairro <span className="text-[#555] normal-case font-normal">(opcional)</span>
+            Bairro <span className="text-[#888] normal-case font-normal">(opcional)</span>
           </p>
           <div className="relative">
             <select value={bairro} onChange={e => setBairro(e.target.value)}
@@ -316,7 +316,7 @@ export function SearchBar({ compact = false, defaultValues }: SearchBarProps) {
               <option value="">Qualquer bairro</option>
               {availableNeighborhoods.map(n => <option key={n} value={n}>{n}</option>)}
             </select>
-            <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#666] pointer-events-none" />
+            <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#999] pointer-events-none" />
           </div>
         </div>
       )}
@@ -332,7 +332,7 @@ export function SearchBar({ compact = false, defaultValues }: SearchBarProps) {
   const destinoMobile = (
     <div>
       {/* Breadcrumb */}
-      <div className="flex items-center gap-2 mb-4 text-xs text-[#666]">
+      <div className="flex items-center gap-2 mb-4 text-xs text-[#999]">
         <button
           type="button"
           onClick={() => setDestinoStep('estado')}
@@ -363,7 +363,7 @@ export function SearchBar({ compact = false, defaultValues }: SearchBarProps) {
       {/* Step: Estado */}
       {destinoStep === 'estado' && (
         <div className="space-y-1">
-          {availableStates.length === 0 && <p className="text-sm text-[#555] py-4 text-center">Carregando...</p>}
+          {availableStates.length === 0 && <p className="text-sm text-[#888] py-4 text-center">Carregando...</p>}
           {availableStates.map(([uf, data]) => (
             <button
               key={uf}
@@ -373,7 +373,7 @@ export function SearchBar({ compact = false, defaultValues }: SearchBarProps) {
             >
               <span className="text-sm font-medium">{data.name}</span>
               <div className="flex items-center gap-2">
-                <span className="text-xs text-[#666]">{data.count} {data.count === 1 ? 'imóvel' : 'imóveis'}</span>
+                <span className="text-xs text-[#999]">{data.count} {data.count === 1 ? 'imóvel' : 'imóveis'}</span>
                 {estado === uf ? <Check size={14} className="text-[#E50914]" /> : <ChevronRight size={14} className="text-[#444]" />}
               </div>
             </button>
@@ -385,7 +385,7 @@ export function SearchBar({ compact = false, defaultValues }: SearchBarProps) {
       {destinoStep === 'cidade' && (
         <div className="space-y-1">
           <button type="button" onClick={() => setDestinoStep('estado')}
-            className="flex items-center gap-2 text-xs text-[#666] hover:text-white mb-3 transition-colors">
+            className="flex items-center gap-2 text-xs text-[#999] hover:text-white mb-3 transition-colors">
             <ChevronLeft size={14} /> Voltar para estados
           </button>
           <button
@@ -394,7 +394,7 @@ export function SearchBar({ compact = false, defaultValues }: SearchBarProps) {
             className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-left transition-colors mb-1 hover:bg-[#2A2A2A] text-[#B3B3B3] border border-[#333] rounded-xl"
           >
             <span className="text-sm font-medium">Buscar em todo {selectedStateName ?? estado}</span>
-            <Search size={14} className="text-[#666]" />
+            <Search size={14} className="text-[#999]" />
           </button>
           {availableCities.map(([city, data]) => (
             <button
@@ -405,7 +405,7 @@ export function SearchBar({ compact = false, defaultValues }: SearchBarProps) {
             >
               <span className="text-sm font-medium">{city}</span>
               <div className="flex items-center gap-2">
-                <span className="text-xs text-[#666]">{data.count} {data.count === 1 ? 'imóvel' : 'imóveis'}</span>
+                <span className="text-xs text-[#999]">{data.count} {data.count === 1 ? 'imóvel' : 'imóveis'}</span>
                 {cidade === city ? <Check size={14} className="text-[#E50914]" /> : <ChevronRight size={14} className="text-[#444]" />}
               </div>
             </button>
@@ -417,7 +417,7 @@ export function SearchBar({ compact = false, defaultValues }: SearchBarProps) {
       {destinoStep === 'bairro' && (
         <div className="space-y-1">
           <button type="button" onClick={() => setDestinoStep('cidade')}
-            className="flex items-center gap-2 text-xs text-[#666] hover:text-white mb-3 transition-colors">
+            className="flex items-center gap-2 text-xs text-[#999] hover:text-white mb-3 transition-colors">
             <ChevronLeft size={14} /> Voltar para cidades
           </button>
           <button
@@ -464,7 +464,7 @@ export function SearchBar({ compact = false, defaultValues }: SearchBarProps) {
     return (
       <button onClick={() => togglePanel('destino')}
         className="flex items-center gap-2 bg-[#1F1F1F] border border-[#333] rounded-full px-4 py-2 w-full">
-        <Search size={16} className="text-[#666]" />
+        <Search size={16} className="text-[#999]" />
         <span className="text-sm text-white flex-1 truncate text-left">
           {destinoLabel ?? 'Para onde você vai?'}
         </span>
@@ -483,13 +483,13 @@ export function SearchBar({ compact = false, defaultValues }: SearchBarProps) {
             className={`flex items-center gap-3 flex-1 bg-[#1F1F1F]/80 rounded-xl px-4 py-3 text-left transition-all ${panel === 'destino' ? 'ring-2 ring-[#E50914]' : 'hover:bg-[#2A2A2A]/80'}`}>
             <MapPin size={18} className="text-[#E50914] flex-shrink-0" />
             <div className="flex-1 min-w-0">
-              <p className="text-[10px] font-semibold text-[#B3B3B3] uppercase tracking-wide">Destino</p>
+              <p className="text-xs font-semibold text-[#B3B3B3] uppercase tracking-wide">Destino</p>
               <p className="text-sm truncate mt-0.5 font-medium" style={{ color: destinoLabel ? 'white' : '#666' }}>
                 {destinoLabel ?? 'Estado, cidade ou bairro'}
               </p>
             </div>
             {destinoLabel && (
-              <button type="button" onClick={clearDestino} className="text-[#555] hover:text-white transition-colors flex-shrink-0">
+              <button type="button" onClick={clearDestino} className="text-[#888] hover:text-white transition-colors flex-shrink-0">
                 <X size={14} />
               </button>
             )}
@@ -500,13 +500,13 @@ export function SearchBar({ compact = false, defaultValues }: SearchBarProps) {
             className={`flex items-center gap-3 md:w-52 bg-[#1F1F1F]/80 rounded-xl px-4 py-3 text-left transition-all ${panel === 'datas' ? 'ring-2 ring-[#E50914]' : 'hover:bg-[#2A2A2A]/80'}`}>
             <Calendar size={18} className="text-[#E50914] flex-shrink-0" />
             <div className="flex-1 min-w-0">
-              <p className="text-[10px] font-semibold text-[#B3B3B3] uppercase tracking-wide">Datas</p>
+              <p className="text-xs font-semibold text-[#B3B3B3] uppercase tracking-wide">Datas</p>
               <p className="text-sm truncate mt-0.5 font-medium" style={{ color: dateLabel ? 'white' : '#666' }}>
                 {dateLabel ?? 'Check-in → Check-out'}
               </p>
             </div>
             {dateLabel && (
-              <button type="button" onClick={clearDatas} className="text-[#555] hover:text-white transition-colors flex-shrink-0">
+              <button type="button" onClick={clearDatas} className="text-[#888] hover:text-white transition-colors flex-shrink-0">
                 <X size={14} />
               </button>
             )}
@@ -517,12 +517,12 @@ export function SearchBar({ compact = false, defaultValues }: SearchBarProps) {
             className={`flex items-center gap-3 md:w-44 bg-[#1F1F1F]/80 rounded-xl px-4 py-3 text-left transition-all ${panel === 'hospedes' ? 'ring-2 ring-[#E50914]' : 'hover:bg-[#2A2A2A]/80'}`}>
             <Users size={18} className="text-[#E50914] flex-shrink-0" />
             <div className="flex-1 min-w-0">
-              <p className="text-[10px] font-semibold text-[#B3B3B3] uppercase tracking-wide">Hóspedes</p>
+              <p className="text-xs font-semibold text-[#B3B3B3] uppercase tracking-wide">Hóspedes</p>
               <p className="text-sm truncate mt-0.5 font-medium" style={{ color: guestsLabel ? 'white' : '#666' }}>
                 {guestsLabel ?? 'Adicionar hóspedes'}
               </p>
             </div>
-            <ChevronDown size={14} className={`text-[#666] flex-shrink-0 transition-transform ${panel === 'hospedes' ? 'rotate-180' : ''}`} />
+            <ChevronDown size={14} className={`text-[#999] flex-shrink-0 transition-transform ${panel === 'hospedes' ? 'rotate-180' : ''}`} />
           </button>
 
           {/* Buscar — icon only on mobile, full label on desktop */}

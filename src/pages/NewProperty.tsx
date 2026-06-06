@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+﻿import { useEffect, useRef, useState } from 'react'
 import { useNavigate, Link as RouterLink } from 'react-router-dom'
 import { X, Plus, Upload, Trash2, Image, Link, DollarSign, AlertTriangle, Star } from 'lucide-react'
 import { supabase } from '../lib/supabase'
@@ -432,7 +432,7 @@ export function NewProperty() {
                   ))}
                 </select>
                 {ownerUsers.length === 0 && (
-                  <p className="text-xs text-[#666] mt-1">Nenhum usuário com role OWNER encontrado.</p>
+                  <p className="text-xs text-[#999] mt-1">Nenhum usuário com role OWNER encontrado.</p>
                 )}
               </div>
             )}
@@ -544,7 +544,7 @@ export function NewProperty() {
               />
               <label htmlFor="cleaning_fee_enabled" className="cursor-pointer">
                 <p className="text-sm font-medium text-white">Cobrar taxa de limpeza</p>
-                <p className="text-xs text-[#666] mt-0.5">Valor fixo cobrado uma vez, independente do número de diárias</p>
+                <p className="text-xs text-[#999] mt-0.5">Valor fixo cobrado uma vez, independente do número de diárias</p>
               </label>
             </div>
             {form.cleaning_fee_enabled && (
@@ -566,12 +566,12 @@ export function NewProperty() {
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="font-display text-lg font-bold text-white">Comodidades</h2>
-                <p className="text-xs text-[#666] mt-0.5">{selectedAmenityIds.size} selecionada{selectedAmenityIds.size !== 1 ? 's' : ''}</p>
+                <p className="text-xs text-[#999] mt-0.5">{selectedAmenityIds.size} selecionada{selectedAmenityIds.size !== 1 ? 's' : ''}</p>
               </div>
             </div>
 
             {catalog.length === 0 ? (
-              <p className="text-xs text-[#555]">Carregando comodidades...</p>
+              <p className="text-xs text-[#888]">Carregando comodidades...</p>
             ) : (() => {
               // Group by category preserving insertion order
               const byCategory: Record<string, AmenityCatalog[]> = {}
@@ -587,7 +587,7 @@ export function NewProperty() {
 
               return Object.entries(byCategory).map(([category, items]) => (
                 <div key={category} className="space-y-2">
-                  <h3 className="text-[10px] font-bold text-[#555] uppercase tracking-widest">{category}</h3>
+                  <h3 className="text-xs font-bold text-[#888] uppercase tracking-widest">{category}</h3>
                   <div className="flex flex-wrap gap-2">
                     {items.map(item => {
                       const isSubtype = poolSubtypes.has(item.id)
@@ -620,7 +620,7 @@ export function NewProperty() {
           <section className="bg-[#1F1F1F] border border-[#333] rounded-2xl p-6 space-y-4">
             <div>
               <h2 className="font-display text-lg font-bold text-white">Comodidades personalizadas</h2>
-              <p className="text-xs text-[#666] mt-0.5">Adicione itens que não estão na lista acima (ex: Liquidificador, Mesa de sinuca)</p>
+              <p className="text-xs text-[#999] mt-0.5">Adicione itens que não estão na lista acima (ex: Liquidificador, Mesa de sinuca)</p>
             </div>
 
             <div className="flex gap-2">
@@ -654,9 +654,9 @@ export function NewProperty() {
               <div className="flex flex-wrap gap-2">
                 {customAmenities.map(a => (
                   <div key={a.id} className="flex items-center gap-1.5 bg-[#2A2A2A] border border-[#333] rounded-xl px-3 py-1.5">
-                    <span className="text-[10px] text-[#555] font-medium">{a.category}</span>
+                    <span className="text-xs text-[#888] font-medium">{a.category}</span>
                     <span className="text-xs text-white">{a.name}</span>
-                    <button type="button" onClick={() => removeCustomAmenity(a.id)} className="text-[#555] hover:text-[#E50914] transition-colors ml-1">
+                    <button type="button" onClick={() => removeCustomAmenity(a.id)} className="text-[#888] hover:text-[#E50914] transition-colors ml-1">
                       <X size={12} />
                     </button>
                   </div>
@@ -670,15 +670,15 @@ export function NewProperty() {
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="font-display text-lg font-bold text-white">Fotos por cômodo</h2>
-                <p className="text-xs text-[#666] mt-0.5">Organize as fotos por ambiente: sala, quarto, cozinha…</p>
+                <p className="text-xs text-[#999] mt-0.5">Organize as fotos por ambiente: sala, quarto, cozinha…</p>
               </div>
-              <span className="text-xs text-[#555]">{rooms.length}/{MAX_ROOMS}</span>
+              <span className="text-xs text-[#888]">{rooms.length}/{MAX_ROOMS}</span>
             </div>
 
             {rooms.length === 0 && (
               <div className="border-2 border-dashed border-[#333] rounded-xl p-8 text-center">
                 <Image size={32} className="mx-auto mb-2 text-[#444]" />
-                <p className="text-sm text-[#666]">Nenhum cômodo adicionado</p>
+                <p className="text-sm text-[#999]">Nenhum cômodo adicionado</p>
                 <p className="text-xs text-[#444] mt-1">Adicione cômodos para organizar suas fotos por ambiente</p>
               </div>
             )}
@@ -717,13 +717,13 @@ export function NewProperty() {
           <section className="bg-[#1F1F1F] border border-[#333] rounded-2xl p-6 space-y-4">
             <div>
               <h2 className="font-display text-lg font-bold text-white">Preços por período</h2>
-              <p className="text-xs text-[#666] mt-0.5">Defina preços diferentes para fins de semana, feriados, alta temporada, etc.</p>
+              <p className="text-xs text-[#999] mt-0.5">Defina preços diferentes para fins de semana, feriados, alta temporada, etc.</p>
             </div>
 
             {periods.length === 0 && (
               <div className="border-2 border-dashed border-[#333] rounded-xl p-6 text-center">
                 <DollarSign size={28} className="mx-auto mb-2 text-[#444]" />
-                <p className="text-sm text-[#666]">Sem períodos configurados</p>
+                <p className="text-sm text-[#999]">Sem períodos configurados</p>
                 <p className="text-xs text-[#444] mt-1">Apenas o preço base será cobrado para todas as diárias</p>
               </div>
             )}
@@ -734,7 +734,7 @@ export function NewProperty() {
                 return (
                   <div key={period.id} className="border border-[#2A2A2A] rounded-xl p-4 space-y-3">
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-[#555] w-5 text-center shrink-0">{idx + 1}</span>
+                      <span className="text-xs font-bold text-[#888] w-5 text-center shrink-0">{idx + 1}</span>
                       <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-2">
                         <select
                           value={period.period_type}
@@ -758,7 +758,7 @@ export function NewProperty() {
                       <button
                         type="button"
                         onClick={() => removePeriod(period.id)}
-                        className="text-[#555] hover:text-[#E50914] transition-colors shrink-0"
+                        className="text-[#888] hover:text-[#E50914] transition-colors shrink-0"
                       >
                         <Trash2 size={15} />
                       </button>
@@ -766,7 +766,7 @@ export function NewProperty() {
 
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pl-7">
                       <div>
-                        <label className="text-xs text-[#666] block mb-1">Preço/noite (R$)</label>
+                        <label className="text-xs text-[#999] block mb-1">Preço/noite (R$)</label>
                         <input
                           type="number"
                           min="1"
@@ -778,7 +778,7 @@ export function NewProperty() {
                         />
                       </div>
                       <div>
-                        <label className="text-xs text-[#666] block mb-1">Prioridade</label>
+                        <label className="text-xs text-[#999] block mb-1">Prioridade</label>
                         <input
                           type="number"
                           min="0"
@@ -792,7 +792,7 @@ export function NewProperty() {
                         <>
                           <div className="col-span-2 sm:col-span-1 grid grid-cols-2 gap-2">
                             <div>
-                              <label className="text-xs text-[#666] block mb-1">Início</label>
+                              <label className="text-xs text-[#999] block mb-1">Início</label>
                               <input
                                 type="date"
                                 value={period.start_date}
@@ -801,7 +801,7 @@ export function NewProperty() {
                               />
                             </div>
                             <div>
-                              <label className="text-xs text-[#666] block mb-1">Fim</label>
+                              <label className="text-xs text-[#999] block mb-1">Fim</label>
                               <input
                                 type="date"
                                 value={period.end_date}
@@ -832,7 +832,7 @@ export function NewProperty() {
                   <Star size={16} className="text-[#F5A623]" />
                   Categorias da página inicial
                 </h2>
-                <p className="text-xs text-[#666] mt-0.5">Escolha em quais seções este imóvel aparecerá na home</p>
+                <p className="text-xs text-[#999] mt-0.5">Escolha em quais seções este imóvel aparecerá na home</p>
               </div>
               <div className="flex flex-wrap gap-2">
                 {([
@@ -860,7 +860,7 @@ export function NewProperty() {
                   )
                 })}
               </div>
-              <p className="text-xs text-[#555]">"Em Destaque" e hero banner são controlados pelo Plano do imóvel (DESTAQUE).</p>
+              <p className="text-xs text-[#888]">"Em Destaque" e hero banner são controlados pelo Plano do imóvel (DESTAQUE).</p>
             </section>
           )}
 
@@ -936,7 +936,7 @@ function RoomCard({
     <div className="border border-[#2A2A2A] rounded-xl overflow-hidden">
       {/* Room header */}
       <div className="bg-[#252525] px-4 py-3 flex items-center gap-3">
-        <span className="text-xs font-bold text-[#555] w-5 text-center shrink-0">{index + 1}</span>
+        <span className="text-xs font-bold text-[#888] w-5 text-center shrink-0">{index + 1}</span>
         <input
           value={room.name}
           onChange={e => onNameChange(e.target.value)}
@@ -947,7 +947,7 @@ function RoomCard({
         <button
           type="button"
           onClick={onRemoveRoom}
-          className="text-[#555] hover:text-[#E50914] transition-colors shrink-0"
+          className="text-[#888] hover:text-[#E50914] transition-colors shrink-0"
         >
           <Trash2 size={15} />
         </button>
@@ -1018,7 +1018,7 @@ function RoomCard({
                 type="button"
                 onClick={() => setMode('upload')}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                  mode === 'upload' ? 'bg-[#333] text-white' : 'text-[#666] hover:text-[#B3B3B3]'
+                  mode === 'upload' ? 'bg-[#333] text-white' : 'text-[#999] hover:text-[#B3B3B3]'
                 }`}
               >
                 <Upload size={11} />
@@ -1028,7 +1028,7 @@ function RoomCard({
                 type="button"
                 onClick={() => setMode('url')}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                  mode === 'url' ? 'bg-[#333] text-white' : 'text-[#666] hover:text-[#B3B3B3]'
+                  mode === 'url' ? 'bg-[#333] text-white' : 'text-[#999] hover:text-[#B3B3B3]'
                 }`}
               >
                 <Link size={11} />
@@ -1075,12 +1075,12 @@ function RoomCard({
                   className={`w-full flex flex-col items-center justify-center gap-1.5 px-3 py-5 border-2 border-dashed rounded-lg cursor-pointer transition-all ${
                     dragging
                       ? 'border-[#E50914] bg-[#E50914]/10 text-[#E50914]'
-                      : 'border-[#333] hover:border-[#555] text-[#666] hover:text-[#B3B3B3]'
+                      : 'border-[#333] hover:border-[#555] text-[#999] hover:text-[#B3B3B3]'
                   }`}
                 >
                   <Upload size={18} />
                   <span className="text-xs">Arraste fotos aqui ou clique para selecionar</span>
-                  <span className="text-[10px] text-[#444]">Múltiplos arquivos · JPG, PNG, WebP · máx. 10 MB cada</span>
+                  <span className="text-xs text-[#444]">Múltiplos arquivos · JPG, PNG, WebP · máx. 10 MB cada</span>
                 </div>
               </>
             )}

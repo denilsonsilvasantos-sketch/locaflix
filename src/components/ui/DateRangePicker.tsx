@@ -1,4 +1,4 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import { ChevronLeft, ChevronRight, X } from 'lucide-react'
 import {
   format, addMonths, subMonths, startOfMonth, endOfMonth,
@@ -116,7 +116,7 @@ export function DateRangePicker({ from, to, onChange, onClose, blockedDates = []
       <div className="flex-1 min-w-[240px]">
         <div className="grid grid-cols-7 mb-1">
           {DAYS.map(wd => (
-            <div key={wd} className="text-center text-[10px] text-[#555] font-semibold py-1">{wd}</div>
+            <div key={wd} className="text-center text-xs text-[#888] font-semibold py-1">{wd}</div>
           ))}
         </div>
         <div className="grid grid-cols-7">
@@ -148,7 +148,7 @@ export function DateRangePicker({ from, to, onChange, onClose, blockedDates = []
                     style={{ background: 'rgba(229,9,20,0.08)', border: '1px solid rgba(229,9,20,0.2)' }}
                     title="Data indisponível"
                   >
-                    <span className="text-[#555] line-through select-none">{day.getDate()}</span>
+                    <span className="text-[#888] line-through select-none">{day.getDate()}</span>
                     {/* diagonal line */}
                     <span
                       aria-hidden="true"
@@ -198,7 +198,7 @@ export function DateRangePicker({ from, to, onChange, onClose, blockedDates = []
           onClick={() => setPhase('from')}
           className={`flex-1 text-center p-2.5 rounded-xl border transition-all ${phase === 'from' ? 'border-[#E50914] bg-[#E50914]/10' : 'border-[#2A2A2A] hover:border-[#444]'}`}
         >
-          <p className="text-[10px] text-[#B3B3B3] uppercase font-semibold tracking-wide">Check-in</p>
+          <p className="text-xs text-[#B3B3B3] uppercase font-semibold tracking-wide">Check-in</p>
           <p className="text-sm font-bold text-white mt-0.5">
             {draftFrom ? format(draftFrom, 'dd MMM', { locale: ptBR }) : '—'}
           </p>
@@ -217,13 +217,13 @@ export function DateRangePicker({ from, to, onChange, onClose, blockedDates = []
           onClick={() => draftFrom && setPhase('to')}
           className={`flex-1 text-center p-2.5 rounded-xl border transition-all ${phase === 'to' ? 'border-[#E50914] bg-[#E50914]/10' : 'border-[#2A2A2A] hover:border-[#444]'}`}
         >
-          <p className="text-[10px] text-[#B3B3B3] uppercase font-semibold tracking-wide">Check-out</p>
+          <p className="text-xs text-[#B3B3B3] uppercase font-semibold tracking-wide">Check-out</p>
           <p className="text-sm font-bold text-white mt-0.5">
             {draftTo ? format(draftTo, 'dd MMM', { locale: ptBR }) : '—'}
           </p>
         </button>
 
-        <button onClick={onClose} className="text-[#555] hover:text-white transition-colors ml-1">
+        <button onClick={onClose} className="text-[#888] hover:text-white transition-colors ml-1">
           <X size={16} />
         </button>
       </div>
@@ -281,7 +281,7 @@ export function DateRangePicker({ from, to, onChange, onClose, blockedDates = []
         <button
           type="button"
           onClick={() => { setDraftFrom(null); setDraftTo(null); setPhase('from') }}
-          className="text-xs text-[#666] hover:text-white transition-colors"
+          className="text-xs text-[#999] hover:text-white transition-colors"
         >
           Limpar datas
         </button>

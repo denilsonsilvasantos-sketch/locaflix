@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+﻿import { useEffect, useState } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import {
   format, addMonths, subMonths, startOfMonth, endOfMonth,
@@ -132,7 +132,7 @@ export function AvailabilityCalendar({ propertyId }: Props) {
 
       <div className="grid grid-cols-7 mb-1">
         {DAYS.map(wd => (
-          <div key={wd} className="text-center text-[10px] text-[#555] font-semibold py-1">{wd}</div>
+          <div key={wd} className="text-center text-xs text-[#888] font-semibold py-1">{wd}</div>
         ))}
       </div>
 
@@ -143,13 +143,13 @@ export function AvailabilityCalendar({ propertyId }: Props) {
       <div className="flex items-center gap-4 mt-3 pt-3 border-t border-[#2A2A2A]">
         <div className="flex items-center gap-1.5">
           <div className="w-3 h-3 rounded-sm bg-[#46D369]/20 border border-[#46D369]/40" />
-          <span className="text-[10px] text-[#666]">Disponível</span>
+          <span className="text-xs text-[#999]">Disponível</span>
         </div>
         <div className="flex items-center gap-1.5">
           <div className="w-3 h-3 rounded-sm bg-[#E50914]/20 border border-[#E50914]/40" />
-          <span className="text-[10px] text-[#666]">Bloqueado</span>
+          <span className="text-xs text-[#999]">Bloqueado</span>
         </div>
-        <span className="text-[10px] text-[#444] ml-auto">Clique para alternar</span>
+        <span className="text-xs text-[#444] ml-auto">Clique para alternar</span>
       </div>
     </div>
   )

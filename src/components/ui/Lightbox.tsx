@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+﻿import { useEffect, useState } from 'react'
 import { X, ExternalLink, ImageOff } from 'lucide-react'
 
 function isPdf(src: string) {
@@ -44,7 +44,7 @@ export function Lightbox({ src, onClose }: { src: string | null; onClose: () => 
         </div>
       ) : imgError ? (
         <div className="text-center cursor-default space-y-3" onClick={e => e.stopPropagation()}>
-          <ImageOff size={40} className="mx-auto text-[#555]" />
+          <ImageOff size={40} className="mx-auto text-[#888]" />
           <p className="text-[#B3B3B3] text-sm">Não foi possível carregar a imagem</p>
           <a
             href={src}

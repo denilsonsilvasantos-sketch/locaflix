@@ -1,4 +1,4 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import { HelpCircle, Mail, MessageCircle, X } from 'lucide-react'
 
 export function HelpCenter() {
@@ -10,7 +10,7 @@ export function HelpCenter() {
         <div className="bg-[#1F1F1F] border border-[#333] rounded-2xl shadow-2xl w-72 p-5">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-display text-sm font-bold text-white">Central de Ajuda</h3>
-            <button onClick={() => setOpen(false)} className="text-[#666] hover:text-white transition-colors">
+            <button onClick={() => setOpen(false)} className="text-[#999] hover:text-white transition-colors">
               <X size={16} />
             </button>
           </div>
@@ -23,7 +23,7 @@ export function HelpCenter() {
               <Mail size={16} className="text-[#E50914] flex-shrink-0" />
               <div>
                 <p className="text-xs font-semibold text-white">E-mail</p>
-                <p className="text-[11px] text-[#B3B3B3]">suporte@locaflix.com.br</p>
+                <p className="text-xs text-[#B3B3B3]">suporte@locaflix.com.br</p>
               </div>
             </a>
             <a
@@ -35,11 +35,11 @@ export function HelpCenter() {
               <MessageCircle size={16} className="text-[#25D366] flex-shrink-0" />
               <div>
                 <p className="text-xs font-semibold text-white">WhatsApp</p>
-                <p className="text-[11px] text-[#B3B3B3]">Atendimento rápido</p>
+                <p className="text-xs text-[#B3B3B3]">Atendimento rápido</p>
               </div>
             </a>
           </div>
-          <p className="text-[10px] text-[#555] mt-4 text-center">Atendimento seg-sex, 9h às 18h</p>
+          <p className="text-xs text-[#888] mt-4 text-center">Atendimento seg-sex, 9h às 18h</p>
         </div>
       )}
       <button

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+﻿import { useEffect, useRef, useState } from 'react'
 import { Check, MessageSquare, Send, X } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 
@@ -143,7 +143,7 @@ export function IncidentChat({
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap mb-1">
                 <p className="font-semibold text-white text-sm leading-snug">{incident.title}</p>
-                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${colorCls}`}>
+                <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${colorCls}`}>
                   {STATUS_LABELS[incident.status] ?? incident.status}
                 </span>
               </div>
@@ -151,7 +151,7 @@ export function IncidentChat({
             </div>
             <button
               onClick={onClose}
-              className="text-[#666] hover:text-white transition-colors flex-shrink-0 mt-0.5"
+              className="text-[#999] hover:text-white transition-colors flex-shrink-0 mt-0.5"
             >
               <X size={16} />
             </button>
@@ -165,7 +165,7 @@ export function IncidentChat({
                 className={`flex-1 py-2.5 text-xs font-semibold transition-colors ${
                   partyTab === 'guest'
                     ? 'text-white border-b-2 border-[#E50914]'
-                    : 'text-[#666] hover:text-[#B3B3B3]'
+                    : 'text-[#999] hover:text-[#B3B3B3]'
                 }`}
               >
                 {guestName ?? 'Hóspede'}
@@ -175,7 +175,7 @@ export function IncidentChat({
                 className={`flex-1 py-2.5 text-xs font-semibold transition-colors ${
                   partyTab === 'owner'
                     ? 'text-white border-b-2 border-[#E50914]'
-                    : 'text-[#666] hover:text-[#B3B3B3]'
+                    : 'text-[#999] hover:text-[#B3B3B3]'
                 }`}
               >
                 {ownerName ?? 'Anfitrião'}
@@ -186,7 +186,7 @@ export function IncidentChat({
           {/* Photos */}
           {photos.length > 0 && (
             <div className="px-5 pt-4 pb-3 border-b border-[#333] flex-shrink-0">
-              <p className="text-[11px] text-[#555] mb-2">Fotos anexadas</p>
+              <p className="text-xs text-[#888] mb-2">Fotos anexadas</p>
               <div className="flex gap-2 flex-wrap">
                 {photos.map((url, i) => (
                   <button
@@ -204,7 +204,7 @@ export function IncidentChat({
           {/* Admin: notes editor */}
           {isAdmin && (
             <div className="px-5 pt-4 pb-3 border-b border-[#333] flex-shrink-0 space-y-2">
-              <p className="text-[11px] text-[#555] font-medium">Resposta visível ao usuário</p>
+              <p className="text-xs text-[#888] font-medium">Resposta visível ao usuário</p>
               <textarea
                 value={adminNotes}
                 onChange={e => setAdminNotes(e.target.value)}
@@ -237,7 +237,7 @@ export function IncidentChat({
           {/* Messages */}
           <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-0">
             {displayedMessages.length === 0 && (
-              <p className="text-center text-xs text-[#555] py-8">
+              <p className="text-center text-xs text-[#888] py-8">
                 {isAdmin
                   ? `Nenhuma mensagem com ${activeName} ainda.`
                   : 'Nenhuma mensagem ainda. Envie uma mensagem para nossa equipe.'}
@@ -253,7 +253,7 @@ export function IncidentChat({
                       : 'bg-[#2A2A2A] text-white rounded-tl-sm'
                   }`}>
                     <p className="whitespace-pre-wrap break-words">{m.content}</p>
-                    <p className={`text-[10px] mt-1 ${isOwn ? 'text-white/60 text-right' : 'text-[#555]'}`}>
+                    <p className={`text-xs mt-1 ${isOwn ? 'text-white/60 text-right' : 'text-[#888]'}`}>
                       {new Date(m.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                     </p>
                   </div>

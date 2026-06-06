@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+﻿import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { APP_ROUTES } from '../constants'
@@ -59,7 +59,7 @@ function Rule({ title, items }: { title: string; items: string[] }) {
       <ul className="space-y-1">
         {items.map((item, i) => (
           <li key={i} className="text-sm text-[#B3B3B3] flex gap-2">
-            <span className="text-[#555] mt-0.5">•</span>
+            <span className="text-[#888] mt-0.5">•</span>
             <span>{item}</span>
           </li>
         ))}
@@ -126,7 +126,7 @@ export function CancellationPolicy() {
 
         {/* Header */}
         <div className="mb-10">
-          <Link to={APP_ROUTES.HOME} className="text-xs text-[#666] hover:text-[#B3B3B3] transition-colors mb-4 inline-block">
+          <Link to={APP_ROUTES.HOME} className="text-xs text-[#999] hover:text-[#B3B3B3] transition-colors mb-4 inline-block">
             ← Voltar ao início
           </Link>
           <h1 className="font-display text-4xl font-bold text-white mb-3">Políticas de Cancelamento</h1>
@@ -181,12 +181,12 @@ export function CancellationPolicy() {
               'Exceção: se a estadia tiver início em menos de 14 dias a partir da data da reserva, o prazo de arrependimento é reduzido para 24 horas após a confirmação.',
             ].map((item, i) => (
               <li key={i} className="text-sm text-[#B3B3B3] flex gap-2">
-                <span className="text-[#555] mt-0.5">•</span>
+                <span className="text-[#888] mt-0.5">•</span>
                 <span>{item}</span>
               </li>
             ))}
           </ul>
-          <p className="text-xs text-[#555] italic">
+          <p className="text-xs text-[#888] italic">
             O direito de arrependimento prevalece sobre qualquer política de cancelamento. Solicitações fora deste prazo seguem a política do imóvel.
           </p>
         </div>
@@ -203,7 +203,7 @@ export function CancellationPolicy() {
               'Taxas financeiras e operacionais não serão reembolsáveis após o período do direito de arrependimento.',
             ].map((item, i) => (
               <li key={i} className="text-sm text-[#B3B3B3] flex gap-2">
-                <span className="text-[#555] mt-0.5">•</span>
+                <span className="text-[#888] mt-0.5">•</span>
                 <span>{item}</span>
               </li>
             ))}
@@ -224,7 +224,7 @@ export function CancellationPolicy() {
               'Não houver pendências financeiras.',
             ].map((item, i) => (
               <li key={i} className="text-sm text-[#B3B3B3] flex gap-2">
-                <span className="text-[#555] mt-0.5">•</span>
+                <span className="text-[#888] mt-0.5">•</span>
                 <span>{item}</span>
               </li>
             ))}
@@ -243,7 +243,7 @@ export function CancellationPolicy() {
               'O anfitrião poderá sofrer: multas, bloqueios, perda de visibilidade e suspensão da conta em reincidências.',
             ].map((item, i) => (
               <li key={i} className="text-sm text-[#B3B3B3] flex gap-2">
-                <span className="text-[#555] mt-0.5">•</span>
+                <span className="text-[#888] mt-0.5">•</span>
                 <span>{item}</span>
               </li>
             ))}

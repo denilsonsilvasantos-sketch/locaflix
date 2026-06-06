@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+﻿import { useEffect, useState } from 'react'
 import { Copy, Check, Download, QrCode, FileText, ExternalLink } from 'lucide-react'
 import { Modal } from './Modal'
 import { Button } from './Button'
@@ -26,7 +26,7 @@ function CopyField({ value, label }: { value: string; label: string }) {
 
   return (
     <div>
-      <p className="text-xs text-[#666] mb-2 text-center">{label}</p>
+      <p className="text-xs text-[#999] mb-2 text-center">{label}</p>
       <div className="flex gap-2">
         <div className="flex-1 bg-[#0A0A0A] border border-[#333] rounded-xl px-3 py-2 text-xs text-[#B3B3B3] truncate font-mono">
           {value || '—'}
@@ -67,7 +67,7 @@ export function PaymentModal({ open, onClose, payment, polling }: PaymentModalPr
         <div className="text-center">
           <p className="text-[#B3B3B3] text-sm mb-1">Valor da parcela</p>
           <p className="text-3xl font-bold text-white">{formatCurrency(pix.value)}</p>
-          <p className="text-xs text-[#666] mt-1">Vence em {formatDate(pix.due_date)}</p>
+          <p className="text-xs text-[#999] mt-1">Vence em {formatDate(pix.due_date)}</p>
         </div>
 
         {/* Toggle PIX / BOLETO */}
@@ -77,7 +77,7 @@ export function PaymentModal({ open, onClose, payment, polling }: PaymentModalPr
             className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-semibold transition-all ${
               method === 'PIX'
                 ? 'bg-[#E50914] text-white shadow'
-                : 'text-[#666] hover:text-[#B3B3B3]'
+                : 'text-[#999] hover:text-[#B3B3B3]'
             }`}
           >
             <QrCode size={15} />
@@ -88,7 +88,7 @@ export function PaymentModal({ open, onClose, payment, polling }: PaymentModalPr
             className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-semibold transition-all ${
               method === 'BOLETO'
                 ? 'bg-[#1E4DA1] text-white shadow'
-                : 'text-[#666] hover:text-[#B3B3B3]'
+                : 'text-[#999] hover:text-[#B3B3B3]'
             }`}
           >
             <FileText size={15} />
@@ -129,7 +129,7 @@ export function PaymentModal({ open, onClose, payment, polling }: PaymentModalPr
               className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl font-semibold text-sm transition-colors ${
                 boleto.boleto_url
                   ? 'bg-[#1E4DA1] hover:bg-[#1a429a] text-white'
-                  : 'bg-[#1F1F1F] text-[#555] cursor-not-allowed'
+                  : 'bg-[#1F1F1F] text-[#888] cursor-not-allowed'
               }`}
               onClick={e => { if (!boleto.boleto_url) e.preventDefault() }}
             >
@@ -159,7 +159,7 @@ export function PaymentModal({ open, onClose, payment, polling }: PaymentModalPr
             Verificando pagamento automaticamente{dots}
           </p>
         ) : (
-          <p className="text-center text-xs text-[#555]">
+          <p className="text-center text-xs text-[#888]">
             Ambiente sandbox — use dados de teste do Asaas
           </p>
         )}

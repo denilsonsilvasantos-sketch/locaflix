@@ -1,4 +1,4 @@
-import 'leaflet/dist/leaflet.css'
+﻿import 'leaflet/dist/leaflet.css'
 import { useEffect, useState } from 'react'
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet'
 import L from 'leaflet'
@@ -69,7 +69,7 @@ export function MapView({ height = '500px', from, to }: MapViewProps) {
 
   if (properties.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center gap-3 text-[#555] bg-[#1A1A1A] rounded-xl" style={containerStyle}>
+      <div className="flex flex-col items-center justify-center gap-3 text-[#888] bg-[#1A1A1A] rounded-xl" style={containerStyle}>
         <p className="text-sm">Nenhum imóvel com coordenadas cadastradas.</p>
         <p className="text-xs text-[#444]">Adicione latitude e longitude ao cadastrar imóveis.</p>
       </div>

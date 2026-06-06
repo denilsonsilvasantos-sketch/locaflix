@@ -1,4 +1,4 @@
-import { Mail, MessageCircle, Clock, HelpCircle, ChevronDown, ChevronUp } from 'lucide-react'
+﻿import { Mail, MessageCircle, Clock, HelpCircle, ChevronDown, ChevronUp } from 'lucide-react'
 import { useState } from 'react'
 
 const FAQS = [
@@ -33,7 +33,7 @@ function FaqItem({ q, a }: { q: string; a: string }) {
         onClick={() => setOpen(v => !v)}
       >
         <span className="text-sm font-semibold text-white pr-4">{q}</span>
-        {open ? <ChevronUp size={16} className="text-[#666] flex-shrink-0" /> : <ChevronDown size={16} className="text-[#666] flex-shrink-0" />}
+        {open ? <ChevronUp size={16} className="text-[#999] flex-shrink-0" /> : <ChevronDown size={16} className="text-[#999] flex-shrink-0" />}
       </button>
       {open && (
         <div className="px-4 pb-4 text-sm text-[#B3B3B3] leading-relaxed border-t border-[#222]">
@@ -67,7 +67,7 @@ export function HelpPage() {
             <div>
               <p className="font-semibold text-white mb-0.5">E-mail</p>
               <p className="text-sm text-[#B3B3B3]">suporte@locaflix.com.br</p>
-              <p className="text-xs text-[#555] mt-1">Resposta em até 24h</p>
+              <p className="text-xs text-[#888] mt-1">Resposta em até 24h</p>
             </div>
           </a>
 
@@ -83,14 +83,14 @@ export function HelpPage() {
             <div>
               <p className="font-semibold text-white mb-0.5">WhatsApp</p>
               <p className="text-sm text-[#B3B3B3]">(47) 99264-6761</p>
-              <p className="text-xs text-[#555] mt-1">Atendimento rápido</p>
+              <p className="text-xs text-[#888] mt-1">Atendimento rápido</p>
             </div>
           </a>
         </div>
 
         <div className="flex items-center gap-2 mb-4">
-          <Clock size={14} className="text-[#555]" />
-          <p className="text-xs text-[#555]">Atendimento de segunda a sexta, das 9h às 18h (horário de Brasília)</p>
+          <Clock size={14} className="text-[#888]" />
+          <p className="text-xs text-[#888]">Atendimento de segunda a sexta, das 9h às 18h (horário de Brasília)</p>
         </div>
 
         {/* FAQ */}

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+﻿import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   Calendar, Heart, Bell, ShieldCheck, User,
@@ -389,7 +389,7 @@ export function GuestDashboard() {
                               <MapPin size={10} /> {f.property.city}, {f.property.state}
                             </p>
                             <p className="text-sm font-bold text-[#F5A623] mt-1">
-                              {formatCurrency(f.property.price_per_night)}<span className="text-xs text-[#666] font-normal">/noite</span>
+                              {formatCurrency(f.property.price_per_night)}<span className="text-xs text-[#999] font-normal">/noite</span>
                             </p>
                           </>
                         )}
@@ -440,7 +440,7 @@ export function GuestDashboard() {
                 <Card className="p-6 mt-4 space-y-5">
                   <div>
                     <h3 className="text-sm font-semibold text-white mb-1">Documento com foto <span className="text-[#E50914]">*</span></h3>
-                    <p className="text-xs text-[#666] mb-3">RG ou CNH — foto clara de frente e verso. JPG, PNG ou PDF, máx. 10 MB.</p>
+                    <p className="text-xs text-[#999] mb-3">RG ou CNH — foto clara de frente e verso. JPG, PNG ou PDF, máx. 10 MB.</p>
                     <KYCDocumentField
                       userId={user!.id}
                       fieldKey="document"
@@ -491,8 +491,8 @@ export function GuestDashboard() {
                   <p className="text-xs text-[#B3B3B3] truncate">{user?.email}</p>
                   <div className="flex items-center gap-2 mt-1">
                     <KYCStatusBadge status={kycStatus} />
-                    <span className="text-xs text-[#555]">·</span>
-                    <span className="text-xs text-[#555]">{profile?.role}</span>
+                    <span className="text-xs text-[#888]">·</span>
+                    <span className="text-xs text-[#888]">{profile?.role}</span>
                   </div>
                 </div>
               </Card>
@@ -533,7 +533,7 @@ export function GuestDashboard() {
               {/* Sair */}
               <button
                 onClick={signOut}
-                className="mt-6 w-full flex items-center justify-center gap-2 text-sm text-[#666] hover:text-[#E50914] transition-colors py-2"
+                className="mt-6 w-full flex items-center justify-center gap-2 text-sm text-[#999] hover:text-[#E50914] transition-colors py-2"
               >
                 <LogOut size={14} /> Sair da conta
               </button>
@@ -702,7 +702,7 @@ function BookingCard({
       <div className="flex gap-4 items-start">
         {booking.property?.photos?.[0]
           ? <img src={booking.property.photos[0]} alt={booking.property?.name} className="w-16 h-16 rounded-xl object-cover flex-shrink-0" />
-          : <div className="w-16 h-16 rounded-xl flex-shrink-0 bg-[#2A2A2A] flex items-center justify-center"><Home size={22} className="text-[#555]" /></div>
+          : <div className="w-16 h-16 rounded-xl flex-shrink-0 bg-[#2A2A2A] flex items-center justify-center"><Home size={22} className="text-[#888]" /></div>
         }
         <div className="flex-1 min-w-0">
           {/* Header row */}
@@ -714,7 +714,7 @@ function BookingCard({
               <p className="text-xs text-[#B3B3B3] flex items-center gap-1 mt-0.5">
                 <BedDouble size={10} />
                 {formatShortDate(booking.check_in)} → {formatShortDate(booking.check_out)}
-                <span className="ml-1 text-[#555]">· {booking.nights}n</span>
+                <span className="ml-1 text-[#888]">· {booking.nights}n</span>
               </p>
             </div>
             {/* Status badge */}
@@ -782,7 +782,7 @@ function BookingCard({
                           }>
                             {inst.number}ª · {formatShortDate(inst.due_date)} · {formatCurrency(inst.value)}
                             {inst.status === 'PAGO' && inst.paid_at && (
-                              <span className="text-[#555] ml-1">pago</span>
+                              <span className="text-[#888] ml-1">pago</span>
                             )}
                           </span>
                         </div>
@@ -790,7 +790,7 @@ function BookingCard({
                           <button
                             onClick={() => instOverdue && inst.asaas_payment_id ? fetchOverdueQR() : payInstallment(inst)}
                             disabled={payingInstId === inst.id || fetchingQR}
-                            className="flex-shrink-0 flex items-center gap-1 text-[10px] font-semibold text-white bg-[#E50914] hover:bg-[#C50813] disabled:opacity-50 rounded-lg px-2 py-1 transition-colors"
+                            className="flex-shrink-0 flex items-center gap-1 text-xs font-semibold text-white bg-[#E50914] hover:bg-[#C50813] disabled:opacity-50 rounded-lg px-2 py-1 transition-colors"
                           >
                             {(payingInstId === inst.id || (fetchingQR && instOverdue))
                               ? <RefreshCw size={10} className="animate-spin" />
@@ -808,7 +808,7 @@ function BookingCard({
 
           {/* Booking number */}
           {booking.booking_number && (
-            <p className="text-[10px] text-[#555] mt-2">#{booking.booking_number}</p>
+            <p className="text-xs text-[#888] mt-2">#{booking.booking_number}</p>
           )}
         </div>
       </div>
@@ -826,7 +826,7 @@ function BookingCard({
               </p>
             </div>
             <div className="flex items-center justify-between gap-2 flex-wrap">
-              <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-[#F5A623] bg-[#F5A623]/10 border border-[#F5A623]/30 rounded-full px-2 py-0.5">
+              <span className="inline-flex items-center gap-1 text-xs font-semibold text-[#F5A623] bg-[#F5A623]/10 border border-[#F5A623]/30 rounded-full px-2 py-0.5">
                 <AlertTriangle size={9} />
                 Sinalizado para contato manual
               </span>
@@ -862,7 +862,7 @@ function BookingCard({
               Avaliar estadia
             </button>
           )}
-          <span className="text-[10px] text-[#555]">
+          <span className="text-xs text-[#888]">
             {hasReviewed ? 'Obrigado pelo feedback' : 'Prazo: 14 dias após o checkout'}
           </span>
         </div>
@@ -911,7 +911,7 @@ function NotificationItem({ n, onMarkRead }: { n: Notification; onMarkRead: () =
             {typeIcon[n.type] && <span className="mr-1">{typeIcon[n.type]}</span>}
             {n.title}
           </p>
-          <span className="text-[10px] text-[#555] flex-shrink-0 mt-0.5">
+          <span className="text-xs text-[#888] flex-shrink-0 mt-0.5">
             {new Date(n.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
           </span>
         </div>
@@ -945,9 +945,9 @@ function KYCStatusBadge({ status }: { status: KYCStatus }) {
     APROVADO:   'text-[#46D369]',
     PENDENTE:   'text-[#F5A623]',
     REPROVADO:  'text-[#E50914]',
-    INCOMPLETO: 'text-[#666]',
+    INCOMPLETO: 'text-[#999]',
   }
-  return <span className={`text-xs font-medium ${map[status] ?? 'text-[#666]'}`}>{status}</span>
+  return <span className={`text-xs font-medium ${map[status] ?? 'text-[#999]'}`}>{status}</span>
 }
 
 

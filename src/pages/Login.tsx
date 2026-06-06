@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+﻿import { useState, useRef } from 'react'
 import { Link, useNavigate, useLocation, useSearchParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Eye, EyeOff, Mail, Lock, User, MapPin, Phone, CreditCard, ChevronRight, ChevronLeft, CalendarDays } from 'lucide-react'
@@ -346,7 +346,7 @@ export function Login({ mode: initialMode = 'login' }: LoginProps) {
                     onSubmit={handleRegister}
                     className="flex flex-col gap-3"
                   >
-                    <p className="text-xs text-[#666] -mt-2 mb-1">
+                    <p className="text-xs text-[#999] -mt-2 mb-1">
                       Preencha seus dados para agilizar futuras reservas. Você pode pular e completar depois.
                     </p>
 
@@ -359,7 +359,7 @@ export function Login({ mode: initialMode = 'login' }: LoginProps) {
                     <DateInput label="Data de nascimento" value={form.birth_date} onChange={v => setForm(p => ({ ...p, birth_date: v }))} />
 
                     <div className="border-t border-[#333] pt-3 mt-1">
-                      <p className="text-xs font-semibold text-[#666] uppercase tracking-wide mb-2">Endereço</p>
+                      <p className="text-xs font-semibold text-[#999] uppercase tracking-wide mb-2">Endereço</p>
                       <div className="grid grid-cols-3 gap-3 mb-3">
                         <div className="col-span-1">
                           <Input label="CEP" {...f('cep')}
@@ -394,7 +394,7 @@ export function Login({ mode: initialMode = 'login' }: LoginProps) {
                       </Button>
                     </div>
 
-                    <p className="text-center text-xs text-[#555] leading-relaxed">
+                    <p className="text-center text-xs text-[#888] leading-relaxed">
                       Ao criar sua conta você concorda com os{' '}
                       <a href="#" className="text-[#B3B3B3] hover:text-white">Termos de Uso</a>
                       {' '}e a{' '}
@@ -422,7 +422,7 @@ export function Login({ mode: initialMode = 'login' }: LoginProps) {
                 <span className="text-white font-medium">{form.email}</span>.
                 <br />Clique no link para ativar sua conta.
               </p>
-              <p className="text-xs text-[#555] mb-4">
+              <p className="text-xs text-[#888] mb-4">
                 Não recebeu? Verifique a caixa de spam.
               </p>
               <button
@@ -455,7 +455,7 @@ function Divider() {
   return (
     <div className="flex items-center gap-3 my-1">
       <div className="flex-1 h-px bg-[#333]" />
-      <span className="text-xs text-[#555]">ou com e-mail</span>
+      <span className="text-xs text-[#888]">ou com e-mail</span>
       <div className="flex-1 h-px bg-[#333]" />
     </div>
   )

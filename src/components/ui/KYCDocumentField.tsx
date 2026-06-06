@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+﻿import { useRef, useState } from 'react'
 import { Upload, FileCheck, ExternalLink, Loader2, AlertCircle } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 
@@ -47,7 +47,7 @@ export function KYCDocumentField({
   return (
     <div>
       <p className="text-xs font-semibold text-[#B3B3B3] uppercase tracking-wide mb-1">{label}</p>
-      {hint && <p className="text-xs text-[#555] mb-2">{hint}</p>}
+      {hint && <p className="text-xs text-[#888] mb-2">{hint}</p>}
       <input
         ref={inputRef}
         type="file"
@@ -78,10 +78,10 @@ export function KYCDocumentField({
         )}
       </div>
       {displayUrl && !err && !uploading && (
-        <p className="text-[10px] text-[#46D369] mt-1.5">✓ Arquivo enviado</p>
+        <p className="text-xs text-[#46D369] mt-1.5">✓ Arquivo enviado</p>
       )}
       {err && (
-        <p className="text-[10px] text-[#E50914] mt-1.5 flex items-center gap-1">
+        <p className="text-xs text-[#E50914] mt-1.5 flex items-center gap-1">
           <AlertCircle size={10} /> {err}
         </p>
       )}
