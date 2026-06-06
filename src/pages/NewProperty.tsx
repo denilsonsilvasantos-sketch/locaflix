@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, Link as RouterLink } from 'react-router-dom'
-import { X, Plus, Upload, Trash2, Image, Link, DollarSign, AlertTriangle, Star } from 'lucide-react'
+import { X, Plus, Upload, Trash2, Image, Link, DollarSign, AlertTriangle, Star, Wand2 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { useToast } from '../hooks/useToast'
@@ -61,6 +61,8 @@ export function NewProperty() {
   const [selectedHomeTags, setSelectedHomeTags] = useState<Set<string>>(new Set())
   const [customAmenities, setCustomAmenities] = useState<{ id: string; category: string; name: string }[]>([])
   const [customForm, setCustomForm] = useState({ category: 'Cozinha', name: '' })
+  const [importUrl, setImportUrl] = useState('')
+  const [importing, setImporting] = useState(false)
 
   const [form, setForm] = useState({
     name: '',
@@ -129,6 +131,61 @@ export function NewProperty() {
 
   function removeCustomAmenity(customId: string) {
     setCustomAmenities(prev => prev.filter(a => a.id !== customId))
+  }
+
+  async function importListing() {
+    const url = importUrl.trim()
+    if (!url) return
+    setImporting(true)
+    try {
+      const session = await supabase.auth.getSession()
+      const authToken = session.data.session?.access_token ?? ''
+      const res = await fetch('/api/import/listing', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
+        body: JSON.stringify({ url }),
+      })
+      const json = await res.json() as { success?: boolean; error?: string; data?: Record<string, unknown> }
+      if (!res.ok || !json.success) {
+        toast('error', 'Erro na importação', json.error ?? 'Tente novamente')
+        return
+      }
+      const d = json.data!
+      const validTypes = ['CASA','APARTAMENTO','CHALÉ','POUSADA','SÍTIO','COBERTURA','LOFT','STUDIO']
+      const validPolicies = ['LEVE','MODERADO','FIRME']
+      setForm(f => ({
+        ...f,
+        name: (d.name as string) || f.name,
+        description: (d.description as string) || f.description,
+        type: validTypes.includes(d.type as string) ? d.type as typeof f.type : f.type,
+        city: (d.city as string) || f.city,
+        state: (d.state as string) || f.state,
+        neighborhood: (d.neighborhood as string) || f.neighborhood,
+        bedrooms: d.bedrooms ? String(d.bedrooms) : f.bedrooms,
+        bathrooms: d.bathrooms ? String(d.bathrooms) : f.bathrooms,
+        max_guests: d.max_guests ? String(d.max_guests) : f.max_guests,
+        price_per_night: d.price_per_night ? String(d.price_per_night) : f.price_per_night,
+        cleaning_fee_enabled: !!(d.cleaning_fee),
+        cleaning_fee: d.cleaning_fee ? String(d.cleaning_fee) : f.cleaning_fee,
+        cancellation_policy: validPolicies.includes(d.cancellation_policy as string) ? d.cancellation_policy as typeof f.cancellation_policy : f.cancellation_policy,
+      }))
+      if (Array.isArray(d.amenities) && d.amenities.length > 0 && catalog.length > 0) {
+        const found = new Set<string>()
+        for (const amenityName of d.amenities as string[]) {
+          const lower = amenityName.toLowerCase()
+          const match = catalog.find(c =>
+            c.name.toLowerCase().includes(lower) || lower.includes(c.name.toLowerCase())
+          )
+          if (match) found.add(match.id)
+        }
+        if (found.size > 0) setSelectedAmenityIds(found)
+      }
+      toast('success', 'Informações importadas!', 'Revise os dados e adicione as fotos manualmente.')
+    } catch (err) {
+      toast('error', 'Erro de conexão', err instanceof Error ? err.message : 'Tente novamente')
+    } finally {
+      setImporting(false)
+    }
   }
 
   async function handleCEP(cep: string) {
@@ -412,6 +469,49 @@ export function NewProperty() {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Importar de outra plataforma */}
+          <section className="bg-[#1A1A2E] border border-[#3B3B6B] rounded-2xl p-6 space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 rounded-xl bg-[#E50914]/15 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <Wand2 size={16} className="text-[#E50914]" />
+              </div>
+              <div>
+                <h2 className="font-display text-base font-bold text-white">Importar de outra plataforma</h2>
+                <p className="text-xs text-[#B3B3B3] mt-0.5">
+                  Cole o link do anúncio (Airbnb, Booking.com, Temporada Livre…) e as informações serão preenchidas automaticamente. As fotos você adiciona manualmente.
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <input
+                type="url"
+                value={importUrl}
+                onChange={e => setImportUrl(e.target.value)}
+                placeholder="https://www.airbnb.com.br/rooms/..."
+                className="flex-1 bg-[#0F0F1F] border border-[#3B3B6B] rounded-xl px-3 py-2.5 text-sm text-white placeholder-[#555] outline-none focus:ring-2 focus:ring-[#E50914] transition-all"
+                disabled={importing}
+                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); void importListing() } }}
+              />
+              <button
+                type="button"
+                onClick={() => void importListing()}
+                disabled={!importUrl.trim() || importing}
+                className="flex items-center gap-2 px-4 py-2.5 bg-[#E50914] hover:bg-[#F40612] disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-xl transition-colors flex-shrink-0"
+              >
+                {importing
+                  ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  : <Wand2 size={15} />
+                }
+                {importing ? 'Importando…' : 'Importar'}
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {['Airbnb', 'Booking.com', 'Temporada Livre', 'TripAdvisor', 'Vrbo'].map(p => (
+                <span key={p} className="text-[10px] text-[#666] border border-[#2A2A3A] rounded-full px-2.5 py-1">{p}</span>
+              ))}
+            </div>
+          </section>
+
           {/* Informações básicas */}
           <section className="bg-[#1F1F1F] border border-[#333] rounded-2xl p-6 space-y-4">
             <h2 className="font-display text-lg font-bold text-white">Informações básicas</h2>
