@@ -415,15 +415,18 @@ export function EditProperty() {
       )
     }
 
+    // Delete photos first (before rooms) to avoid FK constraint issues
+    await supabase.from('property_photos').delete().eq('property_id', id)
     await supabase.from('property_rooms').delete().eq('property_id', id)
-    const validRooms = rooms.filter(rm => rm.name.trim())
+    // Include rooms with photos even if the room name is blank (default to "Geral")
+    const validRooms = rooms.filter(rm => rm.name.trim() || rm.photos.some(p => p.url && !p.uploading))
     for (let i = 0; i < validRooms.length; i++) {
       const room = validRooms[i]
       const { data: roomRow, error: roomErr } = await supabase
         .from('property_rooms')
         .insert({
           property_id: id,
-          name: room.name.trim(),
+          name: room.name.trim() || 'Geral',
           description: room.description.trim() || null,
           display_order: i,
         })

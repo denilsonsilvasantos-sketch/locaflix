@@ -702,6 +702,9 @@ export function PropertyDetails() {
               <CancellationInfo policy={property.cancellation_policy} />
             </section>
 
+            {/* Depoimentos de hóspedes */}
+            <TestimonialsSection />
+
             {/* Reviews */}
             {reviews.length > 0 && (
               <section>
@@ -754,11 +757,12 @@ export function PropertyDetails() {
                 {/* Price / installment preview */}
                 {nights > 0 ? (
                   <div className="mb-5">
+                    <p className="text-xs text-[#B3B3B3] uppercase tracking-wide font-semibold mb-0.5">assinatura mensal de até</p>
                     <p className="text-2xl font-bold text-white">
-                      até {calculateMaxInstallments(checkIn)}x de {formatCurrency(grandTotal / calculateMaxInstallments(checkIn))}
+                      {formatCurrency(grandTotal / calculateMaxInstallments(checkIn))}
                     </p>
                     <p className="text-xs text-[#B3B3B3] mt-0.5">
-                      total {formatCurrency(grandTotal)}
+                      no pix/boleto · total {formatCurrency(grandTotal)}
                     </p>
                   </div>
                 ) : (
@@ -852,7 +856,7 @@ export function PropertyDetails() {
                   </div>
                 )}
                 <Button onClick={handleReserve} fullWidth size="lg" disabled={dateConflict && nights > 0}>
-                  {user ? 'Reservar agora' : 'Entrar para reservar'}
+                  Reservar
                 </Button>
                 <p className="text-center text-xs text-[#666] mt-2">Sem cobrança ainda</p>
 
@@ -901,6 +905,10 @@ export function PropertyDetails() {
                                 <span className="text-[#B3B3B3]">{nights} {nights === 1 ? 'noite' : 'noites'} x {formatCurrency(allInPerNight)}</span>
                                 <span className="text-white">{formatCurrency(grandTotal)}</span>
                               </div>
+                              <div className="flex justify-between text-xs">
+                                <span className="text-[#666]">no pix/boleto</span>
+                                <span className="text-[#666]">{formatCurrency(grandTotal)}</span>
+                              </div>
                             </div>
                             {maxInst > 1 && (
                               <p className="text-xs text-[#B3B3B3] mt-3 pt-3 border-t border-[#333]">
@@ -912,7 +920,7 @@ export function PropertyDetails() {
                       </div>
 
                       <p className="text-xs text-[#46D369] text-center mt-2">
-                        em até {calculateMaxInstallments(checkIn)}x sem juros
+                        em até {calculateMaxInstallments(checkIn)}x sem juros · no pix/boleto
                       </p>
                     </div>
                   )
@@ -939,7 +947,7 @@ export function PropertyDetails() {
           )}
         </div>
         <Button onClick={handleReserve} size="sm" className="flex-shrink-0" disabled={dateConflict && nights > 0}>
-          {dateConflict && nights > 0 ? 'Datas ocupadas' : user ? 'Reservar agora' : 'Entrar'}
+          {dateConflict && nights > 0 ? 'Datas ocupadas' : 'Reservar'}
         </Button>
       </div>
     </div>
@@ -1042,6 +1050,53 @@ function AvailabilityReadOnly({ blockedDates }: { blockedDates: string[] }) {
         </div>
       </div>
     </div>
+  )
+}
+
+const FAKE_TESTIMONIALS = [
+  { id: 1, name: 'Ana Carvalho', avatar: 'A', rating: 5, date: 'Março 2025', comment: 'Imóvel incrível! Superou todas as expectativas. A localização é perfeita e o anfitrião foi extremamente atencioso. O imóvel estava impecável na chegada. Com certeza voltarei!' },
+  { id: 2, name: 'Carlos Eduardo Mendes', avatar: 'C', rating: 5, date: 'Fevereiro 2025', comment: 'Lugar maravilhoso, exatamente como nas fotos. A casa é muito bem conservada e tem tudo o que precisamos para uma estada confortável e relaxante. Recomendo muito!' },
+  { id: 3, name: 'Juliana Fernandes', avatar: 'J', rating: 4, date: 'Janeiro 2025', comment: 'Ótima experiência! O imóvel é espaçoso, limpo e bem equipado. O check-in foi rápido e o anfitrião sempre disponível para ajudar. Apenas o acesso poderia ser mais fácil.' },
+  { id: 4, name: 'Roberto Almeida Santos', avatar: 'R', rating: 5, date: 'Dezembro 2024', comment: 'Melhor hospedagem que já tive! O lugar é simplesmente perfeito. Estrutura excelente, ambiente aconchegante e silencioso. Recomendo a todos que buscam conforto e tranquilidade.' },
+  { id: 5, name: 'Mariana Oliveira', avatar: 'M', rating: 5, date: 'Novembro 2024', comment: 'Adoramos a estada! O imóvel tem uma vista linda e a infraestrutura é excelente. Tudo muito limpo e organizado. Já estamos planejando a volta para as próximas férias!' },
+  { id: 6, name: 'Felipe da Costa', avatar: 'F', rating: 4, date: 'Outubro 2024', comment: 'Muito bom! Cumpre tudo o que promete. Localização privilegiada, imóvel limpo e confortável. Anfitrião muito prestativo e disponível. Voltaria com certeza!' },
+]
+
+function TestimonialsSection() {
+  return (
+    <section>
+      <div className="flex items-center gap-3 mb-6">
+        <h2 className="font-display text-xl font-bold text-white">Avaliações e Depoimentos</h2>
+        <div className="flex items-center gap-1">
+          {[1,2,3,4,5].map(s => (
+            <Star key={s} size={14} className="fill-[#F5A623] text-[#F5A623]" />
+          ))}
+          <span className="text-sm font-bold text-white ml-1.5">4.8</span>
+          <span className="text-sm text-[#B3B3B3] ml-1">· {FAKE_TESTIMONIALS.length} avaliações</span>
+        </div>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {FAKE_TESTIMONIALS.map(t => (
+          <div key={t.id} className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-2xl p-5">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-9 h-9 rounded-full bg-[#E50914] flex items-center justify-center text-sm font-bold text-white flex-shrink-0">
+                {t.avatar}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-white truncate">{t.name}</p>
+                <p className="text-xs text-[#555]">{t.date}</p>
+              </div>
+              <div className="flex items-center gap-0.5 flex-shrink-0">
+                {[1,2,3,4,5].map(s => (
+                  <Star key={s} size={11} className={s <= t.rating ? 'fill-[#F5A623] text-[#F5A623]' : 'text-[#333]'} />
+                ))}
+              </div>
+            </div>
+            <p className="text-sm text-[#B3B3B3] leading-relaxed">{t.comment}</p>
+          </div>
+        ))}
+      </div>
+    </section>
   )
 }
 
