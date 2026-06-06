@@ -950,9 +950,11 @@ function AvailabilityReadOnly({ blockedDates }: { blockedDates: string[] }) {
   const blocked = new Set(blockedDates)
   const DAYS_SHORT = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
 
-  // Show 2 months starting from current month
-  const months = [0, 1].map(offset => {
-    const d = new Date(today.getFullYear(), today.getMonth() + offset, 1)
+  // monthOffset: 0 = current month pair, 2 = next pair, etc.
+  const [monthOffset, setMonthOffset] = useState(0)
+
+  const months = [0, 1].map(i => {
+    const d = new Date(today.getFullYear(), today.getMonth() + monthOffset + i, 1)
     return d
   })
 
@@ -960,14 +962,11 @@ function AvailabilityReadOnly({ blockedDates }: { blockedDates: string[] }) {
     const year = firstDay.getFullYear()
     const month = firstDay.getMonth()
     const daysInMonth = new Date(year, month + 1, 0).getDate()
-    const startDow = firstDay.getDay() // 0=Sun
-
+    const startDow = firstDay.getDay()
     const label = firstDay.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
     const cells: React.ReactNode[] = []
 
-    for (let i = 0; i < startDow; i++) {
-      cells.push(<div key={`e${i}`} />)
-    }
+    for (let i = 0; i < startDow; i++) cells.push(<div key={`e${i}`} />)
 
     for (let d = 1; d <= daysInMonth; d++) {
       const date = new Date(year, month, d)
@@ -980,9 +979,7 @@ function AvailabilityReadOnly({ blockedDates }: { blockedDates: string[] }) {
       else if (isBlocked) cls += 'bg-[#2A0A0A] text-[#E50914] line-through cursor-default'
       else cls += 'text-[#B3B3B3]'
 
-      cells.push(
-        <div key={d} className={cls}>{d}</div>
-      )
+      cells.push(<div key={d} className={cls}>{d}</div>)
     }
 
     return (
@@ -1000,9 +997,29 @@ function AvailabilityReadOnly({ blockedDates }: { blockedDates: string[] }) {
 
   return (
     <div className="bg-[#1F1F1F] border border-[#333] rounded-2xl p-5">
+      {/* Navigation */}
+      <div className="flex items-center justify-between mb-4">
+        <button
+          type="button"
+          onClick={() => setMonthOffset(o => Math.max(0, o - 2))}
+          disabled={monthOffset === 0}
+          className="w-8 h-8 flex items-center justify-center rounded-lg text-[#555] hover:text-white hover:bg-[#2A2A2A] disabled:opacity-30 disabled:cursor-default transition-colors"
+        >
+          <ChevronLeft size={16} />
+        </button>
+        <button
+          type="button"
+          onClick={() => setMonthOffset(o => o + 2)}
+          className="w-8 h-8 flex items-center justify-center rounded-lg text-[#555] hover:text-white hover:bg-[#2A2A2A] transition-colors"
+        >
+          <ChevronRight size={16} />
+        </button>
+      </div>
+
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
         {months.map(renderMonth)}
       </div>
+
       <div className="flex items-center gap-4 mt-4 pt-4 border-t border-[#333]">
         <div className="flex items-center gap-1.5">
           <div className="w-3 h-3 rounded-full bg-[#1F1F1F] border border-[#444]" />
