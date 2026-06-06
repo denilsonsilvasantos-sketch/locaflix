@@ -58,6 +58,7 @@ export function NewProperty() {
   const [periods, setPeriods] = useState<PeriodDraft[]>([])
   const [catalog, setCatalog] = useState<AmenityCatalog[]>([])
   const [selectedAmenityIds, setSelectedAmenityIds] = useState<Set<string>>(new Set())
+  const [selectedHomeTags, setSelectedHomeTags] = useState<Set<string>>(new Set())
   const [customAmenities, setCustomAmenities] = useState<{ id: string; category: string; name: string }[]>([])
   const [customForm, setCustomForm] = useState({ category: 'Cozinha', name: '' })
 
@@ -296,6 +297,7 @@ export function NewProperty() {
       max_guests: Number(form.max_guests),
       amenities: [...amenityNames, ...customNames],
       photos: [] as string[],
+      home_tags: Array.from(selectedHomeTags),
       cancellation_policy: form.cancellation_policy,
     }).select('id').single()
 
@@ -821,6 +823,46 @@ export function NewProperty() {
               Adicionar período
             </Button>
           </section>
+
+          {/* Categorias da página inicial — apenas ADMIN */}
+          {profile?.role === 'ADMIN' && (
+            <section className="bg-[#1F1F1F] border border-[#F5A623]/30 rounded-2xl p-6 space-y-4">
+              <div>
+                <h2 className="font-display text-lg font-bold text-white flex items-center gap-2">
+                  <Star size={16} className="text-[#F5A623]" />
+                  Categorias da página inicial
+                </h2>
+                <p className="text-xs text-[#666] mt-0.5">Escolha em quais seções este imóvel aparecerá na home</p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {([
+                  { tag: 'praia',    label: 'Na Beira da Praia' },
+                  { tag: 'campo',    label: 'No Campo e Serra' },
+                  { tag: 'luxo',     label: 'Luxo & Exclusividade' },
+                  { tag: 'economico',label: 'Ótimo Custo-Benefício' },
+                ] as const).map(({ tag, label }) => {
+                  const active = selectedHomeTags.has(tag)
+                  return (
+                    <button
+                      key={tag}
+                      type="button"
+                      onClick={() => setSelectedHomeTags(prev => {
+                        const next = new Set(prev)
+                        if (next.has(tag)) next.delete(tag); else next.add(tag)
+                        return next
+                      })}
+                      className={`text-sm px-4 py-2 rounded-xl border transition-all ${
+                        active ? 'bg-[#F5A623] border-[#F5A623] text-black font-semibold' : 'border-[#333] text-[#B3B3B3] hover:border-[#F5A623]/50'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  )
+                })}
+              </div>
+              <p className="text-xs text-[#555]">"Em Destaque" e hero banner são controlados pelo Plano do imóvel (DESTAQUE).</p>
+            </section>
+          )}
 
           <div className="bg-[#1F1F1F] border border-[#333] rounded-2xl px-4 py-3 flex items-start gap-3">
             <span className="text-[#F5A623] text-sm mt-0.5">ℹ</span>

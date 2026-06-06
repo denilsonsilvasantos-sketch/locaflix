@@ -188,13 +188,27 @@ export function Home() {
   const currentHero = heroProperties[heroIdx] ?? properties[0]
 
   // Netflix-style category rows
+  // home_tags (set by admin) take priority; auto-detection is the fallback for untagged properties
+  const withTag = (tag: string) => properties.filter(p => (p.home_tags ?? []).includes(tag) )
+  const praiaItems = withTag('praia').length > 0
+    ? withTag('praia')
+    : properties.filter(p => /florianóp|búzios|porto|fortaleza|natal|maceió|ipojuca|ilhéus/i.test(p.city))
+  const campoItems = withTag('campo').length > 0
+    ? withTag('campo')
+    : properties.filter(p => /gramado|campos do jordão|bonito|chapada|pirenópolis/i.test(p.city))
+  const luxoItems = withTag('luxo').length > 0
+    ? withTag('luxo')
+    : properties.filter(p => p.price_per_night >= 800)
+  const economicoItems = withTag('economico').length > 0
+    ? withTag('economico')
+    : properties.filter(p => p.price_per_night < 300)
   const rows = [
-    { id: 'destaque', label: 'Em Destaque', items: properties.filter(p => p.plan === 'DESTAQUE') },
-    { id: 'praia', label: 'Na Beira da Praia', items: properties.filter(p => /florianóp|búzios|porto|fortaleza|natal|maceió|ipojuca|ilhéus/i.test(p.city)) },
-    { id: 'campo', label: 'No Campo e Serra', items: properties.filter(p => /gramado|campos do jordão|bonito|chapada|pirenópolis/i.test(p.city)) },
-    { id: 'melhor', label: 'Mais Bem Avaliados', items: [...properties].sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0)).slice(0, 12) },
-    { id: 'luxo', label: 'Luxo & Exclusividade', items: properties.filter(p => p.price_per_night >= 800) },
-    { id: 'economico', label: 'Ótimo Custo-Benefício', items: properties.filter(p => p.price_per_night < 300) },
+    { id: 'destaque',  label: 'Em Destaque',           items: properties.filter(p => p.plan === 'DESTAQUE') },
+    { id: 'praia',     label: 'Na Beira da Praia',      items: praiaItems },
+    { id: 'campo',     label: 'No Campo e Serra',        items: campoItems },
+    { id: 'melhor',    label: 'Mais Bem Avaliados',      items: [...properties].sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0)).slice(0, 12) },
+    { id: 'luxo',      label: 'Luxo & Exclusividade',   items: luxoItems },
+    { id: 'economico', label: 'Ótimo Custo-Benefício',  items: economicoItems },
   ]
 
   const isSearching = Object.keys(filters).some(k => {

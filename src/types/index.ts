@@ -83,6 +83,7 @@ export interface Property {
   max_guests: number
   amenities: string[]
   photos: string[]
+  home_tags?: string[] | null
   cancellation_policy: CancellationPolicy
   rating: number | null
   reviews_count: number

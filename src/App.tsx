@@ -1,4 +1,5 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
+import { useEffect } from 'react'
 import { AuthProvider } from './hooks/useAuth'
 import { ToastProvider } from './hooks/useToast'
 import { ToastContainer } from './components/ui/Toast'
@@ -27,6 +28,12 @@ import { Privacy } from './pages/Privacy'
 import { TermsOfUse } from './pages/TermsOfUse'
 import { MapView } from './pages/MapView'
 
+function ScrollToTop() {
+  const { pathname } = useLocation()
+  useEffect(() => { window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior }) }, [pathname])
+  return null
+}
+
 function AppLayout({ children, noFooter }: { children: React.ReactNode; noFooter?: boolean }) {
   return (
     <>
@@ -40,6 +47,7 @@ function AppLayout({ children, noFooter }: { children: React.ReactNode; noFooter
 export default function App() {
   return (
     <BrowserRouter>
+      <ScrollToTop />
       <AuthProvider>
         <ToastProvider>
           <Routes data-v={APP_VERSION}>
