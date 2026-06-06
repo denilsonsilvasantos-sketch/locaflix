@@ -80,7 +80,7 @@ export function Checkout() {
   const [installmentCount, setInstallmentCount] = useState(1)
   const [installmentPreviews, setInstallmentPreviews] = useState<InstallmentPreview[]>([])
   const [paymentMethod, setPaymentMethod] = useState<'PIX' | 'BOLETO'>('PIX')
-  const BOLETO_FEE = 1.99
+  const INSTALLMENT_FEE = 1.99
   const [paymentData, setPaymentData] = useState<InstallmentPaymentResponse | null>(null)
   const [paymentModalOpen2, setPaymentModalOpen2] = useState(false)
   const [checkingPayment, setCheckingPayment] = useState(false)
@@ -182,8 +182,8 @@ export function Checkout() {
     const cleaning = property.cleaning_fee ?? 0
     const base = result.total + cleaning
     const feeAmt = Math.round(base * guestFeePercent * 100) / 100
-    const boletoExtra = paymentMethod === 'BOLETO' ? BOLETO_FEE * installmentCount : 0
-    setInstallmentPreviews(calculateInstallments(base + feeAmt + boletoExtra, installmentCount, checkIn))
+    const installmentFeeTotal = INSTALLMENT_FEE * installmentCount
+    setInstallmentPreviews(calculateInstallments(base + feeAmt + installmentFeeTotal, installmentCount, checkIn))
   }, [installmentCount, property, checkIn, checkOut, nights, pricePeriods, paymentMethod])
 
   async function loadProperty(pid: string) {
@@ -546,7 +546,7 @@ export function Checkout() {
                       <p>• A LOCAFLIX atua como intermediadora na relação locador-locatário.</p>
                       <p>• Taxa de serviço cobrada do hóspede sobre o valor da estadia.</p>
                       <p>• Parcelamento via Pix ou Boleto. Última parcela até 7 dias antes do check-in.</p>
-                      <p>• Pagamentos via Boleto têm taxa bancária de R$ 1,99 por boleto.</p>
+                      <p>• Taxa de processamento de R$ 1,99 por parcela aplicada em todos os pagamentos.</p>
                       <p>• O anfitrião é responsável pelo estado do imóvel no momento da entrega.</p>
                     </div>
                     <label className="flex items-start gap-3 cursor-pointer group">
@@ -673,11 +673,9 @@ export function Checkout() {
                           </button>
                         ))}
                       </div>
-                      {paymentMethod === 'BOLETO' && (
-                        <p className="text-xs text-[#F5A623] mt-2 flex items-center gap-1">
-                          ⚠ Taxa bancária de R$ 1,99 por boleto é adicionada ao valor de cada parcela.
-                        </p>
-                      )}
+                      <p className="text-xs text-[#F5A623] mt-2 flex items-center gap-1">
+                        ⚠ Taxa de processamento de R$ 1,99 por parcela é adicionada ao valor de cada cobrança.
+                      </p>
                     </div>
 
                     <div className="mb-6">
@@ -703,7 +701,7 @@ export function Checkout() {
                       <div className="bg-[#0A0A0A] border border-[#333] rounded-xl overflow-hidden mb-5">
                         <div className="px-4 py-2 border-b border-[#333] flex items-center justify-between">
                           <p className="text-xs font-semibold text-[#B3B3B3] uppercase tracking-wide">Calendário de pagamentos</p>
-                          <p className="text-xs text-[#666]">{paymentMethod === 'BOLETO' ? 'Boleto (+R$ 1,99/boleto)' : 'Pix'}</p>
+                          <p className="text-xs text-[#666]">+R$ 1,99 por parcela</p>
                         </div>
                         <div className="divide-y divide-[#1F1F1F]">
                           {installmentPreviews.map(p => (
