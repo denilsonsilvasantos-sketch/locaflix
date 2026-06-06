@@ -32,7 +32,7 @@ export function ProtectedRoute({ children, roles }: ProtectedRouteProps) {
       const isOwnerRoute = ownerRoutes.some(r => location.pathname.startsWith(r))
 
       if (isOwnerRoute && profile.role === 'GUEST') {
-        return <Navigate to={`/tornar-anfitriao?next=${encodeURIComponent(location.pathname)}`} replace />
+        return <Navigate to="/tornar-anfitriao" replace />
       }
 
       const redirectMap: Record<UserRole, string> = {

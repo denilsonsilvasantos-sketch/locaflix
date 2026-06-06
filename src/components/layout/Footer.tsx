@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { APP_ROUTES } from '../../constants'
+import { Logo } from './Logo'
 
 export function Footer() {
   return (
@@ -9,39 +10,40 @@ export function Footer() {
           {/* Brand */}
           <div className="col-span-1 md:col-span-1">
             <Link to={APP_ROUTES.HOME}>
-              <span className="font-display text-2xl font-bold text-[#E50914]">LOCAFLIX</span>
+              <Logo size="lg" />
             </Link>
             <p className="mt-3 text-sm text-[#666] leading-relaxed">
-              Aluguel de imóveis por temporada com parcelamento via Pix. Sua viagem dos sonhos em parcelas que cabem no bolso.
+              Aluguel de imóveis por temporada com parcelamento via Pix e Boleto. Sua viagem dos sonhos em parcelas que cabem no bolso.
             </p>
           </div>
 
-          {/* Links */}
+          {/* Para hóspedes */}
           <div>
-            <h4 className="text-sm font-semibold text-white mb-4">Explorar</h4>
+            <h4 className="text-sm font-semibold text-white mb-4">Para hóspedes</h4>
             <ul className="space-y-2">
-              <FooterLink to={`${APP_ROUTES.HOME}?tipo=praia`} label="Imóveis na praia" />
-              <FooterLink to={`${APP_ROUTES.HOME}?tipo=campo`} label="Imóveis no campo" />
-              <FooterLink to={`${APP_ROUTES.HOME}?tipo=montanha`} label="Imóveis na montanha" />
-              <FooterLink to={`${APP_ROUTES.HOME}?tipo=cidade`} label="Imóveis na cidade" />
+              <FooterLink to="/como-funciona" label="Como funciona" />
+              <FooterLink to={APP_ROUTES.HOME} label="Buscar imóveis" />
+              <FooterLink to="/politica-cancelamento" label="Política de cancelamento" />
             </ul>
           </div>
 
+          {/* Anfitrião */}
           <div>
             <h4 className="text-sm font-semibold text-white mb-4">Anfitrião</h4>
             <ul className="space-y-2">
-              <FooterLink to={APP_ROUTES.OWNER_DASHBOARD} label="Dashboard anfitrião" />
-              <FooterLink to="/como-funciona" label="Como funciona" />
+              <FooterLink to="/tornar-anfitriao" label="Torne-se um anfitrião" />
+              <FooterLink to={APP_ROUTES.OWNER_DASHBOARD} label="Painel do anfitrião" />
               <FooterLink to="/termos-anfitriao" label="Termos para anfitriões" />
             </ul>
           </div>
 
+          {/* Suporte */}
           <div>
             <h4 className="text-sm font-semibold text-white mb-4">Suporte</h4>
             <ul className="space-y-2">
-              <FooterLink to="/politica-cancelamento" label="Política de cancelamento" />
               <FooterLink to="/privacidade" label="Privacidade e LGPD" />
               <FooterLink to="/termos-uso" label="Termos de uso" />
+              <FooterLink to="/central-ajuda" label="Central de ajuda" />
             </ul>
           </div>
         </div>
@@ -51,7 +53,7 @@ export function Footer() {
             © {new Date().getFullYear()} LOCAFLIX. Todos os direitos reservados.
           </p>
           <p className="text-xs text-[#444]">
-            Pagamentos processados via Pix · Plataforma intermediadora de locações
+            Pagamentos processados via Pix e Boleto · Plataforma intermediadora de locações
           </p>
         </div>
       </div>

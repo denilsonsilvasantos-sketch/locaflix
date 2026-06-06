@@ -68,9 +68,7 @@ export function Navbar() {
           {/* Desktop nav links */}
           <nav className="hidden lg:flex items-center gap-6">
             <Link to={APP_ROUTES.HOME} className="text-sm text-[#B3B3B3] hover:text-white transition-colors">Início</Link>
-            <Link to={`${APP_ROUTES.HOME}?tipo=praia`} className="text-sm text-[#B3B3B3] hover:text-white transition-colors">Praia</Link>
-            <Link to={`${APP_ROUTES.HOME}?tipo=campo`} className="text-sm text-[#B3B3B3] hover:text-white transition-colors">Campo</Link>
-            <Link to={`${APP_ROUTES.HOME}?tipo=cidade`} className="text-sm text-[#B3B3B3] hover:text-white transition-colors">Cidade</Link>
+            <Link to="/como-funciona" className="text-sm text-[#B3B3B3] hover:text-white transition-colors">Como funciona</Link>
             <Link
               to={APP_ROUTES.NEW_PROPERTY}
               className="text-sm bg-[#F5A623] hover:bg-[#e6951a] text-black font-bold px-4 py-2 rounded-lg transition-colors whitespace-nowrap"
@@ -220,9 +218,7 @@ export function Navbar() {
                             {/* Mobile only: exploration links */}
                             <div className="lg:hidden border-b border-[#2A2A2A] pb-1 mb-1">
                               <MenuLink to={APP_ROUTES.HOME} icon={<Home size={14} />} label="Início" />
-                              <MenuLink to={`${APP_ROUTES.HOME}?tipo=praia`} icon={<span className="text-[10px]">🏖</span>} label="Praia" />
-                              <MenuLink to={`${APP_ROUTES.HOME}?tipo=campo`} icon={<span className="text-[10px]">🌿</span>} label="Campo" />
-                              <MenuLink to={`${APP_ROUTES.HOME}?tipo=cidade`} icon={<span className="text-[10px]">🏙</span>} label="Cidade" />
+                              <MenuLink to="/como-funciona" icon={<HelpCircle size={14} />} label="Como funciona" />
                               <MenuLink to="/central-ajuda" icon={<HelpCircle size={14} />} label="Central de ajuda" />
                             </div>
 
@@ -301,9 +297,7 @@ export function Navbar() {
           >
             <div className="px-4 py-4 flex flex-col gap-2">
               <MobileLink to={APP_ROUTES.HOME} label="Início" />
-              <MobileLink to={`${APP_ROUTES.HOME}?tipo=praia`} label="Praia" />
-              <MobileLink to={`${APP_ROUTES.HOME}?tipo=campo`} label="Campo" />
-              <MobileLink to={`${APP_ROUTES.HOME}?tipo=cidade`} label="Cidade" />
+              <MobileLink to="/como-funciona" label="Como funciona" />
               <MobileLink to={APP_ROUTES.LOGIN} label="Entrar" />
               <MobileLink to={APP_ROUTES.REGISTER} label="Cadastrar" />
               <MobileLink to={APP_ROUTES.NEW_PROPERTY} label="+ Anuncie seu imóvel" />

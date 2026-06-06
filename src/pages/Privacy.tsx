@@ -11,7 +11,7 @@ export function Privacy() {
             <p>A LOCAFLIX coleta os seguintes dados pessoais:</p>
             <ul className="list-disc list-inside mt-2 space-y-1 ml-2">
               <li><strong className="text-white">Cadastro:</strong> nome completo, e-mail, CPF, data de nascimento e telefone</li>
-              <li><strong className="text-white">Verificação KYC:</strong> documento de identidade e selfie para anfitriões</li>
+              <li><strong className="text-white">Validação de identidade:</strong> documento de identidade para hóspedes e anfitriões</li>
               <li><strong className="text-white">Pagamento:</strong> dados bancários para repasse (anfitriões) e histórico de transações</li>
               <li><strong className="text-white">Uso da plataforma:</strong> histórico de buscas, reservas, mensagens e avaliações</li>
               <li><strong className="text-white">Técnicos:</strong> endereço IP, tipo de dispositivo, navegador e cookies de sessão</li>
@@ -24,7 +24,7 @@ export function Privacy() {
             <ul className="list-disc list-inside mt-2 space-y-1 ml-2">
               <li>Autenticar e gerenciar sua conta na plataforma</li>
               <li>Processar reservas e pagamentos</li>
-              <li>Verificar identidade e prevenir fraudes (KYC)</li>
+              <li>Verificar identidade e prevenir fraudes</li>
               <li>Enviar comunicações sobre reservas e conta</li>
               <li>Cumprir obrigações legais e fiscais</li>
               <li>Melhorar a experiência na plataforma</li>

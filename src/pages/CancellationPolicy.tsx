@@ -200,7 +200,7 @@ export function CancellationPolicy() {
             {[
               'Parcelas futuras poderão ser canceladas automaticamente.',
               'Valores pagos seguirão a política aplicável.',
-              'Taxas financeiras e operacionais podem não ser reembolsáveis.',
+              'Taxas financeiras e operacionais não serão reembolsáveis após o período do direito de arrependimento.',
             ].map((item, i) => (
               <li key={i} className="text-sm text-[#B3B3B3] flex gap-2">
                 <span className="text-[#555] mt-0.5">•</span>
@@ -220,7 +220,7 @@ export function CancellationPolicy() {
             {[
               '100% da reserva estiver quitada;',
               'Contrato digital estiver assinado;',
-              'KYC aprovado;',
+              'Identidade validada;',
               'Não houver pendências financeiras.',
             ].map((item, i) => (
               <li key={i} className="text-sm text-[#B3B3B3] flex gap-2">

@@ -20,7 +20,7 @@ const FAQS = [
   },
   {
     q: 'Os imóveis são verificados?',
-    a: 'Todos os imóveis passam por verificação de documentação e os anfitriões são validados pelo processo de KYC (Conheça seu cliente).',
+    a: 'Todos os imóveis passam por verificação de documentação e os anfitriões são validados pelo processo de validação de identidade da plataforma.',
   },
 ]
 

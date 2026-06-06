@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate, useSearchParams, Link } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Home, DollarSign, Shield, Star, ArrowRight, Check } from 'lucide-react'
 import { supabase } from '../lib/supabase'
@@ -9,10 +9,10 @@ import { Button } from '../components/ui/Button'
 import { APP_ROUTES } from '../constants'
 
 const BENEFITS = [
-  { icon: <DollarSign size={20} />, title: 'Renda extra garantida', desc: 'Receba pagamentos via Pix e boleto com segurança.' },
-  { icon: <Shield size={20} />,     title: 'Proteção total',       desc: 'Cobertura contra danos e suporte 24h.' },
-  { icon: <Star size={20} />,       title: 'Visibilidade máxima',  desc: 'Seu imóvel visto por milhares de hóspedes.' },
+  { icon: <DollarSign size={20} />, title: 'Renda via Pix',        desc: 'Receba os repasses diretamente no seu Pix com segurança e rapidez.' },
+  { icon: <Star size={20} />,       title: 'Visibilidade máxima',  desc: 'Seu imóvel visto por milhares de hóspedes qualificados.' },
   { icon: <Home size={20} />,       title: 'Gestão simplificada',  desc: 'Calendário, mensagens e pagamentos em um só lugar.' },
+  { icon: <Shield size={20} />,     title: 'Suporte dedicado',     desc: 'Nossa equipe acompanha cada reserva do início ao fim.' },
 ]
 
 export function BecomeOwner() {
@@ -20,8 +20,7 @@ export function BecomeOwner() {
   const { user, profile, refreshProfile } = useAuth()
   const { toast } = useToast()
   const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
-  const next = searchParams.get('next') ?? APP_ROUTES.OWNER_DASHBOARD
+  const next = APP_ROUTES.OWNER_DASHBOARD
 
   async function handleBecome() {
     if (!user) { navigate(APP_ROUTES.LOGIN); return }

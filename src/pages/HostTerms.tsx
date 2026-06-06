@@ -13,7 +13,7 @@ export function HostTerms() {
               <li>Ser maior de 18 anos e possuir plena capacidade civil</li>
               <li>Ser o proprietário do imóvel ou ter autorização expressa do proprietário</li>
               <li>Possuir documentação válida do imóvel (escritura, contrato de locação ou similar)</li>
-              <li>Completar o processo de verificação KYC da plataforma</li>
+              <li>Completar o processo de validação de identidade da plataforma</li>
             </ul>
           </section>
 

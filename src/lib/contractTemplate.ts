@@ -35,7 +35,7 @@ PARTES
 
 INTERMEDIADORA:
 LOCAFLIX Plataforma Digital
-CNPJ: [A SER REGISTRADO]
+CNPJ: 45.524.502/0001-50
 Atuando como plataforma de intermediação, nos termos da legislação vigente.
 
 LOCADOR (Anfitrião):
