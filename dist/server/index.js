@@ -265,6 +265,57 @@ async function findOrCreateCustomer(customer) {
     mobilePhone: customer.phone?.replace(/\D/g, "") || void 0
   });
 }
+app.get("/api/test/asaas", async (req, res) => {
+  const { secret, type = "boleto", value = "3" } = req.query;
+  if (!WEBHOOK_SECRET || secret !== WEBHOOK_SECRET) {
+    res.status(401).json({ error: "Secret inv\xE1lido." });
+    return;
+  }
+  if (!ASAAS_API_KEY) {
+    res.status(503).json({ error: "ASAAS_API_KEY n\xE3o configurada." });
+    return;
+  }
+  const billingType = type === "pix" ? "PIX" : "BOLETO";
+  const amount = parseFloat(value) || 3;
+  try {
+    const customerRes = await findOrCreateCustomer({
+      name: "Locaflix Teste",
+      cpf: "000.000.000-00",
+      email: "teste@locaflix.com.br"
+    });
+    const today = /* @__PURE__ */ new Date();
+    today.setDate(today.getDate() + 3);
+    const dueDate = today.toISOString().slice(0, 10);
+    const payment = await asaasRequest("POST", "/payments", {
+      customer: customerRes.id,
+      billingType,
+      value: amount,
+      dueDate,
+      description: `Teste integra\xE7\xE3o Locaflix \u2014 ${billingType}`,
+      externalReference: `test:locaflix-${Date.now()}`
+    });
+    const result = {
+      ok: true,
+      env: process.env.ASAAS_ENV ?? "sandbox",
+      billingType,
+      payment_id: payment.id,
+      status: payment.status,
+      value: payment.value,
+      due_date: payment.dueDate
+    };
+    if (billingType === "PIX") {
+      const qr = await asaasRequest("GET", `/payments/${payment.id}/pixQrCode`);
+      result.pix_key = qr.payload;
+      result.pix_qr_code_base64 = qr.encodedImage?.slice(0, 60) + "\u2026";
+    } else {
+      result.boleto_url = payment.bankSlipUrl;
+      result.barcode = payment.identificationField ?? payment.nossoNumero;
+    }
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "Erro desconhecido" });
+  }
+});
 function parseIcal(text) {
   const unfolded = text.replace(/\r?\n[ \t]/g, "");
   const lines = unfolded.split(/\r?\n/);
