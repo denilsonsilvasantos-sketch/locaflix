@@ -184,7 +184,7 @@ export function PropertyDetails() {
       for (const b of (bookingsRes.data ?? []) as { check_in: string; check_out: string }[]) {
         const d = new Date(b.check_in + 'T00:00:00')
         const end = new Date(b.check_out + 'T00:00:00')
-        while (d < end) {
+        while (d <= end) {
           booked.push(format(d, 'yyyy-MM-dd'))
           d.setDate(d.getDate() + 1)
         }

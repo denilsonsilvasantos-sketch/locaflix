@@ -61,7 +61,7 @@ export function Home() {
       .select('property_id')
       .in('status', ['PARCIAL', 'PAGO'])
       .lt('check_in', filters.check_out)
-      .gt('check_out', filters.check_in)
+      .gte('check_out', filters.check_in)
       .then(({ data }) => {
         setBookedPropertyIds(new Set((data ?? []).map((b: { property_id: string }) => b.property_id)))
       })
