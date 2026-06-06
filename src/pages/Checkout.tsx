@@ -67,7 +67,7 @@ export function Checkout() {
   const navigate = useNavigate()
   const { user, profile } = useAuth()
   const { toast } = useToast()
-  const { guestFeePercent, feeModel } = usePlatformFee()
+  const { guestFeePercent } = usePlatformFee()
 
   const [step, setStep] = useState(1)
   const [property, setProperty] = useState<Property | null>(null)
@@ -764,9 +764,6 @@ export function Checkout() {
                   label={`${nights}x Diárias: ${formatCurrency(avgPerNight)}`}
                   value={formatCurrency(combinedBase)}
                 />
-                {feeModel === 'dividido' && fee > 0 && (
-                  <Row label="Taxa de serviço" value={formatCurrency(fee)} />
-                )}
                 <div className="pt-2 border-t border-[#333] flex justify-between font-bold">
                   <span className="text-white">Total</span>
                   <span className="text-[#F5A623] text-base">{formatCurrency(total)}</span>

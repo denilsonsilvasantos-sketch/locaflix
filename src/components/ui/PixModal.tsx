@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Copy, Check, RefreshCw } from 'lucide-react'
+import { Copy, Check } from 'lucide-react'
 import { Modal } from './Modal'
 import { Button } from './Button'
 import { formatCurrency, formatDate } from '../../lib/utils'
@@ -13,7 +13,7 @@ interface PixModalProps {
   loading?: boolean
 }
 
-export function PixModal({ open, onClose, pix, onConfirm, loading }: PixModalProps) {
+export function PixModal({ open, onClose, pix }: PixModalProps) {
   const [copied, setCopied] = useState(false)
 
   async function copyKey() {
@@ -72,10 +72,6 @@ export function PixModal({ open, onClose, pix, onConfirm, loading }: PixModalPro
         <div className="flex gap-3 pt-1">
           <Button variant="ghost" fullWidth onClick={onClose}>
             Fechar
-          </Button>
-          <Button fullWidth onClick={onConfirm} loading={loading} className="gap-2">
-            <RefreshCw size={14} />
-            Já paguei
           </Button>
         </div>
 

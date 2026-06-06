@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Copy, Check, RefreshCw, Download, QrCode, FileText, ExternalLink } from 'lucide-react'
+import { Copy, Check, Download, QrCode, FileText, ExternalLink } from 'lucide-react'
 import { Modal } from './Modal'
 import { Button } from './Button'
 import { formatCurrency, formatDate } from '../../lib/utils'
@@ -46,7 +46,7 @@ function CopyField({ value, label }: { value: string; label: string }) {
   )
 }
 
-export function PaymentModal({ open, onClose, payment, onCheckPayment, loading, polling }: PaymentModalProps) {
+export function PaymentModal({ open, onClose, payment, polling }: PaymentModalProps) {
   const [method, setMethod] = useState<'PIX' | 'BOLETO'>('PIX')
   const [dots, setDots] = useState('.')
 
@@ -150,10 +150,6 @@ export function PaymentModal({ open, onClose, payment, onCheckPayment, loading, 
         <div className="flex gap-3 pt-1">
           <Button variant="ghost" fullWidth onClick={onClose}>
             Fechar
-          </Button>
-          <Button fullWidth onClick={onCheckPayment} loading={loading} className="gap-2">
-            <RefreshCw size={14} />
-            Já paguei
           </Button>
         </div>
 

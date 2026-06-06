@@ -756,7 +756,7 @@ function BookingCard({
             <div className="mt-2">
               <button
                 onClick={() => setExpanded(v => !v)}
-                className="flex items-center gap-1 text-xs text-[#666] hover:text-[#B3B3B3] transition-colors"
+                className="flex items-center gap-1.5 text-xs font-semibold text-[#B3B3B3] hover:text-white border border-[#333] hover:border-[#555] px-2.5 py-1.5 rounded-lg transition-colors"
               >
                 {expanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
                 {expanded ? 'Ocultar parcelas' : `Ver todas as ${total} parcelas`}

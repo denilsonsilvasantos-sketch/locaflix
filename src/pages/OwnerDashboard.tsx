@@ -112,6 +112,7 @@ export function OwnerDashboard() {
       supabase.from('bookings')
         .select('*')
         .eq('owner_id', user!.id)
+        .neq('status', 'AGUARDANDO_PAGAMENTO')
         .order('created_at', { ascending: false })
         .limit(50),
     ])

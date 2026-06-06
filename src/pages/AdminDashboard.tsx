@@ -220,6 +220,7 @@ export function AdminDashboard() {
         const { data: bkData, error: bkErr } = await supabase
           .from('bookings')
           .select('*')
+          .neq('status', 'AGUARDANDO_PAGAMENTO')
           .order('created_at', { ascending: false })
           .limit(300)
         if (bkErr) console.error('[AdminDashboard] bookings:', bkErr)

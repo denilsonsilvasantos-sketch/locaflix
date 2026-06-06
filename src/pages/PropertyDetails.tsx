@@ -3,7 +3,7 @@ import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import {
   Star, MapPin, Users, BedDouble, Bath, ChevronLeft, ChevronRight,
-  Heart, Share2, Check, Calendar, X, Grid2x2, MessageSquare, AlertCircle,
+  Heart, Share2, Check, Calendar, X, Grid2x2, MessageSquare, AlertCircle, Info,
   AirVent, Wind, Wifi, Tv, Shirt, Zap, Car, Accessibility,
   Utensils, UtensilsCrossed, Refrigerator, Snowflake, Flame, Coffee,
   Thermometer, Lock, Baby, Umbrella, Droplets, Dumbbell, Gamepad2, Trees,
@@ -84,6 +84,7 @@ export function PropertyDetails() {
   const [hasActiveBooking, setHasActiveBooking] = useState(false)
   const [blockedDates, setBlockedDates] = useState<string[]>([])
   const [calendarOpen, setCalendarOpen] = useState(false)
+  const [pricePopoverOpen, setPricePopoverOpen] = useState(false)
   const calendarRef = useRef<HTMLDivElement>(null)
 
   const loadProperty = useCallback(async (propertyId: string) => {
@@ -176,7 +177,7 @@ export function PropertyDetails() {
       supabase.from('bookings')
         .select('check_in, check_out')
         .eq('property_id', propertyId)
-        .in('status', ['AGUARDANDO_PAGAMENTO', 'PARCIAL', 'PAGO']),
+        .in('status', ['PARCIAL', 'PAGO']),
     ]).then(([blockedRes, bookingsRes]) => {
       const manual = (blockedRes.data ?? []).map((r: { blocked_date: string }) => r.blocked_date)
       const booked: string[] = []
@@ -849,28 +850,62 @@ export function PropertyDetails() {
                   </Link>
                 )}
 
-                {/* Price breakdown */}
-                {nights > 0 && (
-                  <div className="mt-5 pt-5 border-t border-[#333] space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-[#B3B3B3]">{nights}x Diárias: {formatCurrency(avgPerNight)}</span>
-                      <span className="text-white">{formatCurrency(combinedBase)}</span>
-                    </div>
-                    {feeModel === 'dividido' && fee > 0 && (
-                      <div className="flex justify-between text-sm">
-                        <span className="text-[#B3B3B3]">Taxa de serviço</span>
-                        <span className="text-white">{formatCurrency(fee)}</span>
+                {/* Price summary — clickable total with popover */}
+                {nights > 0 && (() => {
+                  const maxInst = calculateMaxInstallments(checkIn)
+                  const perInst = maxInst > 1 ? Math.ceil((grandTotal / maxInst) * 100) / 100 : grandTotal
+                  return (
+                    <div className="mt-5 pt-5 border-t border-[#333]">
+                      <div className="relative">
+                        <button
+                          type="button"
+                          onClick={() => setPricePopoverOpen(v => !v)}
+                          className="w-full flex justify-between items-center text-sm font-bold group"
+                        >
+                          <span className="text-white flex items-center gap-1.5">
+                            Total:
+                            <Info size={13} className="text-[#555] group-hover:text-[#B3B3B3] transition-colors" />
+                          </span>
+                          <span className="text-[#F5A623] text-base underline underline-offset-2 decoration-dotted decoration-[#F5A623]/50">
+                            {formatCurrency(grandTotal)}
+                          </span>
+                        </button>
+
+                        {pricePopoverOpen && (
+                          <div className="absolute bottom-full right-0 mb-2 w-64 bg-[#1A1A1A] border border-[#333] rounded-xl shadow-2xl p-4 z-30">
+                            <div className="flex items-center justify-between mb-3">
+                              <p className="text-xs font-semibold text-white">Detalhes do preço</p>
+                              <button onClick={() => setPricePopoverOpen(false)} className="text-[#555] hover:text-white transition-colors">
+                                <X size={14} />
+                              </button>
+                            </div>
+                            <div className="space-y-2 text-sm">
+                              <div className="flex justify-between">
+                                <span className="text-[#B3B3B3]">{nights} {nights === 1 ? 'noite' : 'noites'} x {formatCurrency(avgPerNight)}</span>
+                                <span className="text-white">{formatCurrency(combinedBase)}</span>
+                              </div>
+                              {property?.cleaning_fee ? (
+                                <div className="flex justify-between">
+                                  <span className="text-[#B3B3B3]">Taxa de limpeza</span>
+                                  <span className="text-white">{formatCurrency(property.cleaning_fee)}</span>
+                                </div>
+                              ) : null}
+                            </div>
+                            {maxInst > 1 && (
+                              <p className="text-xs text-[#B3B3B3] mt-3 pt-3 border-t border-[#333]">
+                                Pague {maxInst}x {formatCurrency(perInst)} sem juros.
+                              </p>
+                            )}
+                          </div>
+                        )}
                       </div>
-                    )}
-                    <div className="flex justify-between text-sm font-bold pt-2 border-t border-[#333]">
-                      <span className="text-white">Total</span>
-                      <span className="text-[#F5A623] text-base">{formatCurrency(grandTotal)}</span>
+
+                      <p className="text-xs text-[#46D369] text-center mt-2">
+                        em até {calculateMaxInstallments(checkIn)}x sem juros
+                      </p>
                     </div>
-                    <p className="text-xs text-[#46D369] text-center mt-1">
-                      em até {calculateMaxInstallments(checkIn)}x sem juros
-                    </p>
-                  </div>
-                )}
+                  )
+                })()}
               </motion.div>
             </div>
           </div>
