@@ -66,7 +66,7 @@ export function PropertyDetails() {
   const [searchParams] = useSearchParams()
   const { user } = useAuth()
   const { toast } = useToast()
-  const { guestFeePercent, feeModel } = usePlatformFee()
+  const { guestFeePercent } = usePlatformFee()
 
   const [property, setProperty] = useState<Property | null>(null)
   const [reviews, setReviews] = useState<ReviewWithProperty[]>([])
@@ -308,7 +308,6 @@ export function PropertyDetails() {
   const cleaningFee = (nights > 0 && property?.cleaning_fee) ? property.cleaning_fee : 0
   // diárias + limpeza combinados → base de cálculo da taxa de serviço
   const combinedBase = nightly + cleaningFee
-  const avgPerNight = nights > 0 ? Math.round((combinedBase / nights) * 100) / 100 : 0
   const fee = Math.round(combinedBase * guestFeePercent * 100) / 100
   const grandTotal = combinedBase + fee
 
@@ -680,6 +679,12 @@ export function PropertyDetails() {
               )}
             </section>
 
+            {/* Availability calendar */}
+            <section>
+              <h2 className="font-display text-xl font-bold text-white mb-4">Disponibilidade</h2>
+              <AvailabilityReadOnly blockedDates={blockedDates} />
+            </section>
+
             {/* Cancellation policy */}
             <section>
               <h2 className="font-display text-xl font-bold text-white mb-3">Política de cancelamento</h2>
@@ -743,7 +748,6 @@ export function PropertyDetails() {
                     </p>
                     <p className="text-xs text-[#B3B3B3] mt-0.5">
                       total {formatCurrency(grandTotal)}
-                      {feeModel === 'unico' && <span className="ml-1 text-[#46D369]">· taxa inclusa</span>}
                     </p>
                   </div>
                 ) : (
@@ -853,7 +857,9 @@ export function PropertyDetails() {
                 {/* Price summary — clickable total with popover */}
                 {nights > 0 && (() => {
                   const maxInst = calculateMaxInstallments(checkIn)
-                  const perInst = maxInst > 1 ? Math.ceil((grandTotal / maxInst) * 100) / 100 : grandTotal
+                  // all-inclusive per night: cleaning + service distributed into nights
+                  const allInPerNight = Math.round((grandTotal / nights) * 100) / 100
+                  const perInst = Math.ceil((grandTotal / maxInst) * 100) / 100
                   return (
                     <div className="mt-5 pt-5 border-t border-[#333]">
                       <div className="relative">
@@ -881,15 +887,9 @@ export function PropertyDetails() {
                             </div>
                             <div className="space-y-2 text-sm">
                               <div className="flex justify-between">
-                                <span className="text-[#B3B3B3]">{nights} {nights === 1 ? 'noite' : 'noites'} x {formatCurrency(avgPerNight)}</span>
-                                <span className="text-white">{formatCurrency(combinedBase)}</span>
+                                <span className="text-[#B3B3B3]">{nights} {nights === 1 ? 'noite' : 'noites'} x {formatCurrency(allInPerNight)}</span>
+                                <span className="text-white">{formatCurrency(grandTotal)}</span>
                               </div>
-                              {property?.cleaning_fee ? (
-                                <div className="flex justify-between">
-                                  <span className="text-[#B3B3B3]">Taxa de limpeza</span>
-                                  <span className="text-white">{formatCurrency(property.cleaning_fee)}</span>
-                                </div>
-                              ) : null}
                             </div>
                             {maxInst > 1 && (
                               <p className="text-xs text-[#B3B3B3] mt-3 pt-3 border-t border-[#333]">
@@ -940,6 +940,79 @@ function Stat({ icon, label }: { icon: React.ReactNode; label: string }) {
     <div className="flex items-center gap-1.5 text-sm text-[#B3B3B3]">
       <span className="text-[#666]">{icon}</span>
       {label}
+    </div>
+  )
+}
+
+function AvailabilityReadOnly({ blockedDates }: { blockedDates: string[] }) {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const blocked = new Set(blockedDates)
+  const DAYS_SHORT = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
+
+  // Show 2 months starting from current month
+  const months = [0, 1].map(offset => {
+    const d = new Date(today.getFullYear(), today.getMonth() + offset, 1)
+    return d
+  })
+
+  function renderMonth(firstDay: Date) {
+    const year = firstDay.getFullYear()
+    const month = firstDay.getMonth()
+    const daysInMonth = new Date(year, month + 1, 0).getDate()
+    const startDow = firstDay.getDay() // 0=Sun
+
+    const label = firstDay.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
+    const cells: React.ReactNode[] = []
+
+    for (let i = 0; i < startDow; i++) {
+      cells.push(<div key={`e${i}`} />)
+    }
+
+    for (let d = 1; d <= daysInMonth; d++) {
+      const date = new Date(year, month, d)
+      const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+      const isPast = date < today
+      const isBlocked = blocked.has(dateStr)
+
+      let cls = 'w-8 h-8 flex items-center justify-center rounded-full text-xs mx-auto '
+      if (isPast) cls += 'text-[#333] cursor-default'
+      else if (isBlocked) cls += 'bg-[#2A0A0A] text-[#E50914] line-through cursor-default'
+      else cls += 'text-[#B3B3B3]'
+
+      cells.push(
+        <div key={d} className={cls}>{d}</div>
+      )
+    }
+
+    return (
+      <div key={`${year}-${month}`}>
+        <p className="text-sm font-semibold text-white capitalize mb-3 text-center">{label}</p>
+        <div className="grid grid-cols-7 gap-y-1 text-center">
+          {DAYS_SHORT.map(d => (
+            <div key={d} className="text-[10px] font-semibold text-[#555] pb-1">{d}</div>
+          ))}
+          {cells}
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="bg-[#1F1F1F] border border-[#333] rounded-2xl p-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+        {months.map(renderMonth)}
+      </div>
+      <div className="flex items-center gap-4 mt-4 pt-4 border-t border-[#333]">
+        <div className="flex items-center gap-1.5">
+          <div className="w-3 h-3 rounded-full bg-[#1F1F1F] border border-[#444]" />
+          <span className="text-xs text-[#666]">Disponível</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="w-3 h-3 rounded-full bg-[#2A0A0A] border border-[#E50914]/50" />
+          <span className="text-xs text-[#666]">Indisponível</span>
+        </div>
+      </div>
     </div>
   )
 }

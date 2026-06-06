@@ -26,6 +26,7 @@ export function Home() {
   const [amenitiesExpanded, setAmenitiesExpanded] = useState(false)
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set())
   const [view, setView] = useState<'list' | 'map'>('list')
+  const [bookedPropertyIds, setBookedPropertyIds] = useState<Set<string>>(new Set())
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const { user } = useAuth()
@@ -48,6 +49,23 @@ export function Home() {
     if (user) loadFavorites()
     else setFavoritedIds(new Set())
   }, [user?.id])
+
+  // Fetch property IDs that have confirmed bookings overlapping the selected dates
+  useEffect(() => {
+    if (!filters.check_in || !filters.check_out) {
+      setBookedPropertyIds(new Set())
+      return
+    }
+    supabase
+      .from('bookings')
+      .select('property_id')
+      .in('status', ['PARCIAL', 'PAGO'])
+      .lt('check_in', filters.check_out)
+      .gt('check_out', filters.check_in)
+      .then(({ data }) => {
+        setBookedPropertyIds(new Set((data ?? []).map((b: { property_id: string }) => b.property_id)))
+      })
+  }, [filters.check_in, filters.check_out])
 
   // Auto-carousel every 6s
   useEffect(() => {
@@ -165,6 +183,7 @@ export function Home() {
   }
 
   const filteredProperties = properties.filter(p => {
+    if (bookedPropertyIds.has(p.id)) return false
     if (filters.state && p.state.toLowerCase() !== filters.state.toLowerCase()) return false
     if (filters.city && !p.city.toLowerCase().includes(filters.city.toLowerCase())) return false
     if (filters.neighborhood && !(p.neighborhood ?? '').toLowerCase().includes(filters.neighborhood.toLowerCase())) return false
