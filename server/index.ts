@@ -64,13 +64,7 @@ app.post('/api/payments/create-pix', requireAuth, async (req: Request, res: Resp
       return
     }
 
-    // Create or get customer
-    const customerRes = await asaasRequest('POST', '/customers', {
-      name: customer.name,
-      cpfCnpj: customer.cpf?.replace(/\D/g, ''),
-      email: customer.email,
-      mobilePhone: customer.phone?.replace(/\D/g, ''),
-    })
+    const customerRes = await findOrCreateCustomer(customer)
 
     // Create Pix payment (with fine 2% + interest 1%/month)
     const paymentRes = await asaasRequest('POST', '/payments', {
@@ -114,11 +108,7 @@ app.post('/api/payments/create-boleto', requireAuth, async (req: Request, res: R
   try {
     const { customer, value, dueDate, description, externalReference } = req.body
 
-    const customerRes = await asaasRequest('POST', '/customers', {
-      name: customer.name,
-      cpfCnpj: customer.cpf?.replace(/\D/g, ''),
-      email: customer.email,
-    })
+    const customerRes = await findOrCreateCustomer(customer)
 
     const paymentRes = await asaasRequest('POST', '/payments', {
       customer: customerRes.id,
@@ -159,12 +149,7 @@ app.post('/api/payments/create-installments', requireAuth, async (req: Request, 
       return
     }
 
-    const customerRes = await asaasRequest('POST', '/customers', {
-      name: customer.name,
-      cpfCnpj: customer.cpf?.replace(/\D/g, ''),
-      email: customer.email,
-      mobilePhone: customer.phone?.replace(/\D/g, ''),
-    })
+    const customerRes = await findOrCreateCustomer(customer)
 
     const basePayload = {
       customer: customerRes.id,
@@ -334,6 +319,30 @@ async function asaasRequest(method: string, path: string, body?: unknown) {
   const data = await res.json()
   if (!res.ok) throw new Error(data.errors?.[0]?.description ?? `Asaas error ${res.status}`)
   return data
+}
+
+async function findOrCreateCustomer(customer: {
+  name: string
+  cpf?: string
+  email?: string
+  phone?: string
+}): Promise<{ id: string }> {
+  const cpfDigits = customer.cpf?.replace(/\D/g, '') ?? ''
+
+  // Try to find existing customer by CPF to avoid duplicates in production
+  if (cpfDigits) {
+    const search = await asaasRequest('GET', `/customers?cpfCnpj=${cpfDigits}&limit=1`)
+    if (search.data?.length > 0) {
+      return search.data[0] as { id: string }
+    }
+  }
+
+  return asaasRequest('POST', '/customers', {
+    name: customer.name,
+    cpfCnpj: cpfDigits || undefined,
+    email: customer.email,
+    mobilePhone: customer.phone?.replace(/\D/g, '') || undefined,
+  }) as Promise<{ id: string }>
 }
 
 // ============================================================

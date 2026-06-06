@@ -41,12 +41,7 @@ app.post("/api/payments/create-pix", requireAuth, async (req, res) => {
       res.status(400).json({ error: "customer, value and dueDate are required" });
       return;
     }
-    const customerRes = await asaasRequest("POST", "/customers", {
-      name: customer.name,
-      cpfCnpj: customer.cpf?.replace(/\D/g, ""),
-      email: customer.email,
-      mobilePhone: customer.phone?.replace(/\D/g, "")
-    });
+    const customerRes = await findOrCreateCustomer(customer);
     const paymentRes = await asaasRequest("POST", "/payments", {
       customer: customerRes.id,
       billingType: "PIX",
@@ -78,11 +73,7 @@ app.post("/api/payments/create-pix", requireAuth, async (req, res) => {
 app.post("/api/payments/create-boleto", requireAuth, async (req, res) => {
   try {
     const { customer, value, dueDate, description, externalReference } = req.body;
-    const customerRes = await asaasRequest("POST", "/customers", {
-      name: customer.name,
-      cpfCnpj: customer.cpf?.replace(/\D/g, ""),
-      email: customer.email
-    });
+    const customerRes = await findOrCreateCustomer(customer);
     const paymentRes = await asaasRequest("POST", "/payments", {
       customer: customerRes.id,
       billingType: "BOLETO",
@@ -115,12 +106,7 @@ app.post("/api/payments/create-installments", requireAuth, async (req, res) => {
       res.status(400).json({ error: "customer, value and dueDate are required" });
       return;
     }
-    const customerRes = await asaasRequest("POST", "/customers", {
-      name: customer.name,
-      cpfCnpj: customer.cpf?.replace(/\D/g, ""),
-      email: customer.email,
-      mobilePhone: customer.phone?.replace(/\D/g, "")
-    });
+    const customerRes = await findOrCreateCustomer(customer);
     const basePayload = {
       customer: customerRes.id,
       value,
@@ -263,6 +249,21 @@ async function asaasRequest(method, path2, body) {
   const data = await res.json();
   if (!res.ok) throw new Error(data.errors?.[0]?.description ?? `Asaas error ${res.status}`);
   return data;
+}
+async function findOrCreateCustomer(customer) {
+  const cpfDigits = customer.cpf?.replace(/\D/g, "") ?? "";
+  if (cpfDigits) {
+    const search = await asaasRequest("GET", `/customers?cpfCnpj=${cpfDigits}&limit=1`);
+    if (search.data?.length > 0) {
+      return search.data[0];
+    }
+  }
+  return asaasRequest("POST", "/customers", {
+    name: customer.name,
+    cpfCnpj: cpfDigits || void 0,
+    email: customer.email,
+    mobilePhone: customer.phone?.replace(/\D/g, "") || void 0
+  });
 }
 function parseIcal(text) {
   const unfolded = text.replace(/\r?\n[ \t]/g, "");
