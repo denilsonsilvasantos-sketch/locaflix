@@ -27,6 +27,7 @@ export function Home() {
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set())
   const [view, setView] = useState<'list' | 'map'>('list')
   const [bookedPropertyIds, setBookedPropertyIds] = useState<Set<string>>(new Set())
+  const [calBlockedIds, setCalBlockedIds] = useState<Set<string>>(new Set())
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const { user } = useAuth()
@@ -50,10 +51,11 @@ export function Home() {
     else setFavoritedIds(new Set())
   }, [user?.id])
 
-  // Fetch property IDs that have confirmed bookings overlapping the selected dates
+  // Fetch property IDs that have confirmed bookings OR calendar blocks overlapping the selected dates
   useEffect(() => {
     if (!filters.check_in || !filters.check_out) {
       setBookedPropertyIds(new Set())
+      setCalBlockedIds(new Set())
       return
     }
     supabase
@@ -64,6 +66,14 @@ export function Home() {
       .gte('check_out', filters.check_in)
       .then(({ data }) => {
         setBookedPropertyIds(new Set((data ?? []).map((b: { property_id: string }) => b.property_id)))
+      })
+    supabase
+      .from('calendar_blocks')
+      .select('property_id')
+      .lte('start_date', filters.check_out)
+      .gte('end_date', filters.check_in)
+      .then(({ data }) => {
+        setCalBlockedIds(new Set((data ?? []).map((b: { property_id: string }) => b.property_id)))
       })
   }, [filters.check_in, filters.check_out])
 
@@ -183,7 +193,7 @@ export function Home() {
   }
 
   const filteredProperties = properties.filter(p => {
-    if (bookedPropertyIds.has(p.id)) return false
+    if (bookedPropertyIds.has(p.id) || calBlockedIds.has(p.id)) return false
     if (filters.state && p.state.toLowerCase() !== filters.state.toLowerCase()) return false
     if (filters.city && !p.city.toLowerCase().includes(filters.city.toLowerCase())) return false
     if (filters.neighborhood && !(p.neighborhood ?? '').toLowerCase().includes(filters.neighborhood.toLowerCase())) return false

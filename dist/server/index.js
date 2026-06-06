@@ -264,6 +264,229 @@ async function asaasRequest(method, path2, body) {
   if (!res.ok) throw new Error(data.errors?.[0]?.description ?? `Asaas error ${res.status}`);
   return data;
 }
+function parseIcal(text) {
+  const unfolded = text.replace(/\r?\n[ \t]/g, "");
+  const lines = unfolded.split(/\r?\n/);
+  const events = [];
+  let inEvent = false;
+  let cur = {};
+  for (const line of lines) {
+    if (line === "BEGIN:VEVENT") {
+      inEvent = true;
+      cur = {};
+      continue;
+    }
+    if (line === "END:VEVENT") {
+      if (cur.uid && cur.start && cur.end) events.push(cur);
+      inEvent = false;
+      continue;
+    }
+    if (!inEvent) continue;
+    const colonIdx = line.indexOf(":");
+    if (colonIdx < 0) continue;
+    const rawKey = line.slice(0, colonIdx).toUpperCase();
+    const val = line.slice(colonIdx + 1).trim();
+    if (rawKey === "UID") cur.uid = val;
+    else if (rawKey.startsWith("DTSTART")) cur.start = icalDateStr(val);
+    else if (rawKey.startsWith("DTEND")) cur.end = icalDateStr(val);
+    else if (rawKey === "SUMMARY") cur.summary = val.replace(/\\n/g, "\n").replace(/\\,/g, ",").replace(/\\;/g, ";");
+  }
+  return events;
+}
+function icalDateStr(val) {
+  const d = val.replace(/\D/g, "").slice(0, 8);
+  return `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}`;
+}
+function toIcalDate(date) {
+  return date.replace(/-/g, "");
+}
+function addDays(date, days) {
+  const d = /* @__PURE__ */ new Date(date + "T00:00:00");
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+async function generateIcal(propertyId) {
+  const [bkRes, blkRes, propRes] = await Promise.all([
+    adminSupabase.from("bookings").select("id,check_in,check_out,booking_number").eq("property_id", propertyId).in("status", ["PARCIAL", "PAGO"]),
+    adminSupabase.from("calendar_blocks").select("id,start_date,end_date,notes").eq("property_id", propertyId).eq("source", "MANUAL"),
+    adminSupabase.from("properties").select("name").eq("id", propertyId).single()
+  ]);
+  const propName = propRes.data?.name ?? "Locaflix";
+  const lines = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//Locaflix//Calend\xE1rio//PT",
+    `X-WR-CALNAME:${propName} \u2013 Locaflix`,
+    "CALSCALE:GREGORIAN",
+    "METHOD:PUBLISH"
+  ];
+  for (const b of bkRes.data ?? []) {
+    lines.push(
+      "BEGIN:VEVENT",
+      `UID:booking-${b.id}@locaflix.com.br`,
+      `DTSTART;VALUE=DATE:${toIcalDate(b.check_in)}`,
+      `DTEND;VALUE=DATE:${toIcalDate(addDays(b.check_out, 1))}`,
+      `SUMMARY:Reserva Locaflix${b.booking_number ? " #" + b.booking_number : ""}`,
+      "STATUS:CONFIRMED",
+      "END:VEVENT"
+    );
+  }
+  for (const bl of blkRes.data ?? []) {
+    lines.push(
+      "BEGIN:VEVENT",
+      `UID:block-${bl.id}@locaflix.com.br`,
+      `DTSTART;VALUE=DATE:${toIcalDate(bl.start_date)}`,
+      `DTEND;VALUE=DATE:${toIcalDate(addDays(bl.end_date, 1))}`,
+      `SUMMARY:${bl.notes ?? "Bloqueado"}`,
+      "END:VEVENT"
+    );
+  }
+  lines.push("END:VCALENDAR");
+  return lines.join("\r\n");
+}
+async function syncPropertyCalendar(propertyId, provider, url) {
+  if (!url.startsWith("https://")) throw new Error("URL inv\xE1lida: apenas https:// \xE9 permitido");
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15e3);
+  let text;
+  try {
+    const res = await fetch(url, {
+      signal: controller.signal,
+      headers: { "User-Agent": "Locaflix-Calendar/1.0" }
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status} ao buscar calend\xE1rio`);
+    text = await res.text();
+  } finally {
+    clearTimeout(timeout);
+  }
+  const events = parseIcal(text);
+  const now = (/* @__PURE__ */ new Date()).toISOString();
+  for (const ev of events) {
+    await adminSupabase.from("calendar_syncs").upsert({
+      property_id: propertyId,
+      provider,
+      external_event_id: ev.uid,
+      start_date: ev.start,
+      end_date: ev.end,
+      summary: ev.summary ?? null,
+      updated_at: now
+    }, { onConflict: "property_id,provider,external_event_id" });
+  }
+  const currentUids = new Set(events.map((e) => e.uid));
+  const { data: existing } = await adminSupabase.from("calendar_syncs").select("id, external_event_id").eq("property_id", propertyId).eq("provider", provider);
+  const toDelete = (existing ?? []).filter((s) => !currentUids.has(s.external_event_id));
+  for (const s of toDelete) {
+    await adminSupabase.from("calendar_syncs").delete().eq("id", s.id);
+  }
+  await adminSupabase.from("calendar_blocks").delete().eq("property_id", propertyId).eq("source", provider);
+  if (events.length > 0) {
+    await adminSupabase.from("calendar_blocks").insert(
+      events.map((ev) => ({
+        property_id: propertyId,
+        source: provider,
+        start_date: ev.start,
+        end_date: ev.end,
+        notes: ev.summary ?? null
+      }))
+    );
+  }
+  const syncField = provider === "AIRBNB" ? "ical_last_sync_airbnb" : "ical_last_sync_booking";
+  const errorField = provider === "AIRBNB" ? "ical_sync_error_airbnb" : "ical_sync_error_booking";
+  await adminSupabase.from("properties").update({ [syncField]: now, [errorField]: null }).eq("id", propertyId);
+  return { imported: events.length, removed: toDelete.length };
+}
+async function syncAllProperties() {
+  try {
+    const { data: props } = await adminSupabase.from("properties").select("id, ical_airbnb_url, ical_booking_url").eq("status", "ATIVO");
+    if (!props) return;
+    for (const prop of props) {
+      if (prop.ical_airbnb_url) {
+        try {
+          await syncPropertyCalendar(prop.id, "AIRBNB", prop.ical_airbnb_url);
+          console.log(`[CALENDAR_SYNC_SUCCESS] ${prop.id} AIRBNB`);
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : "Erro desconhecido";
+          console.error(`[CALENDAR_SYNC_FAILED] ${prop.id} AIRBNB: ${msg}`);
+          await adminSupabase.from("properties").update({ ical_sync_error_airbnb: msg }).eq("id", prop.id);
+        }
+      }
+      if (prop.ical_booking_url) {
+        try {
+          await syncPropertyCalendar(prop.id, "BOOKING", prop.ical_booking_url);
+          console.log(`[CALENDAR_SYNC_SUCCESS] ${prop.id} BOOKING`);
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : "Erro desconhecido";
+          console.error(`[CALENDAR_SYNC_FAILED] ${prop.id} BOOKING: ${msg}`);
+          await adminSupabase.from("properties").update({ ical_sync_error_booking: msg }).eq("id", prop.id);
+        }
+      }
+    }
+  } catch (err) {
+    console.error("[CALENDAR_SYNC_FAILED] syncAllProperties:", err);
+  }
+}
+setTimeout(() => void syncAllProperties(), 3e4);
+setInterval(() => void syncAllProperties(), 5 * 60 * 1e3);
+app.get("/calendar/:propertyId.ics", async (req, res) => {
+  try {
+    const ical = await generateIcal(req.params.propertyId);
+    res.setHeader("Content-Type", "text/calendar; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="locaflix-${req.params.propertyId}.ics"`);
+    res.setHeader("Cache-Control", "no-cache, no-store");
+    res.send(ical);
+  } catch (err) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "Error" });
+  }
+});
+app.post("/api/calendar/sync/:propertyId", requireAuth, async (req, res) => {
+  const { propertyId } = req.params;
+  const { provider } = req.body;
+  try {
+    const { data: prop } = await adminSupabase.from("properties").select("ical_airbnb_url, ical_booking_url").eq("id", propertyId).single();
+    if (!prop) {
+      res.status(404).json({ error: "Im\xF3vel n\xE3o encontrado" });
+      return;
+    }
+    const results = [];
+    const toSync = provider ? [provider] : ["AIRBNB", "BOOKING"];
+    for (const p of toSync) {
+      const url = p === "AIRBNB" ? prop.ical_airbnb_url : prop.ical_booking_url;
+      if (!url) continue;
+      const r = await syncPropertyCalendar(propertyId, p, url);
+      results.push({ provider: p, ...r });
+    }
+    res.json({ success: true, results });
+  } catch (err) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "Error" });
+  }
+});
+app.get("/api/calendar/blocks/:propertyId", requireAuth, async (req, res) => {
+  const { data } = await adminSupabase.from("calendar_blocks").select("*").eq("property_id", req.params.propertyId).order("start_date");
+  res.json(data ?? []);
+});
+app.post("/api/calendar/blocks", requireAuth, async (req, res) => {
+  const { property_id, start_date, end_date, notes } = req.body;
+  if (!property_id || !start_date || !end_date) {
+    res.status(400).json({ error: "property_id, start_date e end_date s\xE3o obrigat\xF3rios" });
+    return;
+  }
+  const { data, error } = await adminSupabase.from("calendar_blocks").insert({ property_id, start_date, end_date, source: "MANUAL", notes: notes ?? null }).select().single();
+  if (error) {
+    res.status(500).json({ error: error.message });
+    return;
+  }
+  console.log(`[CALENDAR_BLOCK_CREATED] ${property_id} MANUAL ${start_date}\u2192${end_date}`);
+  res.json(data);
+});
+app.delete("/api/calendar/blocks/:blockId", requireAuth, async (req, res) => {
+  const { error } = await adminSupabase.from("calendar_blocks").delete().eq("id", req.params.blockId);
+  if (error) {
+    res.status(500).json({ error: error.message });
+    return;
+  }
+  console.log(`[CALENDAR_BLOCK_REMOVED] ${req.params.blockId}`);
+  res.json({ success: true });
+});
 app.get("/api/upload/cloudinary-sign", requireAuth, (req, res) => {
   const apiSecret = process.env.CLOUDINARY_API_SECRET;
   const apiKey = process.env.CLOUDINARY_API_KEY ?? process.env.VITE_CLOUDINARY_API_KEY;

@@ -171,19 +171,30 @@ export function PropertyDetails() {
     setPropertyAmenities((amenitiesRes.data ?? []) as unknown as PropertyAmenity[])
     setLoading(false)
 
-    // Fetch manually-blocked dates AND dates from active bookings
+    // Fetch manually-blocked dates, active bookings AND external calendar blocks
     Promise.all([
       supabase.from('blocked_dates').select('blocked_date').eq('property_id', propertyId),
       supabase.from('bookings')
         .select('check_in, check_out')
         .eq('property_id', propertyId)
         .in('status', ['PARCIAL', 'PAGO']),
-    ]).then(([blockedRes, bookingsRes]) => {
+      supabase.from('calendar_blocks')
+        .select('start_date, end_date')
+        .eq('property_id', propertyId),
+    ]).then(([blockedRes, bookingsRes, calBlocksRes]) => {
       const manual = (blockedRes.data ?? []).map((r: { blocked_date: string }) => r.blocked_date)
       const booked: string[] = []
       for (const b of (bookingsRes.data ?? []) as { check_in: string; check_out: string }[]) {
         const d = new Date(b.check_in + 'T00:00:00')
         const end = new Date(b.check_out + 'T00:00:00')
+        while (d <= end) {
+          booked.push(format(d, 'yyyy-MM-dd'))
+          d.setDate(d.getDate() + 1)
+        }
+      }
+      for (const blk of (calBlocksRes.data ?? []) as { start_date: string; end_date: string }[]) {
+        const d = new Date(blk.start_date + 'T00:00:00')
+        const end = new Date(blk.end_date + 'T00:00:00')
         while (d <= end) {
           booked.push(format(d, 'yyyy-MM-dd'))
           d.setDate(d.getDate() + 1)

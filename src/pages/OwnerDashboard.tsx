@@ -4,10 +4,11 @@ import {
   Home, Calendar, DollarSign, Star, Plus, Eye, Pencil,
   ToggleLeft, ToggleRight, ShieldCheck, Check, X, AlertCircle,
   ChevronUp, Trash2, LogOut, MessageSquare, TrendingUp, Info,
+  CalendarRange, RefreshCw, Link2, ChevronLeft, ChevronRight, Lock, Unlock, Copy,
 } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 import { supabase } from '../lib/supabase'
-import type { Property, Booking, Installment, Review, KinshipType, OwnershipType, PricePeriod, PeriodType } from '../types'
+import type { Property, Booking, Installment, Review, KinshipType, OwnershipType, PricePeriod, PeriodType, CalendarBlock } from '../types'
 import { useAuth } from '../hooks/useAuth'
 import { useToast } from '../hooks/useToast'
 import { useUnreadMessages } from '../hooks/useUnreadMessages'
@@ -31,12 +32,13 @@ const KINSHIP_LABELS: Record<KinshipType, string> = {
 }
 
 const NAV = [
-  { label: 'Imóveis',    icon: <Home size={16} />,           href: '/anfitriao',                 tabKey: 'imoveis' },
-  { label: 'Reservas',   icon: <Calendar size={16} />,       href: '/anfitriao?tab=reservas',    tabKey: 'reservas' },
-  { label: 'Financeiro', icon: <DollarSign size={16} />,     href: '/anfitriao?tab=financeiro',  tabKey: 'financeiro' },
-  { label: 'Avaliações', icon: <Star size={16} />,           href: '/anfitriao?tab=avaliacoes',  tabKey: 'avaliacoes' },
-  { label: 'Documentos', icon: <ShieldCheck size={16} />,    href: '/anfitriao?tab=documentos',  tabKey: 'documentos' },
-  { label: 'Mensagens',  icon: <MessageSquare size={16} />,  href: '/mensagens',                 tabKey: 'mensagens' },
+  { label: 'Imóveis',    icon: <Home size={16} />,           href: '/anfitriao',                  tabKey: 'imoveis' },
+  { label: 'Reservas',   icon: <Calendar size={16} />,       href: '/anfitriao?tab=reservas',     tabKey: 'reservas' },
+  { label: 'Calendário', icon: <CalendarRange size={16} />,  href: '/anfitriao?tab=calendario',   tabKey: 'calendario' },
+  { label: 'Financeiro', icon: <DollarSign size={16} />,     href: '/anfitriao?tab=financeiro',   tabKey: 'financeiro' },
+  { label: 'Avaliações', icon: <Star size={16} />,           href: '/anfitriao?tab=avaliacoes',   tabKey: 'avaliacoes' },
+  { label: 'Documentos', icon: <ShieldCheck size={16} />,    href: '/anfitriao?tab=documentos',   tabKey: 'documentos' },
+  { label: 'Mensagens',  icon: <MessageSquare size={16} />,  href: '/mensagens',                  tabKey: 'mensagens' },
 ]
 
 interface KycForm {
@@ -699,6 +701,11 @@ export function OwnerDashboard() {
                 </div>
               )}
 
+              {/* ── CALENDÁRIO ─────────────────────────────────── */}
+              {tab === 'calendario' && (
+                <CalendarioTab properties={properties} />
+              )}
+
               {/* ── AVALIAÇÕES ─────────────────────────────────── */}
               {tab === 'avaliacoes' && (
                 <div>
@@ -1359,6 +1366,490 @@ function PricePeriodsManager({ propertyId, defaultPrice }: { propertyId: string;
           ))}
         </div>
       )}
+    </div>
+  )
+}
+
+// ── CalendarioTab ────────────────────────────────────────────────────────────
+
+const SOURCE_COLORS: Record<string, string> = {
+  LOCAFLIX: '#22C55E',
+  AIRBNB:   '#3B82F6',
+  BOOKING:  '#F97316',
+  MANUAL:   '#EF4444',
+}
+const SOURCE_LABELS: Record<string, string> = {
+  LOCAFLIX: 'Locaflix',
+  AIRBNB:   'Airbnb',
+  BOOKING:  'Booking',
+  MANUAL:   'Bloqueio Manual',
+}
+const DAYS_SHORT = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
+const MONTHS_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']
+
+interface CalEventInfo {
+  source: string
+  startDate: string
+  endDate: string
+  label: string
+  blockId?: string
+}
+
+function CalendarioTab({ properties }: { properties: Property[] }) {
+  const { toast } = useToast()
+  const [selectedPropId, setSelectedPropId] = useState(properties[0]?.id ?? '')
+  const [propData, setPropData] = useState<Property | null>(null)
+  const [calBlocks, setCalBlocks] = useState<CalendarBlock[]>([])
+  const [locaflixBookings, setLocaflixBookings] = useState<{ id: string; check_in: string; check_out: string; booking_number: string | null }[]>([])
+  const [monthOffset, setMonthOffset] = useState(0)
+  const [selectedDay, setSelectedDay] = useState<string | null>(null)
+  const [syncing, setSyncing] = useState<Record<string, boolean>>({})
+  const [blockForm, setBlockForm] = useState({ start: '', end: '', notes: '' })
+  const [addingBlock, setAddingBlock] = useState(false)
+  const [copiedUrl, setCopiedUrl] = useState(false)
+
+  useEffect(() => {
+    if (!selectedPropId) return
+    void loadCalendarData(selectedPropId)
+  }, [selectedPropId])
+
+  async function loadCalendarData(propId: string) {
+    const [propRes, bkRes, blkRes] = await Promise.all([
+      supabase.from('properties').select('*').eq('id', propId).single(),
+      supabase.from('bookings').select('id,check_in,check_out,booking_number')
+        .eq('property_id', propId).in('status', ['PARCIAL', 'PAGO']),
+      supabase.from('calendar_blocks').select('*').eq('property_id', propId).order('start_date'),
+    ])
+    if (propRes.data) setPropData(propRes.data as Property)
+    setLocaflixBookings((bkRes.data ?? []) as { id: string; check_in: string; check_out: string; booking_number: string | null }[])
+    setCalBlocks((blkRes.data ?? []) as CalendarBlock[])
+  }
+
+  // Build map: date → event info
+  const eventMap = useMemo(() => {
+    const map = new Map<string, CalEventInfo>()
+    for (const b of locaflixBookings) {
+      const d = new Date(b.check_in + 'T00:00:00')
+      const end = new Date(b.check_out + 'T00:00:00')
+      while (d <= end) {
+        const key = d.toISOString().slice(0, 10)
+        if (!map.has(key)) {
+          map.set(key, {
+            source: 'LOCAFLIX',
+            startDate: b.check_in,
+            endDate: b.check_out,
+            label: b.booking_number ? `Reserva #${b.booking_number}` : 'Reserva Locaflix',
+          })
+        }
+        d.setDate(d.getDate() + 1)
+      }
+    }
+    for (const blk of calBlocks) {
+      const d = new Date(blk.start_date + 'T00:00:00')
+      const end = new Date(blk.end_date + 'T00:00:00')
+      while (d <= end) {
+        const key = d.toISOString().slice(0, 10)
+        if (!map.has(key)) {
+          map.set(key, {
+            source: blk.source,
+            startDate: blk.start_date,
+            endDate: blk.end_date,
+            label: blk.notes ?? SOURCE_LABELS[blk.source] ?? blk.source,
+            blockId: blk.id,
+          })
+        }
+        d.setDate(d.getDate() + 1)
+      }
+    }
+    return map
+  }, [locaflixBookings, calBlocks])
+
+  const selectedEvent = selectedDay ? (eventMap.get(selectedDay) ?? null) : null
+
+  async function handleSync(provider: 'AIRBNB' | 'BOOKING') {
+    setSyncing(s => ({ ...s, [provider]: true }))
+    try {
+      const session = await supabase.auth.getSession()
+      const token = session.data.session?.access_token ?? ''
+      const res = await fetch(`/api/calendar/sync/${selectedPropId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ provider }),
+      })
+      const data = await res.json() as { success?: boolean; results?: { provider: string; imported: number }[]; error?: string }
+      if (!res.ok) throw new Error(data.error ?? 'Erro desconhecido')
+      const r = data.results?.[0]
+      toast('success', 'Sincronizado!', `${r?.imported ?? 0} eventos importados do ${provider === 'AIRBNB' ? 'Airbnb' : 'Booking'}.`)
+      await loadCalendarData(selectedPropId)
+    } catch (err) {
+      toast('error', 'Erro na sincronização', err instanceof Error ? err.message : 'Tente novamente')
+    } finally {
+      setSyncing(s => ({ ...s, [provider]: false }))
+    }
+  }
+
+  async function handleAddBlock() {
+    if (!blockForm.start || !blockForm.end) { toast('warning', 'Preencha as datas', ''); return }
+    if (blockForm.start > blockForm.end) { toast('warning', 'Data inválida', 'O início deve ser anterior ao fim.'); return }
+    setAddingBlock(true)
+    try {
+      const session = await supabase.auth.getSession()
+      const token = session.data.session?.access_token ?? ''
+      const res = await fetch('/api/calendar/blocks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ property_id: selectedPropId, start_date: blockForm.start, end_date: blockForm.end, notes: blockForm.notes || undefined }),
+      })
+      if (!res.ok) { const d = await res.json() as { error?: string }; throw new Error(d.error) }
+      toast('success', 'Período bloqueado')
+      setBlockForm({ start: '', end: '', notes: '' })
+      await loadCalendarData(selectedPropId)
+    } catch (err) {
+      toast('error', 'Erro', err instanceof Error ? err.message : 'Tente novamente')
+    } finally {
+      setAddingBlock(false)
+    }
+  }
+
+  async function handleRemoveBlock(blockId: string) {
+    try {
+      const session = await supabase.auth.getSession()
+      const token = session.data.session?.access_token ?? ''
+      const res = await fetch(`/api/calendar/blocks/${blockId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (!res.ok) { const d = await res.json() as { error?: string }; throw new Error(d.error) }
+      toast('success', 'Bloqueio removido')
+      setSelectedDay(null)
+      await loadCalendarData(selectedPropId)
+    } catch (err) {
+      toast('error', 'Erro', err instanceof Error ? err.message : 'Tente novamente')
+    }
+  }
+
+  function fmtDate(d: string) {
+    const [y, m, day] = d.split('-')
+    return `${day}/${m}/${y}`
+  }
+
+  function renderMonth(baseDate: Date) {
+    const year = baseDate.getFullYear()
+    const month = baseDate.getMonth()
+    const firstDay = new Date(year, month, 1).getDay()
+    const daysInMonth = new Date(year, month + 1, 0).getDate()
+    const today = new Date(); today.setHours(0, 0, 0, 0)
+
+    return (
+      <div key={`${year}-${month}`}>
+        <p className="text-xs font-semibold text-white text-center mb-3">
+          {MONTHS_PT[month]} {year}
+        </p>
+        <div className="grid grid-cols-7 gap-px text-center mb-1">
+          {DAYS_SHORT.map(d => (
+            <div key={d} className="text-[10px] text-[#555] font-medium py-1">{d}</div>
+          ))}
+        </div>
+        <div className="grid grid-cols-7 gap-px">
+          {Array.from({ length: firstDay }).map((_, i) => (
+            <div key={`empty-${i}`} />
+          ))}
+          {Array.from({ length: daysInMonth }).map((_, i) => {
+            const day = i + 1
+            const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+            const event = eventMap.get(dateStr)
+            const isPast = new Date(dateStr + 'T00:00:00') < today
+            const isSelected = selectedDay === dateStr
+            const color = event ? SOURCE_COLORS[event.source] : null
+
+            return (
+              <button
+                key={dateStr}
+                onClick={() => setSelectedDay(isSelected ? null : dateStr)}
+                className={`relative h-8 w-full rounded text-[11px] font-medium transition-all ${
+                  isPast ? 'text-[#333] cursor-default' :
+                  isSelected ? 'ring-2 ring-white text-white' :
+                  event ? 'text-white hover:opacity-80' : 'text-[#666] hover:text-white hover:bg-[#2A2A2A]'
+                }`}
+                style={color ? { backgroundColor: color + '33', color } : {}}
+              >
+                {isSelected && color && (
+                  <span className="absolute inset-0 rounded ring-2" style={{ borderColor: color }} />
+                )}
+                {day}
+                {event && !isPast && (
+                  <span
+                    className="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full"
+                    style={{ backgroundColor: color! }}
+                  />
+                )}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+    )
+  }
+
+  const today = new Date()
+  const months = [0, 1].map(i => new Date(today.getFullYear(), today.getMonth() + monthOffset + i, 1))
+  const icalUrl = selectedPropId ? `${window.location.origin}/calendar/${selectedPropId}.ics` : ''
+
+  async function copyIcalUrl() {
+    await navigator.clipboard.writeText(icalUrl)
+    setCopiedUrl(true)
+    setTimeout(() => setCopiedUrl(false), 3000)
+  }
+
+  const manualBlocks = calBlocks.filter(b => b.source === 'MANUAL')
+
+  if (properties.length === 0) {
+    return (
+      <div className="text-center py-20 text-[#555]">
+        <CalendarRange size={48} className="mx-auto mb-4" />
+        <p>Você ainda não tem imóveis para sincronizar.</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h2 className="font-display text-xl font-bold text-white">Calendário Unificado</h2>
+          <p className="text-sm text-[#B3B3B3] mt-0.5">Veja e gerencie todos os bloqueios de calendário</p>
+        </div>
+        {properties.length > 1 && (
+          <select
+            value={selectedPropId}
+            onChange={e => { setSelectedPropId(e.target.value); setSelectedDay(null) }}
+            className="bg-[#1F1F1F] border border-[#333] rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-[#555]"
+          >
+            {properties.map(p => (
+              <option key={p.id} value={p.id} className="bg-[#1F1F1F]">{p.name}</option>
+            ))}
+          </select>
+        )}
+      </div>
+
+      {/* Status de sincronização */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {(['AIRBNB', 'BOOKING'] as const).map(provider => {
+          const urlField = provider === 'AIRBNB' ? 'ical_airbnb_url' : 'ical_booking_url'
+          const lastSyncField = provider === 'AIRBNB' ? 'ical_last_sync_airbnb' : 'ical_last_sync_booking'
+          const errorField = provider === 'AIRBNB' ? 'ical_sync_error_airbnb' : 'ical_sync_error_booking'
+          const url = propData?.[urlField as keyof Property] as string | null | undefined
+          const lastSync = propData?.[lastSyncField as keyof Property] as string | null | undefined
+          const syncError = propData?.[errorField as keyof Property] as string | null | undefined
+          const color = provider === 'AIRBNB' ? '#3B82F6' : '#F97316'
+          const connected = !!url
+
+          return (
+            <div
+              key={provider}
+              className="bg-[#1F1F1F] border border-[#333] rounded-2xl p-4 space-y-3"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: connected ? color : '#555' }} />
+                  <span className="text-sm font-semibold text-white">{provider === 'AIRBNB' ? 'Airbnb' : 'Booking'}</span>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${connected ? 'bg-green-500/20 text-green-400' : 'bg-[#333] text-[#555]'}`}>
+                    {connected ? 'Conectado' : 'Não configurado'}
+                  </span>
+                </div>
+                {connected && (
+                  <button
+                    onClick={() => void handleSync(provider)}
+                    disabled={!!syncing[provider]}
+                    className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-[#333] text-[#B3B3B3] hover:text-white hover:border-[#555] disabled:opacity-50 transition-all"
+                  >
+                    <RefreshCw size={12} className={syncing[provider] ? 'animate-spin' : ''} />
+                    {syncing[provider] ? 'Sincronizando...' : 'Sincronizar'}
+                  </button>
+                )}
+              </div>
+              {connected && lastSync && (
+                <p className="text-[11px] text-[#666]">
+                  Última sync: {new Date(lastSync).toLocaleString('pt-BR')}
+                </p>
+              )}
+              {syncError && (
+                <p className="text-[11px] text-[#E50914] bg-[#E50914]/10 rounded-lg px-3 py-2">
+                  Erro: {syncError}
+                </p>
+              )}
+              {!connected && (
+                <p className="text-[11px] text-[#555]">
+                  Configure a URL iCal na edição do imóvel para ativar.
+                </p>
+              )}
+            </div>
+          )
+        })}
+      </div>
+
+      {/* URL do calendário Locaflix (para exportar) */}
+      <div className="bg-[#1F1F1F] border border-[#333] rounded-2xl p-4 space-y-2">
+        <div className="flex items-center gap-2 mb-1">
+          <Link2 size={14} className="text-[#22C55E]" />
+          <p className="text-sm font-semibold text-white">URL do seu calendário Locaflix</p>
+        </div>
+        <p className="text-xs text-[#666]">Copie esta URL e importe no Airbnb e Booking para eles verem as reservas da Locaflix.</p>
+        <div className="flex gap-2">
+          <div className="flex-1 bg-[#0A0A0A] border border-[#222] rounded-xl px-3 py-2 text-xs text-[#B3B3B3] truncate font-mono">
+            {icalUrl}
+          </div>
+          <button
+            onClick={() => void copyIcalUrl()}
+            className="flex-shrink-0 px-3 py-2 bg-[#2A2A2A] border border-[#333] rounded-xl text-[#B3B3B3] hover:text-white transition-colors"
+          >
+            {copiedUrl ? <Check size={14} className="text-[#22C55E]" /> : <Copy size={14} />}
+          </button>
+        </div>
+      </div>
+
+      {/* Legenda */}
+      <div className="flex flex-wrap gap-4 text-xs">
+        {Object.entries(SOURCE_LABELS).map(([src, label]) => (
+          <div key={src} className="flex items-center gap-1.5">
+            <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: SOURCE_COLORS[src] }} />
+            <span className="text-[#B3B3B3]">{label}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Calendário */}
+      <div className="bg-[#1F1F1F] border border-[#333] rounded-2xl p-5">
+        {/* Navegação */}
+        <div className="flex items-center justify-between mb-5">
+          <button
+            onClick={() => { setMonthOffset(o => Math.max(0, o - 2)); setSelectedDay(null) }}
+            disabled={monthOffset === 0}
+            className="p-2 rounded-lg border border-[#333] text-[#666] hover:text-white hover:border-[#555] disabled:opacity-30 transition-all"
+          >
+            <ChevronLeft size={16} />
+          </button>
+          <span className="text-xs text-[#666]">
+            {monthOffset === 0 ? 'Meses atuais' : `+${monthOffset} meses`}
+          </span>
+          <button
+            onClick={() => { setMonthOffset(o => o + 2); setSelectedDay(null) }}
+            className="p-2 rounded-lg border border-[#333] text-[#666] hover:text-white hover:border-[#555] transition-all"
+          >
+            <ChevronRight size={16} />
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
+          {months.map(renderMonth)}
+        </div>
+
+        {/* Detalhe do dia selecionado */}
+        {selectedDay && (
+          <div className="mt-5 pt-5 border-t border-[#333]">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs text-[#666] mb-1">{fmtDate(selectedDay)}</p>
+                {selectedEvent ? (
+                  <>
+                    <div className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: SOURCE_COLORS[selectedEvent.source] }} />
+                      <p className="text-sm font-semibold text-white">{SOURCE_LABELS[selectedEvent.source]}</p>
+                    </div>
+                    <p className="text-xs text-[#B3B3B3] mt-1">{selectedEvent.label}</p>
+                    <p className="text-xs text-[#666] mt-0.5">
+                      {fmtDate(selectedEvent.startDate)} → {fmtDate(selectedEvent.endDate)}
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-sm text-[#46D369]">Disponível</p>
+                )}
+              </div>
+              {selectedEvent?.blockId && selectedEvent.source === 'MANUAL' && (
+                <button
+                  onClick={() => void handleRemoveBlock(selectedEvent.blockId!)}
+                  className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-[#E50914]/40 text-[#E50914] hover:bg-[#E50914]/10 transition-colors flex-shrink-0"
+                >
+                  <Unlock size={12} />
+                  Desbloquear
+                </button>
+              )}
+              <button onClick={() => setSelectedDay(null)} className="text-[#555] hover:text-white ml-auto flex-shrink-0">
+                <X size={14} />
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Bloqueios manuais */}
+      <div className="bg-[#1F1F1F] border border-[#333] rounded-2xl p-5 space-y-4">
+        <div className="flex items-center gap-2">
+          <Lock size={14} className="text-[#EF4444]" />
+          <p className="text-sm font-semibold text-white">Bloquear período manualmente</p>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div>
+            <label className="text-xs text-[#666] block mb-1">Início</label>
+            <input
+              type="date"
+              value={blockForm.start}
+              onChange={e => setBlockForm(f => ({ ...f, start: e.target.value }))}
+              min={new Date().toISOString().slice(0, 10)}
+              className="w-full bg-[#0A0A0A] border border-[#333] rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-[#EF4444] transition-colors"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-[#666] block mb-1">Fim</label>
+            <input
+              type="date"
+              value={blockForm.end}
+              onChange={e => setBlockForm(f => ({ ...f, end: e.target.value }))}
+              min={blockForm.start || new Date().toISOString().slice(0, 10)}
+              className="w-full bg-[#0A0A0A] border border-[#333] rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-[#EF4444] transition-colors"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-[#666] block mb-1">Motivo (opcional)</label>
+            <input
+              type="text"
+              value={blockForm.notes}
+              onChange={e => setBlockForm(f => ({ ...f, notes: e.target.value }))}
+              placeholder="Ex: Reforma, uso próprio..."
+              className="w-full bg-[#0A0A0A] border border-[#333] rounded-xl px-3 py-2 text-sm text-white placeholder-[#444] outline-none focus:border-[#555] transition-colors"
+            />
+          </div>
+        </div>
+        <button
+          onClick={() => void handleAddBlock()}
+          disabled={addingBlock || !blockForm.start || !blockForm.end}
+          className="flex items-center gap-2 px-4 py-2 bg-[#EF4444] hover:bg-red-500 disabled:opacity-50 text-white text-sm font-semibold rounded-xl transition-colors"
+        >
+          <Lock size={14} />
+          {addingBlock ? 'Bloqueando...' : 'Bloquear período'}
+        </button>
+
+        {/* Lista de bloqueios manuais */}
+        {manualBlocks.length > 0 && (
+          <div className="space-y-2 pt-2 border-t border-[#2A2A2A]">
+            <p className="text-xs text-[#555] font-semibold uppercase tracking-wide">Bloqueios manuais ativos</p>
+            {manualBlocks.map(blk => (
+              <div key={blk.id} className="flex items-center justify-between gap-3 bg-[#0A0A0A] border border-[#222] rounded-xl px-4 py-3">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-white">{fmtDate(blk.start_date)} → {fmtDate(blk.end_date)}</p>
+                  {blk.notes && <p className="text-xs text-[#666] truncate">{blk.notes}</p>}
+                </div>
+                <button
+                  onClick={() => void handleRemoveBlock(blk.id)}
+                  className="text-[#E50914] hover:text-red-400 flex-shrink-0"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

@@ -87,10 +87,43 @@ export interface Property {
   cancellation_policy: CancellationPolicy
   rating: number | null
   reviews_count: number
+  ical_airbnb_url?: string | null
+  ical_booking_url?: string | null
+  ical_last_sync_airbnb?: string | null
+  ical_last_sync_booking?: string | null
+  ical_sync_error_airbnb?: string | null
+  ical_sync_error_booking?: string | null
   created_at: string
   updated_at: string
   // joined
   owner?: UserProfile
+}
+
+// ---- Calendar Sync ----
+export type CalendarProvider = 'AIRBNB' | 'BOOKING'
+export type CalendarBlockSource = 'LOCAFLIX' | 'AIRBNB' | 'BOOKING' | 'MANUAL'
+
+export interface CalendarSync {
+  id: string
+  property_id: string
+  provider: CalendarProvider
+  external_event_id: string
+  start_date: string
+  end_date: string
+  summary: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface CalendarBlock {
+  id: string
+  property_id: string
+  source: CalendarBlockSource
+  start_date: string
+  end_date: string
+  notes: string | null
+  sync_id: string | null
+  created_at: string
 }
 
 // ---- Booking ----

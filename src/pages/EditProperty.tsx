@@ -63,6 +63,8 @@ export function EditProperty() {
   const [planValue, setPlanValue] = useState<'STANDARD' | 'DESTAQUE'>('STANDARD')
   const [customAmenities, setCustomAmenities] = useState<{ id: string; category: string; name: string }[]>([])
   const [customForm, setCustomForm] = useState({ category: 'Cozinha', name: '' })
+  const [icalAirbnbUrl, setIcalAirbnbUrl] = useState('')
+  const [icalBookingUrl, setIcalBookingUrl] = useState('')
 
   const [form, setForm] = useState({
     name: '',
@@ -160,6 +162,8 @@ export function EditProperty() {
     }
 
     setPlanValue(prop.plan === 'DESTAQUE' ? 'DESTAQUE' : 'STANDARD')
+    setIcalAirbnbUrl(prop.ical_airbnb_url ?? '')
+    setIcalBookingUrl(prop.ical_booking_url ?? '')
 
     setCoverPhotoUrl(prop.photos?.[0] ?? null)
 
@@ -391,6 +395,8 @@ export function EditProperty() {
       amenities: [...amenityNames, ...customNames],
       home_tags: Array.from(selectedHomeTags),
       cancellation_policy: form.cancellation_policy,
+      ical_airbnb_url: icalAirbnbUrl.trim() || null,
+      ical_booking_url: icalBookingUrl.trim() || null,
     }).eq('id', id)
 
     if (propErr) {
@@ -961,6 +967,50 @@ export function EditProperty() {
               </div>
             </section>
           )}
+
+          {/* Sincronização de calendários */}
+          <section className="bg-[#1F1F1F] border border-[#333] rounded-2xl p-6 space-y-5">
+            <div>
+              <h2 className="font-display text-lg font-bold text-white flex items-center gap-2">
+                <Link size={16} className="text-[#3B82F6]" />
+                Sincronização de Calendários
+              </h2>
+              <p className="text-xs text-[#666] mt-0.5">
+                Cole as URLs iCal do Airbnb e Booking para sincronizar automaticamente as datas bloqueadas.
+              </p>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-[#B3B3B3] mb-1.5">
+                  URL do Calendário Airbnb
+                </label>
+                <input
+                  type="url"
+                  value={icalAirbnbUrl}
+                  onChange={e => setIcalAirbnbUrl(e.target.value)}
+                  placeholder="https://www.airbnb.com/calendar/ical/..."
+                  className="w-full bg-[#0A0A0A] border border-[#333] rounded-xl px-4 py-3 text-sm text-white placeholder-[#444] outline-none focus:border-[#3B82F6] transition-colors"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-[#B3B3B3] mb-1.5">
+                  URL do Calendário Booking
+                </label>
+                <input
+                  type="url"
+                  value={icalBookingUrl}
+                  onChange={e => setIcalBookingUrl(e.target.value)}
+                  placeholder="https://ical.booking.com/v1/export?token=..."
+                  className="w-full bg-[#0A0A0A] border border-[#333] rounded-xl px-4 py-3 text-sm text-white placeholder-[#444] outline-none focus:border-[#F97316] transition-colors"
+                />
+              </div>
+              <div className="bg-[#0A0A0A] border border-[#222] rounded-xl px-4 py-3 space-y-1 text-xs text-[#666]">
+                <p>• Airbnb: acesse <strong className="text-[#B3B3B3]">Calendário → Disponibilidade → Exportar calendário</strong></p>
+                <p>• Booking: acesse <strong className="text-[#B3B3B3]">Propriedades → Calendário → Sincronizar calendário (iCal)</strong></p>
+                <p>• Após salvar, a sincronização ocorre automaticamente a cada 5 minutos.</p>
+              </div>
+            </div>
+          </section>
 
           <div className="flex gap-4 pt-2">
             <Button type="button" variant="secondary" onClick={() => navigate(APP_ROUTES.OWNER_DASHBOARD)} fullWidth>
