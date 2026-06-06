@@ -51,47 +51,31 @@ CREATE INDEX IF NOT EXISTS idx_calendar_syncs_property_provider
 -- 5. RLS — calendar_blocks (anfitrião vê apenas seus imóveis)
 ALTER TABLE calendar_blocks ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY IF NOT EXISTS "calendar_blocks_owner_read"
-  ON calendar_blocks FOR SELECT
-  USING (
-    property_id IN (
-      SELECT id FROM properties WHERE owner_id = auth.uid()
-    )
-  );
+DO $$ BEGIN
+  CREATE POLICY "calendar_blocks_public_read"
+    ON calendar_blocks FOR SELECT USING (true);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
-CREATE POLICY IF NOT EXISTS "calendar_blocks_owner_insert"
-  ON calendar_blocks FOR INSERT
-  WITH CHECK (
-    property_id IN (
-      SELECT id FROM properties WHERE owner_id = auth.uid()
-    )
-  );
+DO $$ BEGIN
+  CREATE POLICY "calendar_blocks_owner_insert"
+    ON calendar_blocks FOR INSERT
+    WITH CHECK (
+      property_id IN (SELECT id FROM properties WHERE owner_id = auth.uid())
+    );
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
-CREATE POLICY IF NOT EXISTS "calendar_blocks_owner_delete"
-  ON calendar_blocks FOR DELETE
-  USING (
-    property_id IN (
-      SELECT id FROM properties WHERE owner_id = auth.uid()
-    )
-  );
-
--- Permitir leitura pública de calendar_blocks (para checagem de disponibilidade)
-CREATE POLICY IF NOT EXISTS "calendar_blocks_public_read"
-  ON calendar_blocks FOR SELECT
-  USING (true);
+DO $$ BEGIN
+  CREATE POLICY "calendar_blocks_owner_delete"
+    ON calendar_blocks FOR DELETE
+    USING (
+      property_id IN (SELECT id FROM properties WHERE owner_id = auth.uid())
+    );
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- 6. RLS — calendar_syncs
 ALTER TABLE calendar_syncs ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY IF NOT EXISTS "calendar_syncs_owner_read"
-  ON calendar_syncs FOR SELECT
-  USING (
-    property_id IN (
-      SELECT id FROM properties WHERE owner_id = auth.uid()
-    )
-  );
-
--- Permitir leitura pública de calendar_syncs
-CREATE POLICY IF NOT EXISTS "calendar_syncs_public_read"
-  ON calendar_syncs FOR SELECT
-  USING (true);
+DO $$ BEGIN
+  CREATE POLICY "calendar_syncs_public_read"
+    ON calendar_syncs FOR SELECT USING (true);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
