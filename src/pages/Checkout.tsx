@@ -29,25 +29,49 @@ interface PolicyDeadline {
   color: string
 }
 
+interface DbPolicyRule {
+  days_before: number
+  refund_percentage: number
+  description: string
+}
+
+function calcPolicyDeadlinesFromRules(rules: DbPolicyRule[], checkIn: string): PolicyDeadline[] {
+  if (!rules.length || !checkIn) return []
+  const ci = new Date(checkIn + 'T12:00:00')
+  return [...rules]
+    .sort((a, b) => b.days_before - a.days_before)
+    .map(rule => ({
+      label: rule.description || (
+        rule.refund_percentage === 100 ? 'Reembolso total'
+        : rule.refund_percentage === 0 ? 'Sem reembolso'
+        : `Reembolso de ${rule.refund_percentage}%`
+      ),
+      date: subDays(ci, rule.days_before),
+      refundPercent: rule.refund_percentage,
+      color: rule.refund_percentage === 100 ? '#46D369'
+           : rule.refund_percentage === 0   ? '#E50914'
+           : '#F5A623',
+    }))
+}
+
 function calcPolicyDeadlines(policy: CancellationPolicy | undefined, checkIn: string): PolicyDeadline[] {
   if (!checkIn || !policy) return []
   const ci = new Date(checkIn + 'T12:00:00')
-  const fmt = (d: Date) => d
   switch (policy) {
     case 'LEVE':
       return [
-        { label: 'Reembolso total', date: fmt(subDays(ci, 2)), refundPercent: 100, color: '#46D369' },
-        { label: 'Sem reembolso', date: fmt(ci), refundPercent: 0, color: '#E50914' },
+        { label: 'Reembolso total', date: subDays(ci, 2), refundPercent: 100, color: '#46D369' },
+        { label: 'Sem reembolso', date: ci, refundPercent: 0, color: '#E50914' },
       ]
     case 'MODERADO':
       return [
-        { label: 'Reembolso total', date: fmt(subDays(ci, 15)), refundPercent: 100, color: '#46D369' },
-        { label: 'Sem reembolso', date: fmt(ci), refundPercent: 0, color: '#E50914' },
+        { label: 'Reembolso total', date: subDays(ci, 15), refundPercent: 100, color: '#46D369' },
+        { label: 'Sem reembolso', date: ci, refundPercent: 0, color: '#E50914' },
       ]
     case 'FIRME':
       return [
-        { label: 'Reembolso total', date: fmt(subDays(ci, 30)), refundPercent: 100, color: '#46D369' },
-        { label: 'Sem reembolso', date: fmt(ci), refundPercent: 0, color: '#E50914' },
+        { label: 'Reembolso total', date: subDays(ci, 30), refundPercent: 100, color: '#46D369' },
+        { label: 'Sem reembolso', date: ci, refundPercent: 0, color: '#E50914' },
       ]
     default:
       return []
@@ -96,6 +120,7 @@ export function Checkout() {
   const [cardInstallments, setCardInstallments] = useState(1)
   const [cardForm, setCardForm] = useState({ holder: '', number: '', expiry: '', cvv: '' })
   const effectiveCardSettings = paymentSettings.length > 0 ? paymentSettings : DEFAULT_CARD_SETTINGS
+  const [cancelPolicyRules, setCancelPolicyRules] = useState<DbPolicyRule[]>([])
 
   const checkIn = searchParams.get('entrada') ?? ''
   const checkOut = searchParams.get('saida') ?? ''
@@ -205,9 +230,10 @@ export function Checkout() {
   }, [installmentCount, property, checkIn, checkOut, nights, pricePeriods, paymentMethod])
 
   async function loadProperty(pid: string) {
-    const [{ data: propData }, { data: periodsData }] = await Promise.all([
+    const [{ data: propData }, { data: periodsData }, { data: cancelPolicies }] = await Promise.all([
       supabase.from('properties').select('*').eq('id', pid).single(),
       supabase.from('price_periods').select('*').eq('property_id', pid).eq('active', true).order('priority', { ascending: false }),
+      supabase.from('cancellation_policies_config').select('policy_name, rules'),
     ])
     // Fetch owner separately using owner_id
     let ownerData = null
@@ -220,6 +246,14 @@ export function Checkout() {
       : (MOCK_PROPERTIES.find(p => p.id === pid) ?? null)
     setProperty(resolved)
     setPricePeriods((periodsData ?? []) as PricePeriod[])
+
+    // Load the configured cancellation policy rules for this property
+    if (propData?.cancellation_policy && cancelPolicies?.length) {
+      const key = (propData.cancellation_policy as string).toUpperCase()
+      const matched = (cancelPolicies as { policy_name: string; rules: DbPolicyRule[] }[])
+        .find(p => p.policy_name.toUpperCase() === key || p.policy_name.toUpperCase().includes(key))
+      if (matched?.rules?.length) setCancelPolicyRules(matched.rules)
+    }
     setLoading(false)
   }
 
@@ -669,7 +703,9 @@ export function Checkout() {
                     <h2 className="font-display text-xl font-bold text-white mb-4">Política de cancelamento</h2>
                     {(() => {
                       const pol = CANCELLATION_POLICIES.find(p => p.value === property.cancellation_policy)
-                      const deadlines = calcPolicyDeadlines(property.cancellation_policy, checkIn)
+                      const deadlines = cancelPolicyRules.length > 0
+                        ? calcPolicyDeadlinesFromRules(cancelPolicyRules, checkIn)
+                        : calcPolicyDeadlines(property.cancellation_policy, checkIn)
                       return (
                         <>
                           <div className="bg-[#2A2A2A] rounded-xl p-4 mb-4">
@@ -683,7 +719,24 @@ export function Checkout() {
                                 {property.cancellation_policy ?? 'PADRÃO'}
                               </span>
                             </div>
-                            <p className="text-sm text-[#B3B3B3]">{pol?.description ?? 'Consulte o anfitrião para condições de cancelamento.'}</p>
+                            {cancelPolicyRules.length > 0 ? (
+                              <ul className="space-y-0.5">
+                                {[...cancelPolicyRules]
+                                  .sort((a, b) => b.days_before - a.days_before)
+                                  .map((r, i) => (
+                                    <li key={i} className="text-sm text-[#B3B3B3]">
+                                      {r.description ||
+                                        (r.refund_percentage === 100
+                                          ? `Cancelamento gratuito até ${r.days_before} dias antes do check-in.`
+                                          : r.refund_percentage === 0
+                                          ? `Sem reembolso a menos de ${r.days_before} dias do check-in.`
+                                          : `Reembolso de ${r.refund_percentage}% até ${r.days_before} dias antes do check-in.`)}
+                                    </li>
+                                  ))}
+                              </ul>
+                            ) : (
+                              <p className="text-sm text-[#B3B3B3]">{pol?.description ?? 'Consulte o anfitrião para condições de cancelamento.'}</p>
+                            )}
                           </div>
 
                           {deadlines.length > 0 && checkIn && (
