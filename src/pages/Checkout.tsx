@@ -1,9 +1,9 @@
 ﻿import { useEffect, useState } from 'react'
 import { useParams, useSearchParams, useNavigate, Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Check, ChevronRight, FileText, CreditCard, User, AlertTriangle, ShieldCheck, Calendar, MapPin, Home, Star } from 'lucide-react'
+import { Check, ChevronRight, FileText, CreditCard, User, AlertTriangle, ShieldCheck, Lock, Calendar, MapPin, Home, Star } from 'lucide-react'
 import { supabase } from '../lib/supabase'
-import type { Property, CheckoutFormData, InstallmentPreview, InstallmentPaymentResponse, CancellationPolicy, PricePeriod } from '../types'
+import type { Property, CheckoutFormData, InstallmentPreview, InstallmentPaymentResponse, CancellationPolicy, PricePeriod, PaymentSetting } from '../types'
 import { CANCELLATION_POLICIES, APP_ROUTES } from '../constants'
 import { MOCK_PROPERTIES } from '../constants/mocks'
 import { Button } from '../components/ui/Button'
@@ -79,12 +79,14 @@ export function Checkout() {
   const [ipAddress, setIpAddress] = useState('0.0.0.0')
   const [installmentCount, setInstallmentCount] = useState(1)
   const [installmentPreviews, setInstallmentPreviews] = useState<InstallmentPreview[]>([])
-  const [paymentMethod, setPaymentMethod] = useState<'PIX' | 'BOLETO'>('PIX')
   const INSTALLMENT_FEE = 1.99
   const [paymentData, setPaymentData] = useState<InstallmentPaymentResponse | null>(null)
   const [paymentModalOpen2, setPaymentModalOpen2] = useState(false)
   const [checkingPayment, setCheckingPayment] = useState(false)
   const [paid, setPaid] = useState(false)
+  const [paymentSettings, setPaymentSettings] = useState<PaymentSetting[]>([])
+  const [cardInstallments, setCardInstallments] = useState(1)
+  const [cardForm, setCardForm] = useState({ holder: '', number: '', expiry: '', cvv: '' })
 
   const checkIn = searchParams.get('entrada') ?? ''
   const checkOut = searchParams.get('saida') ?? ''
@@ -93,6 +95,8 @@ export function Checkout() {
   const nights = checkIn && checkOut
     ? Math.max(0, Math.floor((new Date(checkOut + 'T00:00:00').getTime() - new Date(checkIn + 'T00:00:00').getTime()) / 86400000))
     : 0
+
+  const [paymentMethod, setPaymentMethod] = useState<'PIX' | 'BOLETO' | 'CARTAO'>('PIX')
 
   const [form, setForm] = useState<CheckoutFormData>({
     policy_accepted: false,
@@ -115,6 +119,10 @@ export function Checkout() {
     if (!id) return
     loadProperty(id)
     fetchIp()
+    fetch('/api/payment-settings')
+      .then(r => r.json())
+      .then((data: PaymentSetting[]) => { if (Array.isArray(data)) setPaymentSettings(data) })
+      .catch(() => {})
   }, [id])
 
   // Auto-polling: check payment status every 5s while QR/boleto modal is open
@@ -174,6 +182,7 @@ export function Checkout() {
   }, [profile])
 
   useEffect(() => {
+    if (paymentMethod === 'CARTAO') { setInstallmentPreviews([]); return }
     if (!checkIn || !checkOut || !property || nights <= 0) return
     const ci = new Date(checkIn + 'T00:00:00')
     const co = new Date(checkOut + 'T00:00:00')
@@ -253,8 +262,15 @@ export function Checkout() {
 
   function next() {
     if (!canAdvance()) { toast('warning', 'Campos obrigatórios', 'Preencha todos os campos para continuar.'); return }
-    if (step < 4) setStep(s => s + 1)
-    else setPaymentModalOpen(true)
+    if (step < 4) { setStep(s => s + 1); return }
+    if (paymentMethod === 'CARTAO') {
+      const digits = cardForm.number.replace(/\D/g, '')
+      if (digits.length < 13) { toast('warning', 'Dados do cartão', 'Número de cartão inválido.'); return }
+      if (!cardForm.holder.trim()) { toast('warning', 'Dados do cartão', 'Informe o nome impresso no cartão.'); return }
+      if (cardForm.expiry.length < 5) { toast('warning', 'Dados do cartão', 'Informe a validade no formato MM/AA.'); return }
+      if (cardForm.cvv.length < 3) { toast('warning', 'Dados do cartão', 'CVV inválido.'); return }
+    }
+    setPaymentModalOpen(true)
   }
 
   async function confirmBooking() {
@@ -307,10 +323,11 @@ export function Checkout() {
 
         const contractContent = generateContractContent({
           booking: { ...booking, property },
-          guest: profile!,
-          owner: property.owner as any ?? { name: 'Anfitrião', cpf: '' },
+          guest: { ...profile!, name: form.name, cpf: form.cpf },
+          owner: property.owner as never ?? { name: 'Anfitrião', cpf: '' },
           ipAddress,
           userAgent: navigator.userAgent,
+          paymentInfo: { method: paymentMethod as 'PIX' | 'BOLETO', installmentCount, total },
         })
         await supabase.from('contracts').insert({
           booking_id: booking.id,
@@ -383,6 +400,146 @@ export function Checkout() {
     }
   }
 
+  async function confirmBookingCard() {
+    if (!property || !user || !profile) return
+    setSaving(true)
+    const isMock = MOCK_PROPERTIES.some(p => p.id === property.id)
+    try {
+      const ci = new Date(checkIn + 'T00:00:00')
+      const co = new Date(checkOut + 'T00:00:00')
+      const estadia = calcularEstadia(ci, co, pricePeriods, property.price_per_night)
+      const cleaning = property.cleaning_fee ?? 0
+      const subtotal = estadia.total + cleaning
+      const platform_fee = Math.round(subtotal * guestFeePercent * 100) / 100
+      const baseTotal = Math.round((subtotal + platform_fee) * 100) / 100
+      const setting = paymentSettings.find(s => s.installments === cardInstallments) ?? paymentSettings[0]
+      const feePercent = setting?.fee_percent ?? 0
+      const feeValue = Math.round(baseTotal * feePercent / 100 * 100) / 100
+      const cardTotal = Math.round((baseTotal + feeValue) * 100) / 100
+      const installmentValue = Math.round(cardTotal / cardInstallments * 100) / 100
+
+      let bookingId: string | undefined
+      let installmentId: string | undefined
+
+      if (!isMock) {
+        const { data: booking, error } = await supabase.from('bookings').insert({
+          property_id: property.id,
+          guest_id: user.id,
+          owner_id: property.owner_id,
+          check_in: checkIn,
+          check_out: checkOut,
+          nights,
+          total_guests: guestsParam,
+          subtotal,
+          platform_fee,
+          discount_amount: 0,
+          total_price: baseTotal,
+          status: 'AGUARDANDO_PAGAMENTO',
+          payment_method: 'CARTAO',
+          card_installments: cardInstallments,
+          card_fee_percent: feePercent,
+          card_fee_value: feeValue,
+        }).select().single()
+        if (error || !booking) throw new Error(error?.message ?? 'Erro ao criar reserva')
+        bookingId = booking.id
+
+        const { data: installments } = await supabase.from('installments').insert([{
+          booking_id: booking.id,
+          number: 1,
+          value: cardTotal,
+          due_date: new Date().toISOString().slice(0, 10),
+          type: 'ENTRADA',
+          status: 'PENDENTE',
+        }]).select()
+        installmentId = installments?.[0]?.id
+
+        const contractContent = generateContractContent({
+          booking: { ...booking, property },
+          guest: { ...profile!, name: form.name, cpf: form.cpf },
+          owner: property.owner as never ?? { name: 'Anfitrião', cpf: '' },
+          ipAddress,
+          userAgent: navigator.userAgent,
+          paymentInfo: { method: 'CARTAO', installmentCount: cardInstallments, cardFeePercent: feePercent, cardFeeValue: feeValue, total: cardTotal },
+        })
+        await supabase.from('contracts').insert({
+          booking_id: booking.id,
+          guest_id: user.id,
+          owner_id: property.owner_id,
+          content: contractContent,
+          ip_address: ipAddress,
+          user_agent: navigator.userAgent,
+          accepted_at: new Date().toISOString(),
+        })
+        await supabase.from('notifications').insert({
+          user_id: user.id,
+          title: 'Reserva criada!',
+          message: `Sua reserva para ${property.name} está sendo processada via cartão de crédito.`,
+          type: 'BOOKING',
+        })
+      }
+
+      const session = await supabase.auth.getSession()
+      const token = session.data.session?.access_token ?? ''
+      const [expMonth, expYear] = cardForm.expiry.split('/')
+
+      const payRes = await fetch('/api/payments/create-card', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({
+          customer: { name: form.name, cpf: form.cpf, email: user.email, phone: form.phone },
+          value: cardTotal,
+          description: `Locaflix - ${property.name}${isMock ? ' [SANDBOX]' : ''}`,
+          externalReference: installmentId ? `installment:${installmentId}` : `sandbox:${Date.now()}`,
+          installment_id: installmentId,
+          installmentCount: cardInstallments > 1 ? cardInstallments : undefined,
+          installmentValue: cardInstallments > 1 ? installmentValue : undefined,
+          creditCard: {
+            holderName: cardForm.holder.trim(),
+            number: cardForm.number.replace(/\D/g, ''),
+            expiryMonth: (expMonth ?? '').padStart(2, '0'),
+            expiryYear: expYear ? `20${expYear}` : '',
+            ccv: cardForm.cvv,
+          },
+          creditCardHolderInfo: {
+            name: form.name,
+            email: user.email ?? '',
+            cpfCnpj: form.cpf.replace(/\D/g, ''),
+            postalCode: form.cep.replace(/\D/g, ''),
+            addressNumber: form.number,
+            phone: form.phone.replace(/\D/g, ''),
+          },
+        }),
+      })
+
+      if (!payRes.ok) {
+        const err = await payRes.json()
+        throw new Error(err.error ?? 'Pagamento recusado')
+      }
+
+      const result = await payRes.json()
+      const isConfirmed = result.status === 'CONFIRMED' || result.status === 'AUTHORIZED_BY_RISK_ANALYSIS'
+
+      if (isConfirmed && installmentId && bookingId) {
+        await Promise.all([
+          supabase.from('installments').update({
+            status: 'PAGO',
+            paid_at: new Date().toISOString(),
+            asaas_payment_id: result.payment_id,
+          }).eq('id', installmentId),
+          supabase.from('bookings').update({ status: 'PAGO' }).eq('id', bookingId),
+        ])
+      }
+
+      setPaymentModalOpen(false)
+      setPaid(true)
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Erro ao processar cartão.'
+      toast('error', 'Pagamento recusado', msg)
+    } finally {
+      setSaving(false)
+    }
+  }
+
   async function checkPaymentStatus(silent = false) {
     if (!paymentData) return
     if (!silent) setCheckingPayment(true)
@@ -419,8 +576,15 @@ export function Checkout() {
   const fee = Math.round(combinedBase * guestFeePercent * 100) / 100
   const total = combinedBase + fee
 
+  // Card fee computations
+  const cardSetting = paymentSettings.find(s => s.installments === cardInstallments) ?? paymentSettings[0]
+  const cardFeePercent = cardSetting?.fee_percent ?? 0
+  const cardFeeValue = Math.round(total * cardFeePercent / 100 * 100) / 100
+  const cardTotal = Math.round((total + cardFeeValue) * 100) / 100
+  const cardInstallmentValue = Math.round(cardTotal / cardInstallments * 100) / 100
+
   if (paid) {
-    return <CheckoutSuccess property={property} checkIn={checkIn} checkOut={checkOut} nights={nights} total={total} guestsCount={guestsParam} />
+    return <CheckoutSuccess property={property} checkIn={checkIn} checkOut={checkOut} nights={nights} total={paymentMethod === 'CARTAO' ? cardTotal : total} guestsCount={guestsParam} />
   }
 
   if (loading || !property) {
@@ -659,7 +823,7 @@ export function Checkout() {
                     <div className="mb-6">
                       <p className="text-sm font-medium text-[#B3B3B3] mb-3">Forma de pagamento</p>
                       <div className="flex gap-2">
-                        {(['PIX', 'BOLETO'] as const).map(m => (
+                        {(['PIX', 'BOLETO', 'CARTAO'] as const).map(m => (
                           <button
                             key={m}
                             onClick={() => setPaymentMethod(m)}
@@ -669,61 +833,192 @@ export function Checkout() {
                                 : 'border-[#333] text-[#B3B3B3] hover:border-[#555]'
                             }`}
                           >
-                            {m === 'PIX' ? 'Pix' : 'Boleto'}
+                            {m === 'PIX' ? 'Pix' : m === 'BOLETO' ? 'Boleto' : 'Cartão'}
                           </button>
                         ))}
                       </div>
-                      <p className="text-xs text-[#F5A623] mt-2 flex items-center gap-1">
-                        ⚠ Taxa de processamento de R$ 1,99 por parcela é adicionada ao valor de cada cobrança.
-                      </p>
+                      {paymentMethod !== 'CARTAO' && (
+                        <p className="text-xs text-[#F5A623] mt-2">
+                          ⚠ Taxa de R$ 1,99 por parcela adicionada ao valor de cada cobrança.
+                        </p>
+                      )}
                     </div>
 
-                    <div className="mb-6">
-                      <p className="text-sm font-medium text-[#B3B3B3] mb-3">Número de parcelas</p>
-                      <div className="flex flex-wrap gap-2">
-                        {Array.from({ length: maxInstallments }, (_, i) => i + 1).map(n => (
-                          <button
-                            key={n}
-                            onClick={() => setInstallmentCount(n)}
-                            className={`px-3 py-2 rounded-lg text-sm font-medium border transition-all ${
-                              installmentCount === n
-                                ? 'bg-[#E50914] border-[#E50914] text-white'
-                                : 'border-[#333] text-[#B3B3B3] hover:border-[#555]'
-                            }`}
-                          >
-                            {n === 1 ? 'À vista' : `${n}x`}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {installmentPreviews.length > 0 && (
-                      <div className="bg-[#0A0A0A] border border-[#333] rounded-xl overflow-hidden mb-5">
-                        <div className="px-4 py-2 border-b border-[#333] flex items-center justify-between">
-                          <p className="text-xs font-semibold text-[#B3B3B3] uppercase tracking-wide">Calendário de pagamentos</p>
-                          <p className="text-xs text-[#999]">+R$ 1,99 por parcela</p>
+                    {/* PIX / BOLETO installment selector */}
+                    {paymentMethod !== 'CARTAO' && (
+                      <>
+                        <div className="mb-6">
+                          <p className="text-sm font-medium text-[#B3B3B3] mb-3">Número de parcelas</p>
+                          <div className="flex flex-wrap gap-2">
+                            {Array.from({ length: maxInstallments }, (_, i) => i + 1).map(n => (
+                              <button
+                                key={n}
+                                onClick={() => setInstallmentCount(n)}
+                                className={`px-3 py-2 rounded-lg text-sm font-medium border transition-all ${
+                                  installmentCount === n
+                                    ? 'bg-[#E50914] border-[#E50914] text-white'
+                                    : 'border-[#333] text-[#B3B3B3] hover:border-[#555]'
+                                }`}
+                              >
+                                {n === 1 ? 'À vista' : `${n}x`}
+                              </button>
+                            ))}
+                          </div>
                         </div>
-                        <div className="divide-y divide-[#1F1F1F]">
-                          {installmentPreviews.map(p => (
-                            <div key={p.number} className="flex items-center justify-between px-4 py-2.5">
-                              <div className="flex items-center gap-2">
-                                <span className={`text-xs font-bold px-2 py-0.5 rounded ${p.type === 'ENTRADA' ? 'bg-[#46D369]/20 text-[#46D369]' : 'bg-[#333] text-[#B3B3B3]'}`}>
-                                  {p.type === 'ENTRADA' ? 'ENTRADA' : `Parcela ${p.number}`}
-                                </span>
-                              </div>
-                              <div className="text-right">
-                                <p className="text-sm font-bold text-white">{formatCurrency(p.value)}</p>
-                                <p className="text-xs text-[#999]">Vence {formatDate(p.due_date)}</p>
-                              </div>
+
+                        {installmentPreviews.length > 0 && (
+                          <div className="bg-[#0A0A0A] border border-[#333] rounded-xl overflow-hidden mb-5">
+                            <div className="px-4 py-2 border-b border-[#333] flex items-center justify-between">
+                              <p className="text-xs font-semibold text-[#B3B3B3] uppercase tracking-wide">Calendário de pagamentos</p>
+                              <p className="text-xs text-[#999]">+R$ 1,99 por parcela</p>
                             </div>
-                          ))}
+                            <div className="divide-y divide-[#1F1F1F]">
+                              {installmentPreviews.map(p => (
+                                <div key={p.number} className="flex items-center justify-between px-4 py-2.5">
+                                  <div className="flex items-center gap-2">
+                                    <span className={`text-xs font-bold px-2 py-0.5 rounded ${p.type === 'ENTRADA' ? 'bg-[#46D369]/20 text-[#46D369]' : 'bg-[#333] text-[#B3B3B3]'}`}>
+                                      {p.type === 'ENTRADA' ? 'ENTRADA' : `Parcela ${p.number}`}
+                                    </span>
+                                  </div>
+                                  <div className="text-right">
+                                    <p className="text-sm font-bold text-white">{formatCurrency(p.value)}</p>
+                                    <p className="text-xs text-[#999]">Vence {formatDate(p.due_date)}</p>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        <p className="text-xs text-[#46D369] mb-4">
+                          ✓ Última parcela vence até 7 dias antes do check-in ({checkIn ? formatDate(checkIn) : '—'}).
+                        </p>
+                      </>
+                    )}
+
+                    {/* CARTÃO DE CRÉDITO */}
+                    {paymentMethod === 'CARTAO' && (
+                      <div className="space-y-5">
+                        {/* Installment selector */}
+                        {paymentSettings.length > 0 && (
+                          <div>
+                            <p className="text-sm font-medium text-[#B3B3B3] mb-3">Número de parcelas</p>
+                            <div className="grid grid-cols-3 gap-2">
+                              {paymentSettings.map(s => (
+                                <button
+                                  key={s.installments}
+                                  type="button"
+                                  onClick={() => setCardInstallments(s.installments)}
+                                  className={`p-3 rounded-xl border transition-all text-left ${
+                                    cardInstallments === s.installments
+                                      ? 'bg-[#E50914] border-[#E50914] text-white'
+                                      : 'border-[#333] text-[#B3B3B3] hover:border-[#555]'
+                                  }`}
+                                >
+                                  <p className="text-xs font-bold">{s.label ?? `${s.installments}x`}</p>
+                                  <p className="text-sm font-semibold mt-0.5">
+                                    {formatCurrency(Math.round(total * (1 + s.fee_percent / 100) / s.installments * 100) / 100)}
+                                  </p>
+                                  {s.fee_percent > 0 && (
+                                    <p className="text-xs opacity-70">+{s.fee_percent}%</p>
+                                  )}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Fee breakdown */}
+                        <div className="bg-[#0A0A0A] border border-[#333] rounded-xl p-4 space-y-2 text-sm">
+                          <div className="flex justify-between text-[#B3B3B3]">
+                            <span>Hospedagem</span>
+                            <span>{formatCurrency(total)}</span>
+                          </div>
+                          {cardFeeValue > 0 && (
+                            <div className="flex justify-between text-[#B3B3B3]">
+                              <span>Taxa parcelamento ({cardInstallments}x · {cardFeePercent}%)</span>
+                              <span>{formatCurrency(cardFeeValue)}</span>
+                            </div>
+                          )}
+                          <div className="flex justify-between font-bold border-t border-[#333] pt-2">
+                            <span className="text-white">Total no cartão</span>
+                            <span className="text-[#F5A623]">{formatCurrency(cardTotal)}</span>
+                          </div>
+                          <p className="text-xs text-[#46D369] text-center">
+                            {cardInstallments === 1
+                              ? `À vista: ${formatCurrency(cardTotal)}`
+                              : `${cardInstallments}x de ${formatCurrency(cardInstallmentValue)}`}
+                          </p>
+                        </div>
+
+                        {/* Card form */}
+                        <div className="space-y-3">
+                          <p className="text-sm font-medium text-[#B3B3B3]">Dados do cartão</p>
+
+                          <div>
+                            <label className="block text-xs text-[#888] mb-1.5">Número do cartão</label>
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              value={cardForm.number}
+                              onChange={e => {
+                                const d = e.target.value.replace(/\D/g, '').slice(0, 16)
+                                setCardForm(f => ({ ...f, number: d.replace(/(.{4})/g, '$1 ').trim() }))
+                              }}
+                              placeholder="0000 0000 0000 0000"
+                              maxLength={19}
+                              className="w-full bg-[#2A2A2A] border border-[#333] rounded-xl px-3 py-2.5 text-sm text-white placeholder-[#555] outline-none focus:ring-2 focus:ring-[#E50914] font-mono tracking-wider"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-xs text-[#888] mb-1.5">Nome impresso no cartão</label>
+                            <input
+                              type="text"
+                              value={cardForm.holder}
+                              onChange={e => setCardForm(f => ({ ...f, holder: e.target.value.toUpperCase() }))}
+                              placeholder="NOME COMO NO CARTÃO"
+                              className="w-full bg-[#2A2A2A] border border-[#333] rounded-xl px-3 py-2.5 text-sm text-white placeholder-[#555] outline-none focus:ring-2 focus:ring-[#E50914] uppercase"
+                            />
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-xs text-[#888] mb-1.5">Validade</label>
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                value={cardForm.expiry}
+                                onChange={e => {
+                                  const d = e.target.value.replace(/\D/g, '').slice(0, 4)
+                                  setCardForm(f => ({ ...f, expiry: d.length > 2 ? `${d.slice(0, 2)}/${d.slice(2)}` : d }))
+                                }}
+                                placeholder="MM/AA"
+                                maxLength={5}
+                                className="w-full bg-[#2A2A2A] border border-[#333] rounded-xl px-3 py-2.5 text-sm text-white placeholder-[#555] outline-none focus:ring-2 focus:ring-[#E50914] font-mono"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs text-[#888] mb-1.5">CVV</label>
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                value={cardForm.cvv}
+                                onChange={e => setCardForm(f => ({ ...f, cvv: e.target.value.replace(/\D/g, '').slice(0, 4) }))}
+                                placeholder="000"
+                                maxLength={4}
+                                className="w-full bg-[#2A2A2A] border border-[#333] rounded-xl px-3 py-2.5 text-sm text-white placeholder-[#555] outline-none focus:ring-2 focus:ring-[#E50914] font-mono"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 text-xs text-[#888]">
+                            <Lock size={12} className="text-[#46D369] flex-shrink-0" />
+                            Dados criptografados e processados pelo gateway de pagamento
+                          </div>
                         </div>
                       </div>
                     )}
-
-                    <p className="text-xs text-[#46D369] mb-4">
-                      ✓ Última parcela vence até 7 dias antes do check-in ({checkIn ? formatDate(checkIn) : '—'}).
-                    </p>
                   </div>
                 )}
 
@@ -764,9 +1059,23 @@ export function Checkout() {
                 />
                 <div className="pt-2 border-t border-[#333] flex justify-between font-bold">
                   <span className="text-white">Total</span>
-                  <span className="text-[#F5A623] text-base">{formatCurrency(total)}</span>
+                  <span className="text-[#F5A623] text-base">
+                    {formatCurrency(paymentMethod === 'CARTAO' ? cardTotal : total)}
+                  </span>
                 </div>
-                {installmentCount > 1 && (
+                {paymentMethod === 'CARTAO' && cardFeeValue > 0 && (
+                  <p className="text-xs text-center text-[#F5A623]">
+                    Inclui {formatCurrency(cardFeeValue)} de taxa de parcelamento
+                  </p>
+                )}
+                {paymentMethod === 'CARTAO' && (
+                  <p className="text-xs text-center text-[#46D369]">
+                    {cardInstallments === 1
+                      ? `À vista no cartão`
+                      : `${cardInstallments}x de ${formatCurrency(cardInstallmentValue)} no cartão`}
+                  </p>
+                )}
+                {paymentMethod !== 'CARTAO' && installmentCount > 1 && (
                   <p className="text-xs text-center text-[#46D369]">
                     {installmentCount}x de {formatCurrency(total / installmentCount)} via Pix ou Boleto
                   </p>
@@ -781,19 +1090,24 @@ export function Checkout() {
       <Modal open={paymentModalOpen} onClose={() => setPaymentModalOpen(false)} title="Confirmar reserva" size="sm">
         <div className="space-y-4">
           <p className="text-[#B3B3B3] text-sm">
-            Você está prestes a criar esta reserva. Na próxima tela, escolha pagar via Pix ou Boleto.
+            {paymentMethod === 'CARTAO'
+              ? `O cartão será cobrado agora em ${cardInstallments === 1 ? 'pagamento à vista' : `${cardInstallments}x`} de ${formatCurrency(cardInstallmentValue)}.`
+              : 'Na próxima tela, escolha pagar via Pix ou Boleto.'}
           </p>
           <div className="bg-[#0A0A0A] rounded-xl p-4 space-y-2 text-sm">
             <Row label="Imóvel" value={property.name} />
             <Row label="Check-in" value={checkIn} />
             <Row label="Check-out" value={checkOut} />
-            <Row label="Total" value={formatCurrency(total)} accent />
+            <Row label="Total" value={formatCurrency(paymentMethod === 'CARTAO' ? cardTotal : total)} accent />
+            {paymentMethod === 'CARTAO' && cardFeeValue > 0 && (
+              <p className="text-xs text-[#F5A623]">Inclui {formatCurrency(cardFeeValue)} de taxa de parcelamento</p>
+            )}
           </div>
           <div className="flex gap-3 pt-2">
             <Button variant="secondary" fullWidth onClick={() => setPaymentModalOpen(false)}>
               Cancelar
             </Button>
-            <Button fullWidth onClick={confirmBooking} loading={saving}>
+            <Button fullWidth onClick={paymentMethod === 'CARTAO' ? confirmBookingCard : confirmBooking} loading={saving}>
               Confirmar
             </Button>
           </div>

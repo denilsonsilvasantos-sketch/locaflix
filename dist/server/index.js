@@ -26,6 +26,32 @@ function requireAuth(req, res, next) {
   }
   next();
 }
+async function requireAdmin(req, res, next) {
+  const token = req.headers.authorization?.replace("Bearer ", "");
+  if (!token) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+  try {
+    const parts = token.split(".");
+    const payload = JSON.parse(
+      Buffer.from(parts[1].replace(/-/g, "+").replace(/_/g, "/"), "base64").toString()
+    );
+    const userId = payload.sub;
+    if (!userId) {
+      res.status(401).json({ error: "Invalid token" });
+      return;
+    }
+    const { data } = await adminSupabase.from("users").select("role").eq("id", userId).single();
+    if (data?.role !== "ADMIN") {
+      res.status(403).json({ error: "Forbidden" });
+      return;
+    }
+    next();
+  } catch {
+    res.status(401).json({ error: "Invalid token" });
+  }
+}
 app.get("/api/client-ip", (req, res) => {
   const ip = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() ?? req.headers["x-real-ip"] ?? req.socket.remoteAddress ?? "0.0.0.0";
   res.json({ ip });
@@ -170,6 +196,84 @@ app.get("/api/payments/:id/pixQrCode", requireAuth, async (req, res) => {
     res.json(qr);
   } catch (err) {
     res.status(500).json({ error: err instanceof Error ? err.message : "Error" });
+  }
+});
+app.get("/api/payment-settings", async (_req, res) => {
+  try {
+    const { data, error } = await adminSupabase.from("payment_settings").select("id, installments, fee_percent, label").order("installments");
+    if (error) throw error;
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "Error" });
+  }
+});
+app.put("/api/payment-settings", requireAdmin, async (req, res) => {
+  try {
+    const settings = req.body;
+    if (!Array.isArray(settings)) {
+      res.status(400).json({ error: "Expected array" });
+      return;
+    }
+    await Promise.all(settings.map(
+      (s) => adminSupabase.from("payment_settings").update({ fee_percent: s.fee_percent, updated_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("id", s.id)
+    ));
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "Error" });
+  }
+});
+app.post("/api/payments/create-card", requireAuth, async (req, res) => {
+  try {
+    const {
+      customer,
+      value,
+      description,
+      externalReference,
+      installment_id,
+      installmentCount,
+      installmentValue,
+      creditCard,
+      creditCardHolderInfo
+    } = req.body;
+    if (!ASAAS_API_KEY) {
+      res.status(503).json({ error: "Integra\xE7\xE3o Asaas n\xE3o configurada." });
+      return;
+    }
+    if (!customer || !value || !creditCard || !creditCardHolderInfo) {
+      res.status(400).json({ error: "customer, value, creditCard e creditCardHolderInfo s\xE3o obrigat\xF3rios" });
+      return;
+    }
+    const customerRes = await findOrCreateCustomer(customer);
+    const body = {
+      customer: customerRes.id,
+      billingType: "CREDIT_CARD",
+      value,
+      dueDate: (/* @__PURE__ */ new Date()).toISOString().slice(0, 10),
+      description,
+      externalReference,
+      creditCard,
+      creditCardHolderInfo
+    };
+    if (installmentCount && installmentCount > 1) {
+      body.installmentCount = installmentCount;
+      body.installmentValue = installmentValue;
+    }
+    const payment = await asaasRequest("POST", "/payments", body);
+    if (installment_id) {
+      const isPaid = payment.status === "CONFIRMED" || payment.status === "AUTHORIZED_BY_RISK_ANALYSIS";
+      await adminSupabase.from("installments").update({
+        asaas_payment_id: payment.id,
+        ...isPaid ? { status: "PAGO", paid_at: (/* @__PURE__ */ new Date()).toISOString() } : {}
+      }).eq("id", installment_id);
+    }
+    res.json({
+      payment_id: payment.id,
+      status: payment.status,
+      value: payment.value
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Internal error";
+    res.status(500).json({ error: msg });
   }
 });
 app.post("/api/webhooks/asaas", async (req, res) => {

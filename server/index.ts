@@ -34,9 +34,26 @@ app.set('trust proxy', true)
 function requireAuth(req: Request, res: Response, next: () => void) {
   const token = req.headers.authorization?.replace('Bearer ', '')
   if (!token) { res.status(401).json({ error: 'Unauthorized' }); return }
-  // Supabase JWTs are verified client-side — here we just ensure the header exists
-  // For production, verify with jwt.verify(token, process.env.SUPABASE_JWT_SECRET)
   next()
+}
+
+// ---- Middleware: Admin only ----
+async function requireAdmin(req: Request, res: Response, next: () => void) {
+  const token = req.headers.authorization?.replace('Bearer ', '')
+  if (!token) { res.status(401).json({ error: 'Unauthorized' }); return }
+  try {
+    const parts = token.split('.')
+    const payload = JSON.parse(
+      Buffer.from(parts[1].replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString()
+    )
+    const userId = payload.sub as string
+    if (!userId) { res.status(401).json({ error: 'Invalid token' }); return }
+    const { data } = await adminSupabase.from('users').select('role').eq('id', userId).single()
+    if (data?.role !== 'ADMIN') { res.status(403).json({ error: 'Forbidden' }); return }
+    next()
+  } catch {
+    res.status(401).json({ error: 'Invalid token' })
+  }
 }
 
 // ---- GET /api/client-ip ----
@@ -225,6 +242,93 @@ app.get('/api/payments/:id/pixQrCode', requireAuth, async (req: Request, res: Re
     res.json(qr)
   } catch (err: unknown) {
     res.status(500).json({ error: err instanceof Error ? err.message : 'Error' })
+  }
+})
+
+// ---- GET /api/payment-settings ----
+app.get('/api/payment-settings', async (_req: Request, res: Response) => {
+  try {
+    const { data, error } = await adminSupabase
+      .from('payment_settings')
+      .select('id, installments, fee_percent, label')
+      .order('installments')
+    if (error) throw error
+    res.json(data)
+  } catch (err: unknown) {
+    res.status(500).json({ error: err instanceof Error ? err.message : 'Error' })
+  }
+})
+
+// ---- PUT /api/payment-settings ----
+app.put('/api/payment-settings', requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const settings = req.body as { id: number; fee_percent: number }[]
+    if (!Array.isArray(settings)) { res.status(400).json({ error: 'Expected array' }); return }
+    await Promise.all(settings.map(s =>
+      adminSupabase.from('payment_settings')
+        .update({ fee_percent: s.fee_percent, updated_at: new Date().toISOString() })
+        .eq('id', s.id)
+    ))
+    res.json({ ok: true })
+  } catch (err: unknown) {
+    res.status(500).json({ error: err instanceof Error ? err.message : 'Error' })
+  }
+})
+
+// ---- POST /api/payments/create-card ----
+app.post('/api/payments/create-card', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const {
+      customer, value, description, externalReference, installment_id,
+      installmentCount, installmentValue,
+      creditCard, creditCardHolderInfo,
+    } = req.body
+
+    if (!ASAAS_API_KEY) {
+      res.status(503).json({ error: 'Integração Asaas não configurada.' })
+      return
+    }
+    if (!customer || !value || !creditCard || !creditCardHolderInfo) {
+      res.status(400).json({ error: 'customer, value, creditCard e creditCardHolderInfo são obrigatórios' })
+      return
+    }
+
+    const customerRes = await findOrCreateCustomer(customer)
+
+    const body: Record<string, unknown> = {
+      customer: customerRes.id,
+      billingType: 'CREDIT_CARD',
+      value,
+      dueDate: new Date().toISOString().slice(0, 10),
+      description,
+      externalReference,
+      creditCard,
+      creditCardHolderInfo,
+    }
+
+    if (installmentCount && installmentCount > 1) {
+      body.installmentCount = installmentCount
+      body.installmentValue = installmentValue
+    }
+
+    const payment = await asaasRequest('POST', '/payments', body)
+
+    if (installment_id) {
+      const isPaid = payment.status === 'CONFIRMED' || payment.status === 'AUTHORIZED_BY_RISK_ANALYSIS'
+      await adminSupabase.from('installments').update({
+        asaas_payment_id: payment.id,
+        ...(isPaid ? { status: 'PAGO', paid_at: new Date().toISOString() } : {}),
+      }).eq('id', installment_id)
+    }
+
+    res.json({
+      payment_id: payment.id,
+      status: payment.status,
+      value: payment.value,
+    })
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Internal error'
+    res.status(500).json({ error: msg })
   }
 })
 

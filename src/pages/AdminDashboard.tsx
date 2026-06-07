@@ -71,6 +71,13 @@ interface CancellationPolicy {
   rules: PolicyRule[]
 }
 
+interface CardSetting {
+  id: number
+  installments: number
+  fee_percent: string
+  label: string | null
+}
+
 const PIE_COLORS = ['#E50914','#F5A623','#46D369','#1E90FF','#9B59B6','#1ABC9C']
 
 export function AdminDashboard() {
@@ -113,6 +120,8 @@ export function AdminDashboard() {
   const [savingSettings, setSavingSettings] = useState(false)
   const [cancelPolicies, setCancelPolicies] = useState<CancellationPolicy[]>([])
   const [savingPolicy, setSavingPolicy] = useState<string | null>(null)
+  const [cardSettings, setCardSettings] = useState<CardSetting[]>([])
+  const [savingCardSettings, setSavingCardSettings] = useState(false)
 
   const setTab = (t: TabId) => setSearchParams(t === 'dashboard' ? {} : { tab: t })
 
@@ -263,9 +272,10 @@ export function AdminDashboard() {
         setRepasses((data ?? []) as unknown as BookingRow[])
 
       } else if (t === 'config') {
-        const [{ data: ps }, { data: cp }] = await Promise.all([
+        const [{ data: ps }, { data: cp }, cardRes] = await Promise.all([
           supabase.from('platform_settings').select('key, value'),
           supabase.from('cancellation_policies_config').select('*').order('policy_name'),
+          fetch('/api/payment-settings').then(r => r.json()).catch(() => []),
         ])
         if (ps) {
           const map: Record<string, string> = {}
@@ -280,6 +290,12 @@ export function AdminDashboard() {
           setFeeModel(map.fee_model === 'unico' ? 'unico' : 'dividido')
         }
         if (cp) setCancelPolicies(cp as CancellationPolicy[])
+        if (Array.isArray(cardRes)) {
+          setCardSettings((cardRes as { id: number; installments: number; fee_percent: number; label: string | null }[]).map(s => ({
+            ...s,
+            fee_percent: String(s.fee_percent),
+          })))
+        }
       }
     } finally {
       setLoadingTab(false)
@@ -347,6 +363,28 @@ export function AdminDashboard() {
       ? { ...p, rules: p.rules.map((r, i) => i === idx ? { ...r, [field]: value } : r) }
       : p
     ))
+  }
+
+  async function saveCardSettings() {
+    setSavingCardSettings(true)
+    try {
+      const session = await supabase.auth.getSession()
+      const token = session.data.session?.access_token ?? ''
+      const res = await fetch('/api/payment-settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify(cardSettings.map(s => ({
+          id: s.id,
+          fee_percent: parseFloat(s.fee_percent) || 0,
+        }))),
+      })
+      if (!res.ok) throw new Error((await res.json()).error ?? 'Erro')
+      toast('success', 'Taxas de cartão salvas')
+    } catch {
+      toast('error', 'Erro ao salvar taxas de cartão')
+    } finally {
+      setSavingCardSettings(false)
+    }
   }
 
   async function approveProperty(id: string) {
@@ -1306,6 +1344,52 @@ export function AdminDashboard() {
                     {cancelPolicies.length === 0 && (
                       <div className="text-center py-10 text-[#333] text-sm">Nenhuma política encontrada</div>
                     )}
+                  </div>
+                )}
+              </div>
+
+              {/* ── Taxas de Cartão de Crédito ── */}
+              <div className="bg-[#1A1A1A] border border-[#222] rounded-xl p-6">
+                <div className="flex items-start justify-between mb-5">
+                  <div>
+                    <h3 className="text-sm font-semibold text-white">Taxas de Cartão de Crédito</h3>
+                    <p className="text-xs text-[#888] mt-1">Taxas repassadas ao cliente. A Locaflix recebe sempre o valor base da reserva.</p>
+                  </div>
+                  <button
+                    onClick={saveCardSettings}
+                    disabled={savingCardSettings || cardSettings.length === 0}
+                    className="flex items-center gap-2 px-4 py-2 bg-[#E50914] hover:bg-[#F40612] text-white text-xs font-semibold rounded-lg transition-colors disabled:opacity-50 flex-shrink-0"
+                  >
+                    {savingCardSettings ? <RefreshCw size={13} className="animate-spin" /> : <Check size={13} />}
+                    Salvar
+                  </button>
+                </div>
+                {cardSettings.length === 0 ? (
+                  <p className="text-xs text-[#555]">Rode a migration card_payment_migration.sql no Supabase para habilitar.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {cardSettings.map(s => (
+                      <div key={s.id} className="flex items-center gap-4 p-3 bg-[#111] border border-[#222] rounded-lg">
+                        <div className="w-16 flex-shrink-0">
+                          <span className="text-sm font-semibold text-white">{s.label ?? `${s.installments}x`}</span>
+                        </div>
+                        <div className="flex items-center gap-2 flex-1">
+                          <input
+                            type="number"
+                            min="0"
+                            max="100"
+                            step="0.01"
+                            value={s.fee_percent}
+                            onChange={e => setCardSettings(prev => prev.map(cs => cs.id === s.id ? { ...cs, fee_percent: e.target.value } : cs))}
+                            className="w-24 bg-[#1A1A1A] border border-[#333] rounded-lg px-2 py-1.5 text-sm text-white outline-none focus:border-[#E50914]"
+                          />
+                          <span className="text-xs text-[#888]">%</span>
+                          {parseFloat(s.fee_percent) === 0 && (
+                            <span className="text-xs text-[#46D369]">Sem taxa</span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>

@@ -3,16 +3,25 @@ import { ptBR } from 'date-fns/locale'
 import type { Booking, UserProfile } from '../types'
 import { formatCurrency, formatCPF, maskCPF } from './utils'
 
+interface PaymentInfo {
+  method: 'PIX' | 'BOLETO' | 'CARTAO'
+  installmentCount?: number
+  cardFeePercent?: number
+  cardFeeValue?: number
+  total: number
+}
+
 interface ContractParams {
   booking: Booking
   guest: UserProfile
   owner: UserProfile
   ipAddress: string
   userAgent: string
+  paymentInfo?: PaymentInfo
 }
 
 export function generateContractContent(params: ContractParams): string {
-  const { booking, guest, owner, ipAddress, userAgent } = params
+  const { booking, guest, owner, ipAddress, userAgent, paymentInfo } = params
   const now = new Date()
   const acceptedAt = format(now, "dd 'de' MMMM 'de' yyyy 'às' HH:mm:ss", { locale: ptBR })
 
@@ -73,7 +82,23 @@ Taxa de serviço:     ${formatCurrency(booking.platform_fee)}
 Desconto aplicado:   ${formatCurrency(booking.discount_amount)}
 TOTAL:               ${formatCurrency(booking.total_price)}
 
+${paymentInfo ? `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DA FORMA DE PAGAMENTO
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+${paymentInfo.method === 'CARTAO'
+  ? `Forma de pagamento: Cartão de Crédito
+Número de parcelas: ${paymentInfo.installmentCount === 1 ? 'À vista' : `${paymentInfo.installmentCount}x`}
+${paymentInfo.cardFeePercent && paymentInfo.cardFeePercent > 0
+  ? `Taxa de parcelamento: ${paymentInfo.cardFeePercent.toFixed(2).replace('.', ',')}%
+Valor da taxa: ${formatCurrency(paymentInfo.cardFeeValue ?? 0)}`
+  : 'Sem taxa de parcelamento (pagamento à vista)'}
+Total cobrado no cartão: ${formatCurrency(paymentInfo.total)}`
+  : `Forma de pagamento: ${paymentInfo.method === 'PIX' ? 'Pix' : 'Boleto Bancário'}
+Parcelamento: ${paymentInfo.installmentCount && paymentInfo.installmentCount > 1 ? `${paymentInfo.installmentCount}x` : 'À vista'}
+Total: ${formatCurrency(paymentInfo.total)}`}
+
+` : ''}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 DA POLÍTICA DE CANCELAMENTO
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 

@@ -145,6 +145,10 @@ export interface Booking {
   booking_number: string | null
   owner_confirmed?: boolean
   cancellation_reason?: string | null
+  payment_method?: string | null
+  card_installments?: number | null
+  card_fee_percent?: number | null
+  card_fee_value?: number | null
   created_at: string
   updated_at: string
   // joined
@@ -348,7 +352,7 @@ export interface CheckoutFormData {
   // step 3: contract
   contract_accepted: boolean
   // step 5: payment
-  payment_method: 'PIX' | 'BOLETO'
+  payment_method: 'PIX' | 'BOLETO' | 'CARTAO'
   installments_count: number
 }
 
@@ -429,6 +433,21 @@ export interface BoletoPaymentResponse {
 export interface InstallmentPaymentResponse {
   pix: PixPaymentResponse
   boleto: BoletoPaymentResponse
+}
+
+// ---- Payment Settings ----
+export interface PaymentSetting {
+  id: number
+  installments: number
+  fee_percent: number
+  label: string | null
+}
+
+// ---- Card Payment ----
+export interface CardPaymentResponse {
+  payment_id: string
+  status: string
+  value: number
 }
 
 // ---- Toast ----
