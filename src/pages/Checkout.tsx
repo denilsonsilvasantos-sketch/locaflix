@@ -862,6 +862,7 @@ export function Checkout() {
                         owner: property.owner as any ?? { name: 'Anfitrião', cpf: '' },
                         ipAddress,
                         userAgent: navigator.userAgent,
+                        policyRules: cancelPolicyRules.length > 0 ? cancelPolicyRules : undefined,
                       })}
                     </div>
                     <label className="flex items-start gap-3 cursor-pointer">
