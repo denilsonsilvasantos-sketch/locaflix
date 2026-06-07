@@ -27,7 +27,7 @@ export function HelpCenter() {
               </div>
             </a>
             <a
-              href="https://wa.me/5511952953475"
+              href="https://wa.me/5511952953475?text=Ol%C3%A1%2C%20gostaria%20de%20ajuda%20com%20minha%20reserva%20na%20Locaflix."
               target="_blank"
               rel="noreferrer"
               className="flex items-center gap-3 p-3 bg-[#25D366]/10 hover:bg-[#25D366]/20 border border-[#25D366]/30 rounded-xl transition-colors"

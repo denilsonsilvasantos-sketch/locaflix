@@ -72,7 +72,7 @@ export function HelpPage() {
           </a>
 
           <a
-            href="https://wa.me/5511952953475"
+            href="https://wa.me/5511952953475?text=Ol%C3%A1%2C%20gostaria%20de%20ajuda%20com%20minha%20reserva%20na%20Locaflix."
             target="_blank"
             rel="noreferrer"
             className="flex items-start gap-4 p-5 bg-[#25D366]/5 border border-[#25D366]/30 hover:border-[#25D366]/60 rounded-2xl transition-colors group"
