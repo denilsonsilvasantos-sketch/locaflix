@@ -80,6 +80,14 @@ export function Checkout() {
   const [installmentCount, setInstallmentCount] = useState(1)
   const [installmentPreviews, setInstallmentPreviews] = useState<InstallmentPreview[]>([])
   const INSTALLMENT_FEE = 1.99
+  const DEFAULT_CARD_SETTINGS: PaymentSetting[] = [
+    { id: 0, installments: 1, fee_percent: 0,    label: 'À vista' },
+    { id: 0, installments: 2, fee_percent: 3.5,  label: '2x' },
+    { id: 0, installments: 3, fee_percent: 5.2,  label: '3x' },
+    { id: 0, installments: 4, fee_percent: 7.2,  label: '4x' },
+    { id: 0, installments: 5, fee_percent: 9.4,  label: '5x' },
+    { id: 0, installments: 6, fee_percent: 11.5, label: '6x' },
+  ]
   const [paymentData, setPaymentData] = useState<InstallmentPaymentResponse | null>(null)
   const [paymentModalOpen2, setPaymentModalOpen2] = useState(false)
   const [checkingPayment, setCheckingPayment] = useState(false)
@@ -87,6 +95,7 @@ export function Checkout() {
   const [paymentSettings, setPaymentSettings] = useState<PaymentSetting[]>([])
   const [cardInstallments, setCardInstallments] = useState(1)
   const [cardForm, setCardForm] = useState({ holder: '', number: '', expiry: '', cvv: '' })
+  const effectiveCardSettings = paymentSettings.length > 0 ? paymentSettings : DEFAULT_CARD_SETTINGS
 
   const checkIn = searchParams.get('entrada') ?? ''
   const checkOut = searchParams.get('saida') ?? ''
@@ -412,7 +421,7 @@ export function Checkout() {
       const subtotal = estadia.total + cleaning
       const platform_fee = Math.round(subtotal * guestFeePercent * 100) / 100
       const baseTotal = Math.round((subtotal + platform_fee) * 100) / 100
-      const setting = paymentSettings.find(s => s.installments === cardInstallments) ?? paymentSettings[0]
+      const setting = effectiveCardSettings.find(s => s.installments === cardInstallments) ?? effectiveCardSettings[0]
       const feePercent = setting?.fee_percent ?? 0
       const feeValue = Math.round(baseTotal * feePercent / 100 * 100) / 100
       const cardTotal = Math.round((baseTotal + feeValue) * 100) / 100
@@ -577,7 +586,7 @@ export function Checkout() {
   const total = combinedBase + fee
 
   // Card fee computations
-  const cardSetting = paymentSettings.find(s => s.installments === cardInstallments) ?? paymentSettings[0]
+  const cardSetting = effectiveCardSettings.find(s => s.installments === cardInstallments) ?? effectiveCardSettings[0]
   const cardFeePercent = cardSetting?.fee_percent ?? 0
   const cardFeeValue = Math.round(total * cardFeePercent / 100 * 100) / 100
   const cardTotal = Math.round((total + cardFeeValue) * 100) / 100
@@ -900,11 +909,10 @@ export function Checkout() {
                     {paymentMethod === 'CARTAO' && (
                       <div className="space-y-5">
                         {/* Installment selector */}
-                        {paymentSettings.length > 0 && (
-                          <div>
-                            <p className="text-sm font-medium text-[#B3B3B3] mb-3">Número de parcelas</p>
-                            <div className="grid grid-cols-3 gap-2">
-                              {paymentSettings.map(s => (
+                        <div>
+                          <p className="text-sm font-medium text-[#B3B3B3] mb-3">Número de parcelas</p>
+                          <div className="grid grid-cols-3 gap-2">
+                              {effectiveCardSettings.map(s => (
                                 <button
                                   key={s.installments}
                                   type="button"
@@ -926,7 +934,6 @@ export function Checkout() {
                               ))}
                             </div>
                           </div>
-                        )}
 
                         {/* Fee breakdown */}
                         <div className="bg-[#0A0A0A] border border-[#333] rounded-xl p-4 space-y-2 text-sm">
