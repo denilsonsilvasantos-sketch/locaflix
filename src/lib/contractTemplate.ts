@@ -11,6 +11,12 @@ interface PaymentInfo {
   total: number
 }
 
+interface DbPolicyRule {
+  days_before: number
+  refund_percentage: number
+  description: string
+}
+
 interface ContractParams {
   booking: Booking
   guest: UserProfile
@@ -18,10 +24,11 @@ interface ContractParams {
   ipAddress: string
   userAgent: string
   paymentInfo?: PaymentInfo
+  policyRules?: DbPolicyRule[]
 }
 
 export function generateContractContent(params: ContractParams): string {
-  const { booking, guest, owner, ipAddress, userAgent, paymentInfo } = params
+  const { booking, guest, owner, ipAddress, userAgent, paymentInfo, policyRules } = params
   const now = new Date()
   const acceptedAt = format(now, "dd 'de' MMMM 'de' yyyy 'às' HH:mm:ss", { locale: ptBR })
 
@@ -102,7 +109,7 @@ Total: ${formatCurrency(paymentInfo.total)}`}
 DA POLÍTICA DE CANCELAMENTO
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-${getCancellationPolicyText(booking.property?.cancellation_policy ?? 'MODERADO')}
+${getCancellationPolicyText(booking.property?.cancellation_policy ?? 'MODERADO', policyRules)}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 DISPOSIÇÕES GERAIS
@@ -134,18 +141,37 @@ MP 2.200-2/2001 e Lei 14.063/2020.
 `
 }
 
-function getCancellationPolicyText(policy: string): string {
-  const policies: Record<string, string> = {
-    LEVE: `POLÍTICA LEVE
+function getCancellationPolicyText(policy: string, rules?: DbPolicyRule[]): string {
+  const names: Record<string, string> = {
+    LEVE: 'POLÍTICA LEVE', MODERADO: 'POLÍTICA MODERADA', FIRME: 'POLÍTICA FIRME',
+  }
+  const name = names[policy] ?? 'POLÍTICA DE CANCELAMENTO'
+
+  if (rules && rules.length > 0) {
+    const sorted = [...rules].sort((a, b) => b.days_before - a.days_before)
+    const lines = sorted.map(r =>
+      `• ${r.description || (
+        r.refund_percentage === 100
+          ? `Cancelamento gratuito até ${r.days_before} dias antes do check-in.`
+          : r.refund_percentage === 0
+          ? `Sem reembolso a menos de ${r.days_before} dias do check-in.`
+          : `Reembolso de ${r.refund_percentage}% até ${r.days_before} dias do check-in.`
+      )}`
+    )
+    return `${name}\n${lines.join('\n')}`
+  }
+
+  const fallback: Record<string, string> = {
+    LEVE: `${name}
 • Cancelamento gratuito até 48h antes do check-in.
 • Reembolso de 100% do valor pago (exceto taxa de serviço).
 • Sem reembolso a menos de 48h do check-in.`,
-    MODERADO: `POLÍTICA MODERADA
+    MODERADO: `${name}
 • Cancelamento gratuito até 15 dias antes do check-in.
 • Sem reembolso a menos de 15 dias do check-in.`,
-    FIRME: `POLÍTICA FIRME
+    FIRME: `${name}
 • Cancelamento gratuito até 30 dias antes do check-in.
 • Sem reembolso a menos de 30 dias do check-in.`,
   }
-  return policies[policy] ?? policies.MODERADO
+  return fallback[policy] ?? fallback.MODERADO
 }

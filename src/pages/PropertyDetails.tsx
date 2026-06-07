@@ -86,6 +86,7 @@ export function PropertyDetails() {
   const [calendarOpen, setCalendarOpen] = useState(false)
   const [pricePopoverOpen, setPricePopoverOpen] = useState(false)
   const calendarRef = useRef<HTMLDivElement>(null)
+  const [cancelPolicyRules, setCancelPolicyRules] = useState<{ days_before: number; refund_percentage: number; description: string }[]>([])
 
   const loadProperty = useCallback(async (propertyId: string) => {
     // Step 1: fetch property to get owner_id
@@ -110,7 +111,7 @@ export function PropertyDetails() {
     }
 
     // Step 2: fetch everything else + owner in parallel
-    const [revRes, photoRes, periodsRes, amenitiesRes, ownerRes] = await Promise.all([
+    const [revRes, photoRes, periodsRes, amenitiesRes, ownerRes, cancPoliciesRes] = await Promise.all([
       supabase
         .from('reviews')
         .select('*, property:properties!target_property_id(id, name)')
@@ -136,6 +137,7 @@ export function PropertyDetails() {
       ownerId
         ? supabase.from('users').select('id, name, avatar_url, created_at').eq('id', ownerId).single()
         : Promise.resolve({ data: null, error: null }),
+      supabase.from('cancellation_policies_config').select('policy_name, rules'),
     ])
 
     if (propRes.data) {
@@ -144,6 +146,14 @@ export function PropertyDetails() {
       const mock = MOCK_PROPERTIES.find(p => p.id === propertyId)
       setProperty(mock ?? null)
     }
+
+    // Match configured cancellation policy rules for this property
+    const policyKey = ((propRes.data as { cancellation_policy?: string } | null)?.cancellation_policy ?? '').toUpperCase()
+    const cancPolicies = (cancPoliciesRes.data ?? []) as { policy_name: string; rules: { days_before: number; refund_percentage: number; description: string }[] }[]
+    const matched = cancPolicies.find(p =>
+      p.policy_name.toUpperCase() === policyKey || p.policy_name.toUpperCase().includes(policyKey)
+    )
+    if (matched?.rules?.length) setCancelPolicyRules(matched.rules)
     const rawReviews = (revRes.data ?? []) as (ReviewWithProperty & { reviewer_id: string })[]
     if (rawReviews.length > 0) {
       const rIds = [...new Set(rawReviews.map(r => r.reviewer_id).filter(Boolean))]
@@ -699,7 +709,7 @@ export function PropertyDetails() {
             {/* Cancellation policy */}
             <section>
               <h2 className="font-display text-xl font-bold text-white mb-3">Política de cancelamento</h2>
-              <CancellationInfo policy={property.cancellation_policy} />
+              <CancellationInfo policy={property.cancellation_policy} rules={cancelPolicyRules} />
             </section>
 
             {/* Depoimentos de hóspedes */}
@@ -1100,29 +1110,42 @@ function TestimonialsSection() {
   )
 }
 
-function CancellationInfo({ policy }: { policy: string }) {
-  const info: Record<string, { label: string; color: string; details: string }> = {
-    LEVE: {
-      label: 'Leve',
-      color: 'text-[#46D369]',
-      details: 'Cancelamento gratuito até 48h antes do check-in. Após esse prazo, não há reembolso.',
-    },
-    MODERADO: {
-      label: 'Moderada',
-      color: 'text-[#F5A623]',
-      details: 'Cancelamento gratuito até 15 dias antes do check-in. Sem reembolso após esse prazo.',
-    },
-    FIRME: {
-      label: 'Firme',
-      color: 'text-[#E50914]',
-      details: 'Cancelamento gratuito até 30 dias antes do check-in. Sem reembolso após esse prazo.',
-    },
+function CancellationInfo({ policy, rules }: { policy: string; rules: { days_before: number; refund_percentage: number; description: string }[] }) {
+  const labels: Record<string, { label: string; color: string }> = {
+    LEVE:     { label: 'Leve',     color: 'text-[#46D369]' },
+    MODERADO: { label: 'Moderada', color: 'text-[#F5A623]' },
+    FIRME:    { label: 'Firme',    color: 'text-[#E50914]' },
   }
-  const p = info[policy] ?? info.MODERADO
+  const p = labels[policy] ?? labels.MODERADO
+
+  const fallback: Record<string, string> = {
+    LEVE:     'Cancelamento gratuito até 48h antes do check-in. Após esse prazo, não há reembolso.',
+    MODERADO: 'Cancelamento gratuito até 15 dias antes do check-in. Sem reembolso após esse prazo.',
+    FIRME:    'Cancelamento gratuito até 30 dias antes do check-in. Sem reembolso após esse prazo.',
+  }
+
+  const sortedRules = [...rules].sort((a, b) => b.days_before - a.days_before)
+
   return (
     <div className="bg-[#1F1F1F] border border-[#333] rounded-xl p-4">
-      <p className={`text-sm font-semibold mb-1 ${p.color}`}>{p.label}</p>
-      <p className="text-sm text-[#B3B3B3]">{p.details}</p>
+      <p className={`text-sm font-semibold mb-2 ${p.color}`}>{p.label}</p>
+      {sortedRules.length > 0 ? (
+        <ul className="space-y-1">
+          {sortedRules.map((r, i) => (
+            <li key={i} className="text-sm text-[#B3B3B3]">
+              • {r.description || (
+                r.refund_percentage === 100
+                  ? `Cancelamento gratuito até ${r.days_before} dias antes do check-in.`
+                  : r.refund_percentage === 0
+                  ? `Sem reembolso a menos de ${r.days_before} dias do check-in.`
+                  : `Reembolso de ${r.refund_percentage}% até ${r.days_before} dias do check-in.`
+              )}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-sm text-[#B3B3B3]">{fallback[policy] ?? fallback.MODERADO}</p>
+      )}
     </div>
   )
 }

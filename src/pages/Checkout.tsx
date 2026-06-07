@@ -371,6 +371,7 @@ export function Checkout() {
           ipAddress,
           userAgent: navigator.userAgent,
           paymentInfo: { method: paymentMethod as 'PIX' | 'BOLETO', installmentCount, total },
+          policyRules: cancelPolicyRules.length > 0 ? cancelPolicyRules : undefined,
         })
         await supabase.from('contracts').insert({
           booking_id: booking.id,
@@ -503,6 +504,7 @@ export function Checkout() {
           ipAddress,
           userAgent: navigator.userAgent,
           paymentInfo: { method: 'CARTAO', installmentCount: cardInstallments, cardFeePercent: feePercent, cardFeeValue: feeValue, total: cardTotal },
+          policyRules: cancelPolicyRules.length > 0 ? cancelPolicyRules : undefined,
         })
         await supabase.from('contracts').insert({
           booking_id: booking.id,
