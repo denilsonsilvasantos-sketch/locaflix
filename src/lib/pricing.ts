@@ -6,8 +6,10 @@ export const PERIOD_TYPE_LABELS: Record<PeriodType, string> = {
   WEEKDAY:           'Dias úteis (Seg–Qui)',
   WEEKEND:           'Final de semana (Sex–Dom)',
   HOLIDAY:           'Feriados nacionais',
-  CHRISTMAS_NEW_YEAR:'Natal / Réveillon (20/dez – 05/jan)',
-  CARNIVAL:          'Carnaval',
+  CHRISTMAS_NEW_YEAR:'Natal / Réveillon (20/dez – 03/jan) [legado]',
+  CHRISTMAS:         'Natal (20/dez – 27/dez)',
+  NEW_YEAR:          'Réveillon (28/dez – 03/jan)',
+  CARNIVAL:          'Carnaval (Sex. antes – Quarta de Cinzas)',
   HIGH_SEASON:       'Alta temporada (período personalizado)',
   LOW_SEASON:        'Baixa temporada (período personalizado)',
   CUSTOM:            'Período personalizado',
@@ -18,6 +20,8 @@ export const PERIOD_DEFAULT_NAMES: Record<PeriodType, string> = {
   WEEKEND:           'Final de semana',
   HOLIDAY:           'Feriados',
   CHRISTMAS_NEW_YEAR:'Natal / Réveillon',
+  CHRISTMAS:         'Natal',
+  NEW_YEAR:          'Réveillon',
   CARNIVAL:          'Carnaval',
   HIGH_SEASON:       'Alta temporada',
   LOW_SEASON:        'Baixa temporada',
@@ -28,15 +32,15 @@ export const PERIOD_TYPES_WITH_DATES: PeriodType[] = ['HIGH_SEASON', 'LOW_SEASON
 
 // ── Brazilian holidays ────────────────────────────────────────
 
-const BR_FIXED_HOLIDAYS = [
-  { month: 1,  day: 1  }, // Ano Novo
-  { month: 4,  day: 21 }, // Tiradentes
-  { month: 5,  day: 1  }, // Dia do Trabalho
-  { month: 9,  day: 7  }, // Independência
-  { month: 10, day: 12 }, // N. Sra. Aparecida
-  { month: 11, day: 2  }, // Finados
-  { month: 11, day: 15 }, // Proclamação da República
-  { month: 12, day: 25 }, // Natal
+const BR_FIXED_HOLIDAYS: { month: number; day: number; name: string }[] = [
+  { month: 1,  day: 1,  name: 'Ano Novo' },
+  { month: 4,  day: 21, name: 'Tiradentes' },
+  { month: 5,  day: 1,  name: 'Dia do Trabalho' },
+  { month: 9,  day: 7,  name: 'Independência' },
+  { month: 10, day: 12, name: 'Aparecida' },
+  { month: 11, day: 2,  name: 'Finados' },
+  { month: 11, day: 15, name: 'República' },
+  { month: 12, day: 25, name: 'Natal' },
 ]
 
 // Meeus/Jones/Butcher algorithm for Easter Sunday
@@ -75,18 +79,45 @@ function isBrazilianHoliday(date: Date): boolean {
   return dateMs === goodFriday || dateMs === corpusChristi
 }
 
-function isChristmasNewYear(date: Date): boolean {
+function getBrazilianHolidayName(date: Date): string {
   const month = date.getMonth() + 1
   const day = date.getDate()
-  return (month === 12 && day >= 20) || (month === 1 && day <= 5)
+  const fixed = BR_FIXED_HOLIDAYS.find(h => h.month === month && h.day === day)
+  if (fixed) return fixed.name
+
+  const easter = getEaster(date.getFullYear())
+  const easterMs = dayOnly(easter)
+  const dateMs = dayOnly(date)
+  if (dateMs === easterMs - 2 * 86400000) return 'Sexta Santa'
+  if (dateMs === easterMs + 60 * 86400000) return 'Corpus Christi'
+  return 'Feriado'
 }
 
+// Dec 20–27: Natal
+function isChristmas(date: Date): boolean {
+  const month = date.getMonth() + 1
+  const day = date.getDate()
+  return month === 12 && day >= 20 && day <= 27
+}
+
+// Dec 28 – Jan 3: Réveillon
+function isNewYear(date: Date): boolean {
+  const month = date.getMonth() + 1
+  const day = date.getDate()
+  return (month === 12 && day >= 28) || (month === 1 && day <= 3)
+}
+
+// Legacy: Dec 20 – Jan 3 (kept for backward compat with old DB records)
+function isChristmasNewYear(date: Date): boolean {
+  return isChristmas(date) || isNewYear(date)
+}
+
+// Carnaval: Friday before (Easter-51) through Ash Wednesday (Easter-46)
 function isCarnival(date: Date): boolean {
   const easter = getEaster(date.getFullYear())
   const easterMs = dayOnly(easter)
   const dateMs = dayOnly(date)
-  // Carnival: Saturday (Easter-50) through Tuesday (Easter-47)
-  return dateMs >= easterMs - 50 * 86400000 && dateMs <= easterMs - 47 * 86400000
+  return dateMs >= easterMs - 51 * 86400000 && dateMs <= easterMs - 46 * 86400000
 }
 
 function isBetween(date: Date, startISO: string, endISO: string): boolean {
@@ -105,6 +136,10 @@ function periodApplies(period: PricePeriod, date: Date): boolean {
       return dow === 0 || dow === 5 || dow === 6 || isBrazilianHoliday(date)
     case 'HOLIDAY':
       return isBrazilianHoliday(date)
+    case 'CHRISTMAS':
+      return isChristmas(date)
+    case 'NEW_YEAR':
+      return isNewYear(date)
     case 'CHRISTMAS_NEW_YEAR':
       return isChristmasNewYear(date)
     case 'CARNIVAL':
@@ -115,6 +150,21 @@ function periodApplies(period: PricePeriod, date: Date): boolean {
       if (!period.start_date || !period.end_date) return false
       return isBetween(date, period.start_date, period.end_date)
   }
+}
+
+// ── Special day label for calendar display ────────────────────
+
+export interface SpecialDayLabel {
+  label: string
+  color: string
+}
+
+export function getSpecialDayLabel(date: Date): SpecialDayLabel | null {
+  if (isChristmas(date))   return { label: 'Natal',    color: '#F59E0B' }
+  if (isNewYear(date))     return { label: 'Réveillon', color: '#8B5CF6' }
+  if (isCarnival(date))    return { label: 'Carnaval', color: '#EC4899' }
+  if (isBrazilianHoliday(date)) return { label: getBrazilianHolidayName(date), color: '#3B82F6' }
+  return null
 }
 
 // ── Public API ────────────────────────────────────────────────

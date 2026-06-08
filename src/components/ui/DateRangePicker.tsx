@@ -6,6 +6,7 @@ import {
 } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { Button } from './Button'
+import { getSpecialDayLabel } from '../../lib/pricing'
 
 interface DateRangePickerProps {
   from: string   // 'yyyy-MM-dd' or ''
@@ -130,13 +131,14 @@ export function DateRangePicker({ from, to, onChange, onClose, blockedDates = []
             const ranged = inRange(day)
             const isToday = isSameDay(day, today)
             const disabled = isPast || isDayBlocked
+            const specialLabel = inMonth ? getSpecialDayLabel(day) : null
 
-            if (!inMonth) return <div key={i} className="h-9" />
+            if (!inMonth) return <div key={i} className="h-11" />
 
             return (
               <div
                 key={i}
-                className={`relative h-9 flex items-center justify-center
+                className={`relative h-11 flex flex-col items-center justify-center
                   ${!isDayBlocked && ranged ? 'bg-[#E50914]/15' : ''}
                   ${isFrom && ranged ? 'rounded-l-full' : ''}
                   ${isTo && ranged ? 'rounded-r-full' : ''}
@@ -149,7 +151,6 @@ export function DateRangePicker({ from, to, onChange, onClose, blockedDates = []
                     title="Data indisponível"
                   >
                     <span className="text-[#888] line-through select-none">{day.getDate()}</span>
-                    {/* diagonal line */}
                     <span
                       aria-hidden="true"
                       style={{
@@ -178,6 +179,15 @@ export function DateRangePicker({ from, to, onChange, onClose, blockedDates = []
                   >
                     {day.getDate()}
                   </button>
+                )}
+                {specialLabel && (
+                  <span
+                    className="text-[6px] leading-none font-semibold max-w-[34px] truncate text-center"
+                    style={{ color: isPast ? '#555' : specialLabel.color }}
+                    title={specialLabel.label}
+                  >
+                    {specialLabel.label}
+                  </span>
                 )}
               </div>
             )
