@@ -220,6 +220,12 @@ export function Navbar() {
                               <MenuLink to={APP_ROUTES.HOME} icon={<Home size={14} />} label="Início" />
                               <MenuLink to="/como-funciona" icon={<HelpCircle size={14} />} label="Como funciona" />
                               <MenuLink to="/central-ajuda" icon={<HelpCircle size={14} />} label="Central de ajuda" />
+                              <Link
+                                to={APP_ROUTES.NEW_PROPERTY}
+                                className="flex items-center gap-3 px-4 py-2 text-sm font-bold text-black bg-[#F5A623] hover:bg-[#e6951a] transition-colors mx-2 my-1 rounded-lg justify-center"
+                              >
+                                + Anuncie seu imóvel
+                              </Link>
                             </div>
 
                             {/* Mobile only: account links (sidebar handles these on desktop) */}
