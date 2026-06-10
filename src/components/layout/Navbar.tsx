@@ -79,6 +79,13 @@ export function Navbar() {
 
           {/* Right side */}
           <div className="flex items-center gap-2">
+            {/* Mobile: Anuncie button always visible in header */}
+            <Link
+              to={APP_ROUTES.NEW_PROPERTY}
+              className="lg:hidden text-xs bg-[#F5A623] hover:bg-[#e6951a] text-black font-bold px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap"
+            >
+              + Anunciar
+            </Link>
             {/* Help button — desktop only */}
             <div ref={helpRef} className="relative hidden lg:block">
               <button
