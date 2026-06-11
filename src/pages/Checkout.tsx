@@ -1,7 +1,7 @@
 ﻿import { useEffect, useState } from 'react'
 import { useParams, useSearchParams, useNavigate, Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Check, ChevronRight, FileText, CreditCard, User, AlertTriangle, ShieldCheck, Lock, Calendar, MapPin, Home, Star } from 'lucide-react'
+import { Check, ChevronRight, FileText, CreditCard, User, AlertTriangle, Lock, Calendar, MapPin, Home, Star } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import type { Property, CheckoutFormData, InstallmentPreview, InstallmentPaymentResponse, CancellationPolicy, PricePeriod, PaymentSetting } from '../types'
 import { CANCELLATION_POLICIES, APP_ROUTES } from '../constants'
@@ -383,13 +383,21 @@ export function Checkout() {
           accepted_at: new Date().toISOString(),
         })
 
-        // Notify guest about the new booking
         await supabase.from('notifications').insert({
           user_id: user.id,
           title: 'Reserva criada com sucesso!',
           message: `Sua reserva para ${property.name} foi criada. Aguardando confirmação do pagamento.`,
           type: 'BOOKING',
         })
+
+        if (profile?.kyc_status !== 'APROVADO') {
+          await supabase.from('notifications').insert({
+            user_id: user.id,
+            title: 'Envie sua documentação',
+            message: 'Para concluir sua reserva, precisamos verificar sua identidade. Acesse seu perfil e envie seu documento e comprovante de endereço.',
+            type: 'BOOKING',
+          })
+        }
 
         firstInstallmentId = installments?.[0]?.id
       }
@@ -521,6 +529,14 @@ export function Checkout() {
           message: `Sua reserva para ${property.name} está sendo processada via cartão de crédito.`,
           type: 'BOOKING',
         })
+        if (profile?.kyc_status !== 'APROVADO') {
+          await supabase.from('notifications').insert({
+            user_id: user.id,
+            title: 'Envie sua documentação',
+            message: 'Para concluir sua reserva, precisamos verificar sua identidade. Acesse seu perfil e envie seu documento e comprovante de endereço.',
+            type: 'BOOKING',
+          })
+        }
       }
 
       const session = await supabase.auth.getSession()
@@ -638,12 +654,6 @@ export function Checkout() {
         <div className="w-10 h-10 border-4 border-[#E50914] border-t-transparent rounded-full animate-spin" />
       </div>
     )
-  }
-
-  // KYC gate — only block real properties; allow mock demos through
-  const isMockForGate = MOCK_PROPERTIES.some(p => p.id === property.id)
-  if (!isMockForGate && profile && profile.kyc_status !== 'APROVADO') {
-    return <KYCGate status={profile.kyc_status ?? 'INCOMPLETO'} />
   }
 
   const maxInstallments = checkIn ? calculateMaxInstallments(checkIn) : 1
@@ -1357,43 +1367,3 @@ function Row({ label, value, accent }: { label: string; value: string; accent?: 
   )
 }
 
-function KYCGate({ status }: { status: string }) {
-  const messages: Record<string, { title: string; body: string; color: string }> = {
-    INCOMPLETO: {
-      title: 'Verificação de identidade necessária',
-      body: 'Para finalizar uma reserva você precisa enviar seus documentos para análise. O processo leva apenas alguns minutos.',
-      color: '#F5A623',
-    },
-    PENDENTE: {
-      title: 'Documentos em análise',
-      body: 'Seus documentos foram enviados e estão sendo analisados pela nossa equipe. Você será notificado assim que a verificação for concluída.',
-      color: '#F5A623',
-    },
-    REPROVADO: {
-      title: 'Verificação reprovada',
-      body: 'Seus documentos não foram aprovados. Envie novamente com informações legíveis e atualizadas.',
-      color: '#E50914',
-    },
-  }
-  const cfg = messages[status] ?? messages.INCOMPLETO
-
-  return (
-    <div className="min-h-screen bg-[#141414] flex items-center justify-center px-4">
-      <div className="max-w-md w-full text-center">
-        <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-5"
-          style={{ background: `${cfg.color}20` }}>
-          <ShieldCheck size={32} style={{ color: cfg.color }} />
-        </div>
-        <h1 className="font-display text-2xl font-bold text-white mb-3">{cfg.title}</h1>
-        <p className="text-[#B3B3B3] text-sm mb-8 leading-relaxed">{cfg.body}</p>
-        <Link
-          to={APP_ROUTES.GUEST_DASHBOARD + '?tab=documentos'}
-          className="inline-flex items-center gap-2 px-6 py-3 bg-[#E50914] hover:bg-[#c4070f] text-white font-semibold rounded-xl transition-colors"
-        >
-          <ShieldCheck size={16} />
-          {status === 'PENDENTE' ? 'Ver status dos documentos' : 'Enviar documentos'}
-        </Link>
-      </div>
-    </div>
-  )
-}

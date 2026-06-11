@@ -1,6 +1,6 @@
 ﻿import { useEffect, useRef, useState } from 'react'
 import { useNavigate, Link as RouterLink } from 'react-router-dom'
-import { X, Plus, Upload, Trash2, Image, Link, DollarSign, AlertTriangle, Star } from 'lucide-react'
+import { X, Plus, Upload, Trash2, Image, Link, DollarSign, AlertTriangle, Star, GripVertical, Calendar, Check } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { useToast } from '../hooks/useToast'
@@ -9,6 +9,8 @@ import { Input, Select, Textarea } from '../components/ui/Input'
 import { APP_ROUTES, PROPERTY_TYPES, CANCELLATION_POLICIES, BRASIL_STATES } from '../constants'
 import type { PropertyType, CancellationPolicy, PeriodType, AmenityCatalog } from '../types'
 import { PERIOD_TYPE_LABELS, PERIOD_DEFAULT_NAMES, PERIOD_TYPES_WITH_DATES } from '../lib/pricing'
+import { AvailabilityCalendar } from '../components/ui/AvailabilityCalendar'
+import { DateRangePicker } from '../components/ui/DateRangePicker'
 
 const PERIOD_TYPE_OPTIONS = (Object.keys(PERIOD_TYPE_LABELS) as PeriodType[]).map(v => ({
   value: v,
@@ -25,21 +27,13 @@ interface PeriodDraft {
   priority: string
 }
 
-const MAX_ROOMS = 50
-const MAX_PHOTOS_PER_ROOM = 20
+const MAX_PHOTOS = 50
 
 interface PhotoDraft {
   id: string
   url: string
   caption: string
   uploading: boolean
-}
-
-interface RoomDraft {
-  id: string
-  name: string
-  description: string
-  photos: PhotoDraft[]
 }
 
 function uid() {
@@ -53,9 +47,15 @@ export function NewProperty() {
   const [saving, setSaving] = useState(false)
   const [ownerUsers, setOwnerUsers] = useState<{ id: string; name: string | null }[]>([])
   const [selectedOwnerId, setSelectedOwnerId] = useState('')
-  const [rooms, setRooms] = useState<RoomDraft[]>([])
-  const [coverPhotoUrl, setCoverPhotoUrl] = useState<string | null>(null)
+  const [photos, setPhotos] = useState<PhotoDraft[]>([])
+  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null)
+  const dragIdx = useRef<number | null>(null)
   const [periods, setPeriods] = useState<PeriodDraft[]>([])
+  const [showCalPicker, setShowCalPicker] = useState(false)
+  const [calFrom, setCalFrom] = useState('')
+  const [calTo, setCalTo] = useState('')
+  const [calPrice, setCalPrice] = useState('')
+  const [createdPropertyId, setCreatedPropertyId] = useState<string | null>(null)
   const [catalog, setCatalog] = useState<AmenityCatalog[]>([])
   const [selectedAmenityIds, setSelectedAmenityIds] = useState<Set<string>>(new Set())
   const [selectedHomeTags, setSelectedHomeTags] = useState<Set<string>>(new Set())
@@ -149,59 +149,57 @@ export function NewProperty() {
     } catch { /* ignore */ }
   }
 
-  function addRoom() {
-    if (rooms.length >= MAX_ROOMS) {
-      toast('warning', 'Limite atingido', `Máximo de ${MAX_ROOMS} cômodos por imóvel.`)
-      return
-    }
-    setRooms(r => [...r, { id: uid(), name: '', description: '', photos: [] }])
+  function addPhotoByUrl(url: string) {
+    const trimmed = url.trim()
+    if (!trimmed) return
+    if (photos.length >= MAX_PHOTOS) { toast('warning', 'Limite atingido', `Máximo de ${MAX_PHOTOS} fotos.`); return }
+    setPhotos(p => [...p, { id: uid(), url: trimmed, caption: '', uploading: false }])
   }
 
-  function removeRoom(roomId: string) {
-    setRooms(r => r.filter(rm => rm.id !== roomId))
+  function removePhoto(photoId: string) {
+    setPhotos(p => p.filter(x => x.id !== photoId))
   }
 
-  function updateRoom(roomId: string, patch: Partial<Pick<RoomDraft, 'name' | 'description'>>) {
-    setRooms(r => r.map(rm => rm.id === roomId ? { ...rm, ...patch } : rm))
+  function movePhotoToFirst(photoId: string) {
+    setPhotos(p => {
+      const idx = p.findIndex(x => x.id === photoId)
+      if (idx <= 0) return p
+      const next = [...p]
+      const [item] = next.splice(idx, 1)
+      return [item, ...next]
+    })
   }
 
-  function addPhotoToRoom(roomId: string, url: string, caption: string) {
-    setRooms(r => r.map(rm => {
-      if (rm.id !== roomId || rm.photos.length >= MAX_PHOTOS_PER_ROOM) return rm
-      return { ...rm, photos: [...rm.photos, { id: uid(), url, caption, uploading: false }] }
-    }))
+  function reorderPhotos(fromIdx: number, toIdx: number) {
+    if (fromIdx === toIdx) return
+    setPhotos(p => {
+      const next = [...p]
+      const [item] = next.splice(fromIdx, 1)
+      next.splice(toIdx, 0, item)
+      return next
+    })
   }
 
-  function removePhoto(roomId: string, photoId: string) {
-    setRooms(r => r.map(rm =>
-      rm.id === roomId ? { ...rm, photos: rm.photos.filter(p => p.id !== photoId) } : rm
-    ))
-  }
-
-  async function uploadFiles(roomId: string, files: File[]) {
+  async function uploadFiles(files: File[]) {
     const validFiles = files.filter(f => {
       if (!f.type.startsWith('image/')) { toast('error', 'Arquivo inválido', `${f.name}: apenas imagens.`); return false }
       if (f.size > 10 * 1024 * 1024) { toast('error', 'Muito grande', `${f.name}: máx. 10 MB.`); return false }
       return true
     })
     if (validFiles.length === 0) return
-
-    const room = rooms.find(rm => rm.id === roomId)
-    if (!room) return
-    const remaining = MAX_PHOTOS_PER_ROOM - room.photos.length
-    if (remaining <= 0) return
+    const remaining = MAX_PHOTOS - photos.length
+    if (remaining <= 0) { toast('warning', 'Limite', 'Máximo de fotos atingido.'); return }
     const filesToUpload = validFiles.slice(0, remaining)
-    if (validFiles.length > remaining) toast('warning', 'Limite', `Apenas ${remaining} foto${remaining !== 1 ? 's' : ''} podem ser adicionadas.`)
+    if (validFiles.length > remaining) toast('warning', 'Limite', `Apenas ${remaining} foto${remaining !== 1 ? 's' : ''} adicionada${remaining !== 1 ? 's' : ''}.`)
 
     const newPhotos: PhotoDraft[] = filesToUpload.map(() => ({ id: uid(), url: '', caption: '', uploading: true }))
-    setRooms(r => r.map(rm => rm.id === roomId ? { ...rm, photos: [...rm.photos, ...newPhotos] } : rm))
+    setPhotos(p => [...p, ...newPhotos])
 
     await Promise.all(filesToUpload.map(async (file, i) => {
       const photoId = newPhotos[i].id
       try {
         const session = await supabase.auth.getSession()
         const authToken = session.data.session?.access_token ?? ''
-        // 1. Pega a assinatura do servidor (mantém o secret seguro)
         const signRes = await fetch('/api/upload/cloudinary-sign', {
           headers: { 'Authorization': `Bearer ${authToken}` },
         })
@@ -209,7 +207,6 @@ export function NewProperty() {
         const { timestamp, signature, api_key, cloud_name, folder } = await signRes.json() as {
           timestamp: number; signature: string; api_key: string; cloud_name: string; folder: string
         }
-        // 2. Faz upload direto para o Cloudinary com a assinatura
         const formData = new FormData()
         formData.append('file', file)
         formData.append('timestamp', String(timestamp))
@@ -224,16 +221,26 @@ export function NewProperty() {
           throw new Error(errData.error?.message ?? 'Falha no upload')
         }
         const data = await uploadRes.json() as { secure_url: string }
-        setRooms(r => r.map(rm =>
-          rm.id === roomId
-            ? { ...rm, photos: rm.photos.map(p => p.id === photoId ? { ...p, url: data.secure_url, uploading: false } : p) }
-            : rm
-        ))
+        setPhotos(p => p.map(x => x.id === photoId ? { ...x, url: data.secure_url, uploading: false } : x))
       } catch (err) {
-        setRooms(r => r.map(rm => rm.id === roomId ? { ...rm, photos: rm.photos.filter(p => p.id !== photoId) } : rm))
+        setPhotos(p => p.filter(x => x.id !== photoId))
         toast('error', 'Erro no upload', err instanceof Error ? err.message : 'Tente novamente')
       }
     }))
+  }
+
+  function addCalendarPeriod() {
+    if (!calFrom || !calTo || !calPrice) return
+    setPeriods(p => [...p, {
+      id: uid(),
+      period_type: 'CUSTOM',
+      name: 'Período especial',
+      price_per_night: calPrice,
+      start_date: calFrom,
+      end_date: calTo,
+      priority: String(p.length),
+    }])
+    setCalFrom(''); setCalTo(''); setCalPrice(''); setShowCalPicker(false)
   }
 
   function addPeriod() {
@@ -318,35 +325,18 @@ export function NewProperty() {
       )
     }
 
-    const validRooms = rooms.filter(rm => rm.name.trim())
-
-    for (let i = 0; i < validRooms.length; i++) {
-      const room = validRooms[i]
-      const { data: roomRow, error: roomErr } = await supabase
-        .from('property_rooms')
-        .insert({
-          property_id: propertyId,
-          name: room.name.trim(),
-          description: room.description.trim() || null,
-          display_order: i,
-        })
-        .select('id')
-        .single()
-
-      if (roomErr || !roomRow) continue
-
-      const validPhotos = room.photos.filter(p => p.url && !p.uploading)
-      if (validPhotos.length === 0) continue
-
+    const validPhotos = photos.filter(p => p.url && !p.uploading)
+    if (validPhotos.length > 0) {
       await supabase.from('property_photos').insert(
         validPhotos.map((p, j) => ({
           property_id: propertyId,
-          room_id: roomRow.id,
+          room_id: null,
           url: p.url,
-          caption: p.caption.trim() || null,
+          caption: null,
           display_order: j,
         }))
       )
+      await supabase.from('properties').update({ photos: validPhotos.map(p => p.url) }).eq('id', propertyId)
     }
 
     const validPeriods = periods.filter(p => p.name.trim() && p.price_per_night)
@@ -365,21 +355,39 @@ export function NewProperty() {
       )
     }
 
-    // Build properties.photos array: cover first, then the rest
-    const allPhotoUrls = validRooms.flatMap(r => r.photos.filter(p => p.url && !p.uploading).map(p => p.url))
-    const photosArray = coverPhotoUrl
-      ? [coverPhotoUrl, ...allPhotoUrls.filter(u => u !== coverPhotoUrl)]
-      : allPhotoUrls
-    if (photosArray.length > 0) {
-      await supabase.from('properties').update({ photos: photosArray }).eq('id', propertyId)
-    }
-
     setSaving(false)
-    toast('success', 'Imóvel cadastrado!', 'Aguardando aprovação da equipe LOCAFLIX.')
-    navigate(APP_ROUTES.OWNER_DASHBOARD)
+    toast('success', 'Imóvel cadastrado!', 'Configure a disponibilidade abaixo e clique em Concluir.')
+    setCreatedPropertyId(propertyId)
   }
 
   const hasPixKey = !!profile?.pix_key
+
+  // After property is created: show availability calendar step
+  if (createdPropertyId) {
+    return (
+      <div className="min-h-screen bg-[#141414] pt-24 pb-12">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
+          <div className="flex items-center gap-3 p-4 rounded-xl border bg-[#46D369]/10 border-[#46D369]/30">
+            <Check size={18} className="text-[#46D369] flex-shrink-0" />
+            <div>
+              <p className="text-sm font-semibold text-[#46D369]">Imóvel cadastrado com sucesso!</p>
+              <p className="text-xs text-[#B3B3B3] mt-0.5">Aguardando aprovação da equipe LOCAFLIX. Configure abaixo as datas indisponíveis.</p>
+            </div>
+          </div>
+          <section className="bg-[#1F1F1F] border border-[#333] rounded-2xl p-6 space-y-4">
+            <div>
+              <h2 className="font-display text-lg font-bold text-white">Disponibilidade</h2>
+              <p className="text-xs text-[#999] mt-1">Bloqueie as datas em que o imóvel não estará disponível. As alterações são salvas automaticamente.</p>
+            </div>
+            <AvailabilityCalendar propertyId={createdPropertyId} />
+          </section>
+          <Button fullWidth onClick={() => navigate(APP_ROUTES.OWNER_DASHBOARD)}>
+            Concluir
+          </Button>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-[#141414] pt-24 pb-12">
@@ -665,52 +673,19 @@ export function NewProperty() {
             )}
           </section>
 
-          {/* Fotos por cômodo */}
+          {/* Fotos do imóvel */}
           <section className="bg-[#1F1F1F] border border-[#333] rounded-2xl p-6 space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="font-display text-lg font-bold text-white">Fotos por cômodo</h2>
-                <p className="text-xs text-[#999] mt-0.5">Organize as fotos por ambiente: sala, quarto, cozinha…</p>
-              </div>
-              <span className="text-xs text-[#888]">{rooms.length}/{MAX_ROOMS}</span>
-            </div>
-
-            {rooms.length === 0 && (
-              <div className="border-2 border-dashed border-[#333] rounded-xl p-8 text-center">
-                <Image size={32} className="mx-auto mb-2 text-[#444]" />
-                <p className="text-sm text-[#999]">Nenhum cômodo adicionado</p>
-                <p className="text-xs text-[#444] mt-1">Adicione cômodos para organizar suas fotos por ambiente</p>
-              </div>
-            )}
-
-            <div className="space-y-4">
-              {rooms.map((room, idx) => (
-                <RoomCard
-                  key={room.id}
-                  room={room}
-                  index={idx}
-                  onNameChange={v => updateRoom(room.id, { name: v })}
-                  onDescChange={v => updateRoom(room.id, { description: v })}
-                  onRemoveRoom={() => removeRoom(room.id)}
-                  onAddPhotoUrl={(url, cap) => addPhotoToRoom(room.id, url, cap)}
-                  onUploadFiles={files => uploadFiles(room.id, files)}
-                  onRemovePhoto={photoId => removePhoto(room.id, photoId)}
-                  coverPhotoUrl={coverPhotoUrl}
-                  onSetCover={url => setCoverPhotoUrl(url)}
-                />
-              ))}
-            </div>
-
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={addRoom}
-              disabled={rooms.length >= MAX_ROOMS}
-              className="w-full"
-            >
-              <Plus size={16} />
-              Adicionar cômodo
-            </Button>
+            <PhotoSection
+              photos={photos}
+              dragIdx={dragIdx}
+              dragOverIdx={dragOverIdx}
+              setDragOverIdx={setDragOverIdx}
+              onUpload={uploadFiles}
+              onAddUrl={addPhotoByUrl}
+              onRemove={removePhoto}
+              onMakeCover={movePhotoToFirst}
+              onReorder={reorderPhotos}
+            />
           </section>
 
           {/* Preços por período */}
@@ -718,6 +693,60 @@ export function NewProperty() {
             <div>
               <h2 className="font-display text-lg font-bold text-white">Preços por período</h2>
               <p className="text-xs text-[#999] mt-0.5">Defina preços diferentes para fins de semana, feriados, alta temporada, etc.</p>
+            </div>
+
+            {/* Calendar shortcut */}
+            <div className="border border-[#2A2A2A] rounded-xl overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setShowCalPicker(v => !v)}
+                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-[#2A2A2A] transition-colors text-left"
+              >
+                <Calendar size={16} className="text-[#F5A623] flex-shrink-0" />
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-white">Selecionar datas no calendário</p>
+                  <p className="text-xs text-[#999]">Escolha um intervalo de datas e defina o preço da diária</p>
+                </div>
+                <Plus size={14} className={`text-[#888] transition-transform ${showCalPicker ? 'rotate-45' : ''}`} />
+              </button>
+              {showCalPicker && (
+                <div className="border-t border-[#2A2A2A] p-4 space-y-3">
+                  <DateRangePicker
+                    from={calFrom}
+                    to={calTo}
+                    onChange={(f, t) => { setCalFrom(f); setCalTo(t) }}
+                    onClose={() => {}}
+                  />
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1">
+                      <label className="text-xs text-[#999] block mb-1">Preço por noite (R$)</label>
+                      <input
+                        type="number"
+                        min="1"
+                        step="0.01"
+                        value={calPrice}
+                        onChange={e => setCalPrice(e.target.value)}
+                        placeholder="0,00"
+                        className="w-full bg-[#2A2A2A] border border-[#333] rounded-lg px-3 py-2 text-sm text-white placeholder-[#555] outline-none focus:border-[#555]"
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      onClick={addCalendarPeriod}
+                      disabled={!calFrom || !calTo || !calPrice}
+                      className="self-end"
+                    >
+                      <Check size={14} />
+                      Adicionar
+                    </Button>
+                  </div>
+                  {calFrom && calTo && (
+                    <p className="text-xs text-[#46D369]">
+                      Período: {calFrom.split('-').reverse().join('/')} → {calTo.split('-').reverse().join('/')}
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
 
             {periods.length === 0 && (
@@ -864,13 +893,6 @@ export function NewProperty() {
             </section>
           )}
 
-          <div className="bg-[#1F1F1F] border border-[#333] rounded-2xl px-4 py-3 flex items-start gap-3">
-            <span className="text-[#F5A623] text-sm mt-0.5">ℹ</span>
-            <p className="text-xs text-[#B3B3B3] leading-relaxed">
-              <strong className="text-white">Disponibilidade:</strong> após cadastrar o imóvel, acesse a edição para bloquear datas indisponíveis no calendário de disponibilidade.
-            </p>
-          </div>
-
           <div className="flex gap-4 pt-2">
             <Button type="button" variant="secondary" onClick={() => navigate(APP_ROUTES.OWNER_DASHBOARD)} fullWidth>
               Cancelar
@@ -885,208 +907,166 @@ export function NewProperty() {
   )
 }
 
-// ── RoomCard ──────────────────────────────────────────────────
+// ── PhotoSection ──────────────────────────────────────────────
 
-interface RoomCardProps {
-  room: RoomDraft
-  index: number
-  onNameChange: (v: string) => void
-  onDescChange: (v: string) => void
-  onRemoveRoom: () => void
-  onAddPhotoUrl: (url: string, caption: string) => void
-  onUploadFiles: (files: File[]) => void
-  onRemovePhoto: (photoId: string) => void
-  coverPhotoUrl?: string | null
-  onSetCover?: (url: string) => void
+interface PhotoSectionProps {
+  photos: PhotoDraft[]
+  dragIdx: React.MutableRefObject<number | null>
+  dragOverIdx: number | null
+  setDragOverIdx: (i: number | null) => void
+  onUpload: (files: File[]) => void
+  onAddUrl: (url: string) => void
+  onRemove: (id: string) => void
+  onMakeCover: (id: string) => void
+  onReorder: (from: number, to: number) => void
 }
 
-function RoomCard({
-  room, index, onNameChange, onDescChange, onRemoveRoom,
-  onAddPhotoUrl, onUploadFiles, onRemovePhoto, coverPhotoUrl, onSetCover,
-}: RoomCardProps) {
-  const [mode, setMode] = useState<'url' | 'upload'>('upload')
-  const [photoUrl, setPhotoUrl] = useState('')
-  const [caption, setCaption] = useState('')
-  const [dragging, setDragging] = useState(false)
+function PhotoSection({
+  photos, dragIdx, dragOverIdx, setDragOverIdx,
+  onUpload, onAddUrl, onRemove, onMakeCover, onReorder,
+}: PhotoSectionProps) {
+  const [mode, setMode] = useState<'upload' | 'url'>('upload')
+  const [urlInput, setUrlInput] = useState('')
+  const [dropping, setDropping] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
-
-  function handleAddUrl() {
-    const url = photoUrl.trim()
-    if (!url) return
-    onAddPhotoUrl(url, caption.trim())
-    setPhotoUrl('')
-    setCaption('')
-  }
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? [])
-    if (files.length > 0) { onUploadFiles(files); e.target.value = '' }
+    if (files.length > 0) { onUpload(files); e.target.value = '' }
   }
 
   function handleDrop(e: React.DragEvent) {
-    e.preventDefault()
-    setDragging(false)
+    e.preventDefault(); setDropping(false)
     const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'))
-    if (files.length > 0) onUploadFiles(files)
+    if (files.length > 0) onUpload(files)
   }
 
-  const canAddMore = room.photos.length < MAX_PHOTOS_PER_ROOM
-
   return (
-    <div className="border border-[#2A2A2A] rounded-xl overflow-hidden">
-      {/* Room header */}
-      <div className="bg-[#252525] px-4 py-3 flex items-center gap-3">
-        <span className="text-xs font-bold text-[#888] w-5 text-center shrink-0">{index + 1}</span>
-        <input
-          value={room.name}
-          onChange={e => onNameChange(e.target.value)}
-          placeholder="Nome do cômodo (ex: Sala de Estar)"
-          className="flex-1 bg-transparent text-sm text-white placeholder-[#555] outline-none"
-        />
-        <span className="text-xs text-[#444] shrink-0">{room.photos.length}/{MAX_PHOTOS_PER_ROOM}</span>
-        <button
-          type="button"
-          onClick={onRemoveRoom}
-          className="text-[#888] hover:text-[#E50914] transition-colors shrink-0"
-        >
-          <Trash2 size={15} />
-        </button>
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="font-display text-lg font-bold text-white">Fotos do imóvel</h2>
+          <p className="text-xs text-[#999] mt-0.5">Arraste para reordenar · A primeira foto será a capa</p>
+        </div>
+        <span className="text-xs text-[#888]">{photos.filter(p => !p.uploading).length}/{MAX_PHOTOS}</span>
       </div>
 
-      <div className="p-4 space-y-3">
-        {/* Description */}
-        <input
-          value={room.description}
-          onChange={e => onDescChange(e.target.value)}
-          placeholder="Descrição opcional"
-          className="w-full bg-[#1A1A1A] border border-[#2A2A2A] rounded-lg px-3 py-2 text-xs text-[#B3B3B3] placeholder-[#444] outline-none focus:border-[#444] transition-colors"
-        />
-
-        {/* Photo grid */}
-        {room.photos.length > 0 && (
-          <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
-            {room.photos.map(photo => (
-              <div key={photo.id} className="relative group aspect-square rounded-lg overflow-hidden bg-[#2A2A2A]">
-                {photo.uploading ? (
-                  <div className="w-full h-full flex items-center justify-center">
-                    <div className="w-5 h-5 border-2 border-[#E50914] border-t-transparent rounded-full animate-spin" />
-                  </div>
-                ) : (
-                  <img
-                    src={photo.url}
-                    alt=""
-                    className="w-full h-full object-cover"
-                    onError={e => { (e.target as HTMLImageElement).style.opacity = '0.3' }}
-                  />
-                )}
-                {photo.url === coverPhotoUrl && (
-                  <div className="absolute top-1 left-1 bg-[#F5A623] text-black text-[8px] font-bold px-1 py-0.5 rounded">CAPA</div>
-                )}
-                {photo.caption && (
-                  <div className="absolute bottom-0 inset-x-0 bg-black/70 px-1.5 py-0.5">
-                    <p className="text-[9px] text-white truncate">{photo.caption}</p>
-                  </div>
-                )}
-                {!photo.uploading && onSetCover && (
-                  <button
-                    type="button"
-                    onClick={() => onSetCover(photo.url)}
-                    title="Definir como foto de capa"
-                    className={`absolute bottom-1 left-1 w-5 h-5 bg-black/70 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity ${photo.url === coverPhotoUrl ? 'text-[#F5A623]' : 'text-white'}`}
-                  >
-                    <Star size={9} className={photo.url === coverPhotoUrl ? 'fill-[#F5A623]' : ''} />
-                  </button>
-                )}
+      {/* Photo grid with drag-to-reorder */}
+      {photos.length > 0 && (
+        <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+          {photos.map((photo, idx) => (
+            <div
+              key={photo.id}
+              draggable={!photo.uploading}
+              onDragStart={() => { dragIdx.current = idx }}
+              onDragOver={e => { e.preventDefault(); setDragOverIdx(idx) }}
+              onDragLeave={() => setDragOverIdx(null)}
+              onDrop={e => {
+                e.preventDefault(); setDragOverIdx(null)
+                if (dragIdx.current !== null) onReorder(dragIdx.current, idx)
+                dragIdx.current = null
+              }}
+              onDragEnd={() => { dragIdx.current = null; setDragOverIdx(null) }}
+              className={`relative group aspect-square rounded-lg overflow-hidden bg-[#2A2A2A] cursor-grab transition-all ${dragOverIdx === idx ? 'ring-2 ring-[#E50914] scale-105' : ''}`}
+            >
+              {photo.uploading ? (
+                <div className="w-full h-full flex items-center justify-center">
+                  <div className="w-5 h-5 border-2 border-[#E50914] border-t-transparent rounded-full animate-spin" />
+                </div>
+              ) : (
+                <img src={photo.url} alt="" className="w-full h-full object-cover" onError={e => { (e.target as HTMLImageElement).style.opacity = '0.3' }} />
+              )}
+              {idx === 0 && !photo.uploading && (
+                <div className="absolute top-1 left-1 bg-[#F5A623] text-black text-[8px] font-bold px-1 py-0.5 rounded leading-tight">CAPA</div>
+              )}
+              {!photo.uploading && idx !== 0 && (
                 <button
                   type="button"
-                  onClick={() => onRemovePhoto(photo.id)}
+                  onClick={() => onMakeCover(photo.id)}
+                  title="Definir como capa"
+                  className="absolute bottom-1 left-1 w-5 h-5 bg-black/70 rounded-full flex items-center justify-center text-[#999] opacity-0 group-hover:opacity-100 transition-opacity hover:text-[#F5A623]"
+                >
+                  <Star size={9} />
+                </button>
+              )}
+              {!photo.uploading && (
+                <button
+                  type="button"
+                  onClick={() => onRemove(photo.id)}
                   className="absolute top-1 right-1 w-5 h-5 bg-black/70 rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity"
                 >
                   <X size={10} />
                 </button>
+              )}
+              <div className="absolute bottom-1 right-1 opacity-0 group-hover:opacity-60 transition-opacity pointer-events-none">
+                <GripVertical size={12} className="text-white" />
               </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {photos.length === 0 && (
+        <div className="border-2 border-dashed border-[#333] rounded-xl p-8 text-center">
+          <Image size={32} className="mx-auto mb-2 text-[#444]" />
+          <p className="text-sm text-[#999]">Nenhuma foto adicionada</p>
+          <p className="text-xs text-[#444] mt-1">Adicione fotos do imóvel abaixo</p>
+        </div>
+      )}
+
+      {/* Add photo */}
+      {photos.length < MAX_PHOTOS && (
+        <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-lg p-3 space-y-2">
+          <div className="flex gap-1">
+            {(['upload', 'url'] as const).map(m => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => setMode(m)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${mode === m ? 'bg-[#333] text-white' : 'text-[#999] hover:text-[#B3B3B3]'}`}
+              >
+                {m === 'upload' ? <Upload size={11} /> : <Link size={11} />}
+                {m === 'upload' ? 'Upload' : 'URL'}
+              </button>
             ))}
           </div>
-        )}
-
-        {/* Add photo form */}
-        {canAddMore && (
-          <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-lg p-3 space-y-2">
-            {/* Mode toggle */}
-            <div className="flex gap-1">
+          {mode === 'url' ? (
+            <div className="flex gap-2">
+              <input
+                type="url"
+                value={urlInput}
+                onChange={e => setUrlInput(e.target.value)}
+                placeholder="https://..."
+                className="flex-1 bg-[#0A0A0A] border border-[#333] rounded-lg px-3 py-2 text-xs text-white placeholder-[#555] outline-none focus:border-[#444] transition-colors"
+                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); onAddUrl(urlInput); setUrlInput('') } }}
+              />
               <button
                 type="button"
-                onClick={() => setMode('upload')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                  mode === 'upload' ? 'bg-[#333] text-white' : 'text-[#999] hover:text-[#B3B3B3]'
-                }`}
+                onClick={() => { onAddUrl(urlInput); setUrlInput('') }}
+                disabled={!urlInput.trim()}
+                className="shrink-0 flex items-center gap-1 px-3 py-2 bg-[#333] hover:bg-[#444] disabled:opacity-40 text-white text-xs rounded-lg transition-colors"
               >
-                <Upload size={11} />
-                Upload
-              </button>
-              <button
-                type="button"
-                onClick={() => setMode('url')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                  mode === 'url' ? 'bg-[#333] text-white' : 'text-[#999] hover:text-[#B3B3B3]'
-                }`}
-              >
-                <Link size={11} />
-                URL
+                <Plus size={13} /> Adicionar
               </button>
             </div>
-
-            {mode === 'url' ? (
-              <>
-                <input
-                  value={caption}
-                  onChange={e => setCaption(e.target.value)}
-                  placeholder="Legenda opcional"
-                  className="w-full bg-[#0A0A0A] border border-[#333] rounded-lg px-3 py-2 text-xs text-white placeholder-[#555] outline-none focus:border-[#444] transition-colors"
-                />
-                <div className="flex gap-2">
-                  <input
-                    type="url"
-                    value={photoUrl}
-                    onChange={e => setPhotoUrl(e.target.value)}
-                    placeholder="https://..."
-                    className="flex-1 bg-[#0A0A0A] border border-[#333] rounded-lg px-3 py-2 text-xs text-white placeholder-[#555] outline-none focus:border-[#444] transition-colors"
-                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddUrl() } }}
-                  />
-                  <button
-                    type="button"
-                    onClick={handleAddUrl}
-                    disabled={!photoUrl.trim()}
-                    className="shrink-0 flex items-center gap-1 px-3 py-2 bg-[#333] hover:bg-[#444] disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs rounded-lg transition-colors"
-                  >
-                    <Plus size={13} />
-                    Adicionar
-                  </button>
-                </div>
-              </>
-            ) : (
-              <>
-                <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={handleFileChange} />
-                <div
-                  onDragOver={e => { e.preventDefault(); setDragging(true) }}
-                  onDragLeave={() => setDragging(false)}
-                  onDrop={handleDrop}
-                  onClick={() => fileRef.current?.click()}
-                  className={`w-full flex flex-col items-center justify-center gap-1.5 px-3 py-5 border-2 border-dashed rounded-lg cursor-pointer transition-all ${
-                    dragging
-                      ? 'border-[#E50914] bg-[#E50914]/10 text-[#E50914]'
-                      : 'border-[#333] hover:border-[#555] text-[#999] hover:text-[#B3B3B3]'
-                  }`}
-                >
-                  <Upload size={18} />
-                  <span className="text-xs">Arraste fotos aqui ou clique para selecionar</span>
-                  <span className="text-xs text-[#444]">Múltiplos arquivos · JPG, PNG, WebP · máx. 10 MB cada</span>
-                </div>
-              </>
-            )}
-          </div>
-        )}
-      </div>
+          ) : (
+            <>
+              <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={handleFileChange} />
+              <div
+                onDragOver={e => { e.preventDefault(); setDropping(true) }}
+                onDragLeave={() => setDropping(false)}
+                onDrop={handleDrop}
+                onClick={() => fileRef.current?.click()}
+                className={`w-full flex flex-col items-center justify-center gap-1.5 px-3 py-5 border-2 border-dashed rounded-lg cursor-pointer transition-all ${dropping ? 'border-[#E50914] bg-[#E50914]/10 text-[#E50914]' : 'border-[#333] hover:border-[#555] text-[#999] hover:text-[#B3B3B3]'}`}
+              >
+                <Upload size={18} />
+                <span className="text-xs">Arraste fotos aqui ou clique para selecionar</span>
+                <span className="text-xs text-[#444]">Múltiplos arquivos · JPG, PNG, WebP · máx. 10 MB cada</span>
+              </div>
+            </>
+          )}
+        </div>
+      )}
     </div>
   )
 }
