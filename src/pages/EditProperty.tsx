@@ -1,6 +1,6 @@
 ﻿import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { X, Plus, Upload, Trash2, Image, Link, DollarSign, Star } from 'lucide-react'
+import { X, Plus, Upload, Trash2, Image, Link, DollarSign, Star, GripVertical, Calendar, Check } from 'lucide-react'
 import { AvailabilityCalendar } from '../components/ui/AvailabilityCalendar'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
@@ -26,21 +26,13 @@ interface PeriodDraft {
   priority: string
 }
 
-const MAX_ROOMS = 50
-const MAX_PHOTOS_PER_ROOM = 20
+const MAX_PHOTOS = 50
 
 interface PhotoDraft {
   id: string
   url: string
   caption: string
   uploading: boolean
-}
-
-interface RoomDraft {
-  id: string
-  name: string
-  description: string
-  photos: PhotoDraft[]
 }
 
 function uid() {
@@ -54,9 +46,14 @@ export function EditProperty() {
   const { toast } = useToast()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [rooms, setRooms] = useState<RoomDraft[]>([])
-  const [coverPhotoUrl, setCoverPhotoUrl] = useState<string | null>(null)
+  const [photos, setPhotos] = useState<PhotoDraft[]>([])
+  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null)
+  const dragIdx = useRef<number | null>(null)
   const [periods, setPeriods] = useState<PeriodDraft[]>([])
+  const [showCalPicker, setShowCalPicker] = useState(false)
+  const [calFrom, setCalFrom] = useState('')
+  const [calTo, setCalTo] = useState('')
+  const [calPrice, setCalPrice] = useState('')
   const [catalog, setCatalog] = useState<AmenityCatalog[]>([])
   const [selectedAmenityIds, setSelectedAmenityIds] = useState<Set<string>>(new Set())
   const [selectedHomeTags, setSelectedHomeTags] = useState<Set<string>>(new Set())
@@ -165,24 +162,22 @@ export function EditProperty() {
     setIcalAirbnbUrl(prop.ical_airbnb_url ?? '')
     setIcalBookingUrl(prop.ical_booking_url ?? '')
 
-    setCoverPhotoUrl(prop.photos?.[0] ?? null)
-
-    const { data: roomsData } = await supabase
-      .from('property_rooms')
-      .select('*, property_photos(*)')
+    const { data: photosData } = await supabase
+      .from('property_photos')
+      .select('url, caption, display_order')
       .eq('property_id', id!)
       .order('display_order')
-    if (roomsData) {
-      setRooms(roomsData.map((r: { name: string; description: string | null; property_photos: { url: string; caption: string | null }[] }) => ({
+    if (photosData && photosData.length > 0) {
+      setPhotos(photosData.map((p: { url: string; caption: string | null }) => ({
         id: uid(),
-        name: r.name,
-        description: r.description ?? '',
-        photos: (r.property_photos ?? []).map((p) => ({
-          id: uid(),
-          url: p.url,
-          caption: p.caption ?? '',
-          uploading: false,
-        })),
+        url: p.url,
+        caption: p.caption ?? '',
+        uploading: false,
+      })))
+    } else if (prop.photos && prop.photos.length > 0) {
+      // Fallback: load from properties.photos array (legacy)
+      setPhotos((prop.photos as string[]).map((url: string) => ({
+        id: uid(), url, caption: '', uploading: false,
       })))
     }
 
@@ -254,52 +249,51 @@ export function EditProperty() {
     } catch { /* ignore */ }
   }
 
-  function addRoom() {
-    if (rooms.length >= MAX_ROOMS) {
-      toast('warning', 'Limite atingido', `Máximo de ${MAX_ROOMS} cômodos por imóvel.`)
-      return
-    }
-    setRooms(r => [...r, { id: uid(), name: '', description: '', photos: [] }])
+  function addPhotoByUrl(url: string) {
+    const trimmed = url.trim()
+    if (!trimmed) return
+    if (photos.length >= MAX_PHOTOS) { toast('warning', 'Limite atingido', `Máximo de ${MAX_PHOTOS} fotos.`); return }
+    setPhotos(p => [...p, { id: uid(), url: trimmed, caption: '', uploading: false }])
   }
 
-  function removeRoom(roomId: string) {
-    setRooms(r => r.filter(rm => rm.id !== roomId))
+  function removePhoto(photoId: string) {
+    setPhotos(p => p.filter(x => x.id !== photoId))
   }
 
-  function updateRoom(roomId: string, patch: Partial<Pick<RoomDraft, 'name' | 'description'>>) {
-    setRooms(r => r.map(rm => rm.id === roomId ? { ...rm, ...patch } : rm))
+  function movePhotoToFirst(photoId: string) {
+    setPhotos(p => {
+      const idx = p.findIndex(x => x.id === photoId)
+      if (idx <= 0) return p
+      const next = [...p]
+      const [item] = next.splice(idx, 1)
+      return [item, ...next]
+    })
   }
 
-  function addPhotoToRoom(roomId: string, url: string, caption: string) {
-    setRooms(r => r.map(rm => {
-      if (rm.id !== roomId || rm.photos.length >= MAX_PHOTOS_PER_ROOM) return rm
-      return { ...rm, photos: [...rm.photos, { id: uid(), url, caption, uploading: false }] }
-    }))
+  function reorderPhotos(fromIdx: number, toIdx: number) {
+    if (fromIdx === toIdx) return
+    setPhotos(p => {
+      const next = [...p]
+      const [item] = next.splice(fromIdx, 1)
+      next.splice(toIdx, 0, item)
+      return next
+    })
   }
 
-  function removePhoto(roomId: string, photoId: string) {
-    setRooms(r => r.map(rm =>
-      rm.id === roomId ? { ...rm, photos: rm.photos.filter(p => p.id !== photoId) } : rm
-    ))
-  }
-
-  async function uploadFiles(roomId: string, files: File[]) {
+  async function uploadFiles(files: File[]) {
     const validFiles = files.filter(f => {
       if (!f.type.startsWith('image/')) { toast('error', 'Arquivo inválido', `${f.name}: apenas imagens.`); return false }
       if (f.size > 10 * 1024 * 1024) { toast('error', 'Muito grande', `${f.name}: máx. 10 MB.`); return false }
       return true
     })
     if (validFiles.length === 0) return
-
-    const room = rooms.find(rm => rm.id === roomId)
-    if (!room) return
-    const remaining = MAX_PHOTOS_PER_ROOM - room.photos.length
-    if (remaining <= 0) return
+    const remaining = MAX_PHOTOS - photos.length
+    if (remaining <= 0) { toast('warning', 'Limite', 'Máximo de fotos atingido.'); return }
     const filesToUpload = validFiles.slice(0, remaining)
-    if (validFiles.length > remaining) toast('warning', 'Limite', `Apenas ${remaining} foto${remaining !== 1 ? 's' : ''} podem ser adicionadas.`)
+    if (validFiles.length > remaining) toast('warning', 'Limite', `Apenas ${remaining} foto${remaining !== 1 ? 's' : ''} adicionada${remaining !== 1 ? 's' : ''}.`)
 
     const newPhotos: PhotoDraft[] = filesToUpload.map(() => ({ id: uid(), url: '', caption: '', uploading: true }))
-    setRooms(r => r.map(rm => rm.id === roomId ? { ...rm, photos: [...rm.photos, ...newPhotos] } : rm))
+    setPhotos(p => [...p, ...newPhotos])
 
     await Promise.all(filesToUpload.map(async (file, i) => {
       const photoId = newPhotos[i].id
@@ -327,16 +321,26 @@ export function EditProperty() {
           throw new Error(errData.error?.message ?? 'Falha no upload')
         }
         const data = await uploadRes.json() as { secure_url: string }
-        setRooms(r => r.map(rm =>
-          rm.id === roomId
-            ? { ...rm, photos: rm.photos.map(p => p.id === photoId ? { ...p, url: data.secure_url, uploading: false } : p) }
-            : rm
-        ))
+        setPhotos(p => p.map(x => x.id === photoId ? { ...x, url: data.secure_url, uploading: false } : x))
       } catch (err) {
-        setRooms(r => r.map(rm => rm.id === roomId ? { ...rm, photos: rm.photos.filter(p => p.id !== photoId) } : rm))
+        setPhotos(p => p.filter(x => x.id !== photoId))
         toast('error', 'Erro no upload', err instanceof Error ? err.message : 'Tente novamente')
       }
     }))
+  }
+
+  function addCalendarPeriod() {
+    if (!calFrom || !calTo || !calPrice) return
+    setPeriods(p => [...p, {
+      id: uid(),
+      period_type: 'CUSTOM',
+      name: 'Período especial',
+      price_per_night: calPrice,
+      start_date: calFrom,
+      end_date: calTo,
+      priority: String(p.length),
+    }])
+    setCalFrom(''); setCalTo(''); setCalPrice(''); setShowCalPicker(false)
   }
 
   function addPeriod() {
@@ -415,39 +419,21 @@ export function EditProperty() {
       )
     }
 
-    // Delete photos first (before rooms) to avoid FK constraint issues
+    // Save flat photos (no rooms)
+    const validPhotos = photos.filter(p => p.url && !p.uploading)
     await supabase.from('property_photos').delete().eq('property_id', id)
-    await supabase.from('property_rooms').delete().eq('property_id', id)
-    // Include rooms with photos even if the room name is blank (default to "Geral")
-    const validRooms = rooms.filter(rm => rm.name.trim() || rm.photos.some(p => p.url && !p.uploading))
-    for (let i = 0; i < validRooms.length; i++) {
-      const room = validRooms[i]
-      const { data: roomRow, error: roomErr } = await supabase
-        .from('property_rooms')
-        .insert({
-          property_id: id,
-          name: room.name.trim() || 'Geral',
-          description: room.description.trim() || null,
-          display_order: i,
-        })
-        .select('id')
-        .single()
-
-      if (roomErr || !roomRow) continue
-
-      const validPhotos = room.photos.filter(p => p.url && !p.uploading)
-      if (validPhotos.length === 0) continue
-
+    if (validPhotos.length > 0) {
       await supabase.from('property_photos').insert(
         validPhotos.map((p, j) => ({
           property_id: id,
-          room_id: roomRow.id,
+          room_id: null,
           url: p.url,
           caption: p.caption.trim() || null,
           display_order: j,
         }))
       )
     }
+    await supabase.from('properties').update({ photos: validPhotos.map(p => p.url) }).eq('id', id)
 
     await supabase.from('price_periods').delete().eq('property_id', id)
     const validPeriods = periods.filter(p => p.name.trim() && p.price_per_night)
@@ -465,13 +451,6 @@ export function EditProperty() {
         }))
       )
     }
-
-    // Build properties.photos array: cover first, then the rest
-    const allPhotoUrls = validRooms.flatMap(r => r.photos.filter(p => p.url && !p.uploading).map(p => p.url))
-    const photosArray = coverPhotoUrl
-      ? [coverPhotoUrl, ...allPhotoUrls.filter(u => u !== coverPhotoUrl)]
-      : allPhotoUrls
-    await supabase.from('properties').update({ photos: photosArray }).eq('id', id)
 
     setSaving(false)
     toast('success', 'Imóvel atualizado!', 'As alterações foram salvas com sucesso.')
@@ -549,25 +528,27 @@ export function EditProperty() {
                 options={BRASIL_STATES.map(s => ({ value: s.uf, label: `${s.uf} — ${s.name}` }))}
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <Input
-                label="Latitude"
-                type="number"
-                step="0.00000001"
-                value={form.latitude}
-                onChange={e => upd('latitude', e.target.value)}
-                placeholder="-23.5505"
-                hint="Clique com botão direito no Google Maps e copie as coordenadas"
-              />
-              <Input
-                label="Longitude"
-                type="number"
-                step="0.00000001"
-                value={form.longitude}
-                onChange={e => upd('longitude', e.target.value)}
-                placeholder="-46.6333"
-              />
-            </div>
+            {profile?.role === 'ADMIN' && (
+              <div className="grid grid-cols-2 gap-4">
+                <Input
+                  label="Latitude"
+                  type="number"
+                  step="0.00000001"
+                  value={form.latitude}
+                  onChange={e => upd('latitude', e.target.value)}
+                  placeholder="-23.5505"
+                  hint="Botão direito no Google Maps → copiar coordenadas"
+                />
+                <Input
+                  label="Longitude"
+                  type="number"
+                  step="0.00000001"
+                  value={form.longitude}
+                  onChange={e => upd('longitude', e.target.value)}
+                  placeholder="-46.6333"
+                />
+              </div>
+            )}
           </section>
 
           {/* Disponibilidade */}
@@ -579,63 +560,14 @@ export function EditProperty() {
             <AvailabilityCalendar propertyId={id!} />
           </section>
 
-          {/* Capacidade e Preço */}
+          {/* Capacidade */}
           <section className="bg-[#1F1F1F] border border-[#333] rounded-2xl p-6 space-y-4">
-            <h2 className="font-display text-lg font-bold text-white">Capacidade e Preço</h2>
+            <h2 className="font-display text-lg font-bold text-white">Capacidade</h2>
             <div className="grid grid-cols-3 gap-4">
               <Input label="Quartos" type="number" min="1" value={form.bedrooms} onChange={e => upd('bedrooms', e.target.value)} required />
               <Input label="Banheiros" type="number" min="1" value={form.bathrooms} onChange={e => upd('bathrooms', e.target.value)} required />
               <Input label="Máx. hóspedes" type="number" min="1" value={form.max_guests} onChange={e => upd('max_guests', e.target.value)} required />
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <Input
-                label="Preço por noite (R$)"
-                type="number"
-                min="1"
-                step="0.01"
-                value={form.price_per_night}
-                onChange={e => upd('price_per_night', e.target.value)}
-                placeholder="0,00"
-                required
-                hint="Preço base (dias de semana)"
-              />
-              <Input
-                label="Preço mínimo (R$)"
-                type="number"
-                min="1"
-                step="0.01"
-                value={form.min_price}
-                onChange={e => upd('min_price', e.target.value)}
-                placeholder="0,00"
-                hint="Para promoções"
-              />
-            </div>
-            {/* Taxa de limpeza */}
-            <div className="flex items-start gap-3 pt-2">
-              <input
-                id="cleaning_fee_enabled_edit"
-                type="checkbox"
-                checked={form.cleaning_fee_enabled}
-                onChange={e => upd('cleaning_fee_enabled', e.target.checked)}
-                className="mt-0.5 w-4 h-4 accent-[#E50914] flex-shrink-0 cursor-pointer"
-              />
-              <label htmlFor="cleaning_fee_enabled_edit" className="cursor-pointer">
-                <p className="text-sm font-medium text-white">Cobrar taxa de limpeza</p>
-                <p className="text-xs text-[#999] mt-0.5">Valor fixo cobrado uma vez, independente do número de diárias</p>
-              </label>
-            </div>
-            {form.cleaning_fee_enabled && (
-              <Input
-                label="Taxa de limpeza (R$)"
-                type="number"
-                min="1"
-                step="0.01"
-                value={form.cleaning_fee}
-                onChange={e => upd('cleaning_fee', e.target.value)}
-                placeholder="0,00"
-                hint="Cobrado uma vez por reserva"
-              />
-            )}
           </section>
 
           {/* Comodidades */}
@@ -741,59 +673,138 @@ export function EditProperty() {
             )}
           </section>
 
-          {/* Fotos por cômodo */}
+          {/* Fotos do imóvel */}
           <section className="bg-[#1F1F1F] border border-[#333] rounded-2xl p-6 space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="font-display text-lg font-bold text-white">Fotos por cômodo</h2>
-                <p className="text-xs text-[#999] mt-0.5">Organize as fotos por ambiente: sala, quarto, cozinha…</p>
-              </div>
-              <span className="text-xs text-[#888]">{rooms.length}/{MAX_ROOMS}</span>
-            </div>
-
-            {rooms.length === 0 && (
-              <div className="border-2 border-dashed border-[#333] rounded-xl p-8 text-center">
-                <Image size={32} className="mx-auto mb-2 text-[#444]" />
-                <p className="text-sm text-[#999]">Nenhum cômodo adicionado</p>
-                <p className="text-xs text-[#444] mt-1">Adicione cômodos para organizar suas fotos por ambiente</p>
-              </div>
-            )}
-
-            <div className="space-y-4">
-              {rooms.map((room, idx) => (
-                <RoomCard
-                  key={room.id}
-                  room={room}
-                  index={idx}
-                  onNameChange={v => updateRoom(room.id, { name: v })}
-                  onDescChange={v => updateRoom(room.id, { description: v })}
-                  onRemoveRoom={() => removeRoom(room.id)}
-                  onAddPhotoUrl={(url, cap) => addPhotoToRoom(room.id, url, cap)}
-                  onUploadFiles={files => uploadFiles(room.id, files)}
-                  onRemovePhoto={photoId => removePhoto(room.id, photoId)}
-                  coverPhotoUrl={coverPhotoUrl}
-                  onSetCover={url => setCoverPhotoUrl(url)}
-                />
-              ))}
-            </div>
-
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={addRoom}
-              disabled={rooms.length >= MAX_ROOMS}
-              className="w-full"
-            >
-              <Plus size={16} />
-              Adicionar cômodo
-            </Button>
+            <PhotoSection
+              photos={photos}
+              dragIdx={dragIdx}
+              dragOverIdx={dragOverIdx}
+              setDragOverIdx={setDragOverIdx}
+              onUpload={uploadFiles}
+              onAddUrl={addPhotoByUrl}
+              onRemove={removePhoto}
+              onMakeCover={movePhotoToFirst}
+              onReorder={reorderPhotos}
+            />
           </section>
 
-          {/* Preços por período */}
+          {/* Preços */}
           <section className="bg-[#1F1F1F] border border-[#333] rounded-2xl p-6 space-y-4">
             <div>
-              <h2 className="font-display text-lg font-bold text-white">Preços por período</h2>
-              <p className="text-xs text-[#999] mt-0.5">Defina preços diferentes para fins de semana, feriados, alta temporada, etc.</p>
+              <h2 className="font-display text-lg font-bold text-white">Preços</h2>
+              <p className="text-xs text-[#999] mt-0.5">Configure o preço base e períodos especiais do seu imóvel.</p>
+            </div>
+
+            {/* Base prices */}
+            <div className="grid grid-cols-2 gap-4">
+              <Input
+                label="Preço por noite (R$)"
+                type="number"
+                min="1"
+                step="0.01"
+                value={form.price_per_night}
+                onChange={e => upd('price_per_night', e.target.value)}
+                placeholder="0,00"
+                required
+                hint="Preço base (dias de semana)"
+              />
+              <Input
+                label="Preço mínimo (R$)"
+                type="number"
+                min="1"
+                step="0.01"
+                value={form.min_price}
+                onChange={e => upd('min_price', e.target.value)}
+                placeholder="0,00"
+                hint="Para promoções"
+              />
+            </div>
+            <div className="flex items-start gap-3">
+              <input
+                id="cleaning_fee_enabled_edit"
+                type="checkbox"
+                checked={form.cleaning_fee_enabled}
+                onChange={e => upd('cleaning_fee_enabled', e.target.checked)}
+                className="mt-0.5 w-4 h-4 accent-[#E50914] flex-shrink-0 cursor-pointer"
+              />
+              <label htmlFor="cleaning_fee_enabled_edit" className="cursor-pointer">
+                <p className="text-sm font-medium text-white">Cobrar taxa de limpeza</p>
+                <p className="text-xs text-[#999] mt-0.5">Valor fixo cobrado uma vez, independente do número de diárias</p>
+              </label>
+            </div>
+            {form.cleaning_fee_enabled && (
+              <Input
+                label="Taxa de limpeza (R$)"
+                type="number"
+                min="1"
+                step="0.01"
+                value={form.cleaning_fee}
+                onChange={e => upd('cleaning_fee', e.target.value)}
+                placeholder="0,00"
+                hint="Cobrado uma vez por reserva"
+              />
+            )}
+
+            <div className="border-t border-[#2A2A2A] pt-4">
+              <p className="text-xs text-[#999] mb-3">Preços por período — defina valores diferentes para fins de semana, feriados, alta temporada, etc.</p>
+            </div>
+
+            {/* Quick date-range period */}
+            <div className="border border-[#2A2A2A] rounded-xl overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setShowCalPicker(v => !v)}
+                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-[#2A2A2A] transition-colors text-left"
+              >
+                <Calendar size={16} className="text-[#F5A623] flex-shrink-0" />
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-white">Adicionar preço por período de datas</p>
+                  <p className="text-xs text-[#999]">Defina um preço especial para um intervalo de datas</p>
+                </div>
+                <Plus size={14} className={`text-[#888] transition-transform ${showCalPicker ? 'rotate-45' : ''}`} />
+              </button>
+              {showCalPicker && (
+                <div className="border-t border-[#2A2A2A] p-4 space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs text-[#999] block mb-1">Data início</label>
+                      <input
+                        type="date"
+                        value={calFrom}
+                        onChange={e => setCalFrom(e.target.value)}
+                        className="w-full bg-[#2A2A2A] border border-[#333] rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-[#555]"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-[#999] block mb-1">Data fim</label>
+                      <input
+                        type="date"
+                        value={calTo}
+                        min={calFrom}
+                        onChange={e => setCalTo(e.target.value)}
+                        className="w-full bg-[#2A2A2A] border border-[#333] rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-[#555]"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex items-end gap-3">
+                    <div className="flex-1">
+                      <label className="text-xs text-[#999] block mb-1">Preço por noite (R$)</label>
+                      <input
+                        type="number"
+                        min="1"
+                        step="0.01"
+                        value={calPrice}
+                        onChange={e => setCalPrice(e.target.value)}
+                        placeholder="0,00"
+                        className="w-full bg-[#2A2A2A] border border-[#333] rounded-lg px-3 py-2 text-sm text-white placeholder-[#555] outline-none focus:border-[#555]"
+                      />
+                    </div>
+                    <Button type="button" onClick={addCalendarPeriod} disabled={!calFrom || !calTo || !calPrice}>
+                      <Check size={14} /> Adicionar
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
 
             {periods.length === 0 && (
@@ -865,28 +876,26 @@ export function EditProperty() {
                         />
                       </div>
                       {needsDates && (
-                        <>
-                          <div className="col-span-2 sm:col-span-1 grid grid-cols-2 gap-2">
-                            <div>
-                              <label className="text-xs text-[#999] block mb-1">Início</label>
-                              <input
-                                type="date"
-                                value={period.start_date}
-                                onChange={e => updatePeriod(period.id, { start_date: e.target.value })}
-                                className="w-full bg-[#2A2A2A] border border-[#333] rounded-lg px-2 py-2 text-xs text-white outline-none focus:border-[#555]"
-                              />
-                            </div>
-                            <div>
-                              <label className="text-xs text-[#999] block mb-1">Fim</label>
-                              <input
-                                type="date"
-                                value={period.end_date}
-                                onChange={e => updatePeriod(period.id, { end_date: e.target.value })}
-                                className="w-full bg-[#2A2A2A] border border-[#333] rounded-lg px-2 py-2 text-xs text-white outline-none focus:border-[#555]"
-                              />
-                            </div>
+                        <div className="col-span-2 sm:col-span-1 grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="text-xs text-[#999] block mb-1">Início</label>
+                            <input
+                              type="date"
+                              value={period.start_date}
+                              onChange={e => updatePeriod(period.id, { start_date: e.target.value })}
+                              className="w-full bg-[#2A2A2A] border border-[#333] rounded-lg px-2 py-2 text-xs text-white outline-none focus:border-[#555]"
+                            />
                           </div>
-                        </>
+                          <div>
+                            <label className="text-xs text-[#999] block mb-1">Fim</label>
+                            <input
+                              type="date"
+                              value={period.end_date}
+                              onChange={e => updatePeriod(period.id, { end_date: e.target.value })}
+                              className="w-full bg-[#2A2A2A] border border-[#333] rounded-lg px-2 py-2 text-xs text-white outline-none focus:border-[#555]"
+                            />
+                          </div>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -1031,188 +1040,164 @@ export function EditProperty() {
   )
 }
 
-// ── RoomCard ──────────────────────────────────────────────────
+// ── PhotoSection ──────────────────────────────────────────────
 
-interface RoomCardProps {
-  room: RoomDraft
-  index: number
-  onNameChange: (v: string) => void
-  onDescChange: (v: string) => void
-  onRemoveRoom: () => void
-  onAddPhotoUrl: (url: string, caption: string) => void
-  onUploadFiles: (files: File[]) => void
-  onRemovePhoto: (photoId: string) => void
-  coverPhotoUrl?: string | null
-  onSetCover?: (url: string) => void
+interface PhotoSectionProps {
+  photos: PhotoDraft[]
+  dragIdx: React.MutableRefObject<number | null>
+  dragOverIdx: number | null
+  setDragOverIdx: (i: number | null) => void
+  onUpload: (files: File[]) => void
+  onAddUrl: (url: string) => void
+  onRemove: (id: string) => void
+  onMakeCover: (id: string) => void
+  onReorder: (from: number, to: number) => void
 }
 
-function RoomCard({
-  room, index, onNameChange, onDescChange, onRemoveRoom,
-  onAddPhotoUrl, onUploadFiles, onRemovePhoto, coverPhotoUrl, onSetCover,
-}: RoomCardProps) {
-  const [mode, setMode] = useState<'url' | 'upload'>('upload')
-  const [photoUrl, setPhotoUrl] = useState('')
-  const [caption, setCaption] = useState('')
-  const [dragging, setDragging] = useState(false)
+function PhotoSection({
+  photos, dragIdx, dragOverIdx, setDragOverIdx,
+  onUpload, onAddUrl, onRemove, onMakeCover, onReorder,
+}: PhotoSectionProps) {
+  const [mode, setMode] = useState<'upload' | 'url'>('upload')
+  const [urlInput, setUrlInput] = useState('')
+  const [dropping, setDropping] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
-
-  function handleAddUrl() {
-    const url = photoUrl.trim()
-    if (!url) return
-    onAddPhotoUrl(url, caption.trim())
-    setPhotoUrl('')
-    setCaption('')
-  }
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? [])
-    if (files.length > 0) { onUploadFiles(files); e.target.value = '' }
+    if (files.length > 0) { onUpload(files); e.target.value = '' }
   }
 
   function handleDrop(e: React.DragEvent) {
-    e.preventDefault()
-    setDragging(false)
+    e.preventDefault(); setDropping(false)
     const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'))
-    if (files.length > 0) onUploadFiles(files)
+    if (files.length > 0) onUpload(files)
   }
 
-  const canAddMore = room.photos.length < MAX_PHOTOS_PER_ROOM
-
   return (
-    <div className="border border-[#2A2A2A] rounded-xl overflow-hidden">
-      <div className="bg-[#252525] px-4 py-3 flex items-center gap-3">
-        <span className="text-xs font-bold text-[#888] w-5 text-center shrink-0">{index + 1}</span>
-        <input
-          value={room.name}
-          onChange={e => onNameChange(e.target.value)}
-          placeholder="Nome do cômodo (ex: Sala de Estar)"
-          className="flex-1 bg-transparent text-sm text-white placeholder-[#555] outline-none"
-        />
-        <span className="text-xs text-[#444] shrink-0">{room.photos.length}/{MAX_PHOTOS_PER_ROOM}</span>
-        <button type="button" onClick={onRemoveRoom} className="text-[#888] hover:text-[#E50914] transition-colors shrink-0">
-          <Trash2 size={15} />
-        </button>
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="font-display text-lg font-bold text-white">Fotos do imóvel</h2>
+          <p className="text-xs text-[#999] mt-0.5">Arraste para reordenar · A primeira foto será a capa</p>
+        </div>
+        <span className="text-xs text-[#888]">{photos.filter(p => !p.uploading).length}/{MAX_PHOTOS}</span>
       </div>
 
-      <div className="p-4 space-y-3">
-        <input
-          value={room.description}
-          onChange={e => onDescChange(e.target.value)}
-          placeholder="Descrição opcional"
-          className="w-full bg-[#1A1A1A] border border-[#2A2A2A] rounded-lg px-3 py-2 text-xs text-[#B3B3B3] placeholder-[#444] outline-none focus:border-[#444] transition-colors"
-        />
-
-        {room.photos.length > 0 && (
-          <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
-            {room.photos.map(photo => (
-              <div key={photo.id} className="relative group aspect-square rounded-lg overflow-hidden bg-[#2A2A2A]">
-                {photo.uploading ? (
-                  <div className="w-full h-full flex items-center justify-center">
-                    <div className="w-5 h-5 border-2 border-[#E50914] border-t-transparent rounded-full animate-spin" />
-                  </div>
-                ) : (
-                  <img src={photo.url} alt="" className="w-full h-full object-cover" onError={e => { (e.target as HTMLImageElement).style.opacity = '0.3' }} />
-                )}
-                {photo.url === coverPhotoUrl && (
-                  <div className="absolute top-1 left-1 bg-[#F5A623] text-black text-[8px] font-bold px-1 py-0.5 rounded">CAPA</div>
-                )}
-                {photo.caption && (
-                  <div className="absolute bottom-0 inset-x-0 bg-black/70 px-1.5 py-0.5">
-                    <p className="text-[9px] text-white truncate">{photo.caption}</p>
-                  </div>
-                )}
-                {!photo.uploading && onSetCover && (
-                  <button
-                    type="button"
-                    onClick={() => onSetCover(photo.url)}
-                    title="Definir como foto de capa"
-                    className={`absolute bottom-1 left-1 w-5 h-5 bg-black/70 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity ${photo.url === coverPhotoUrl ? 'text-[#F5A623]' : 'text-white'}`}
-                  >
-                    <Star size={9} className={photo.url === coverPhotoUrl ? 'fill-[#F5A623]' : ''} />
-                  </button>
-                )}
+      {photos.length > 0 && (
+        <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+          {photos.map((photo, idx) => (
+            <div
+              key={photo.id}
+              draggable={!photo.uploading}
+              onDragStart={() => { dragIdx.current = idx }}
+              onDragOver={e => { e.preventDefault(); setDragOverIdx(idx) }}
+              onDragLeave={() => setDragOverIdx(null)}
+              onDrop={e => {
+                e.preventDefault(); setDragOverIdx(null)
+                if (dragIdx.current !== null) onReorder(dragIdx.current, idx)
+                dragIdx.current = null
+              }}
+              onDragEnd={() => { dragIdx.current = null; setDragOverIdx(null) }}
+              className={`relative group aspect-square rounded-lg overflow-hidden bg-[#2A2A2A] cursor-grab transition-all ${dragOverIdx === idx ? 'ring-2 ring-[#E50914] scale-105' : ''}`}
+            >
+              {photo.uploading ? (
+                <div className="w-full h-full flex items-center justify-center">
+                  <div className="w-5 h-5 border-2 border-[#E50914] border-t-transparent rounded-full animate-spin" />
+                </div>
+              ) : (
+                <img src={photo.url} alt="" className="w-full h-full object-cover" onError={e => { (e.target as HTMLImageElement).style.opacity = '0.3' }} />
+              )}
+              {idx === 0 && !photo.uploading && (
+                <div className="absolute top-1 left-1 bg-[#F5A623] text-black text-[8px] font-bold px-1 py-0.5 rounded leading-tight">CAPA</div>
+              )}
+              {!photo.uploading && idx !== 0 && (
                 <button
                   type="button"
-                  onClick={() => onRemovePhoto(photo.id)}
+                  onClick={() => onMakeCover(photo.id)}
+                  title="Definir como capa"
+                  className="absolute bottom-1 left-1 w-5 h-5 bg-black/70 rounded-full flex items-center justify-center text-[#999] opacity-0 group-hover:opacity-100 transition-opacity hover:text-[#F5A623]"
+                >
+                  <Star size={9} />
+                </button>
+              )}
+              {!photo.uploading && (
+                <button
+                  type="button"
+                  onClick={() => onRemove(photo.id)}
                   className="absolute top-1 right-1 w-5 h-5 bg-black/70 rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity"
                 >
                   <X size={10} />
                 </button>
+              )}
+              <div className="absolute bottom-1 right-1 opacity-0 group-hover:opacity-60 transition-opacity pointer-events-none">
+                <GripVertical size={12} className="text-white" />
               </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {photos.length === 0 && (
+        <div className="border-2 border-dashed border-[#333] rounded-xl p-8 text-center">
+          <Image size={32} className="mx-auto mb-2 text-[#444]" />
+          <p className="text-sm text-[#999]">Nenhuma foto adicionada</p>
+          <p className="text-xs text-[#444] mt-1">Adicione fotos do imóvel abaixo</p>
+        </div>
+      )}
+
+      {photos.length < MAX_PHOTOS && (
+        <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-lg p-3 space-y-2">
+          <div className="flex gap-1">
+            {(['upload', 'url'] as const).map(m => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => setMode(m)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${mode === m ? 'bg-[#333] text-white' : 'text-[#999] hover:text-[#B3B3B3]'}`}
+              >
+                {m === 'upload' ? <Upload size={11} /> : <Link size={11} />}
+                {m === 'upload' ? 'Upload' : 'URL'}
+              </button>
             ))}
           </div>
-        )}
-
-        {canAddMore && (
-          <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-lg p-3 space-y-2">
-            <div className="flex gap-1">
+          {mode === 'url' ? (
+            <div className="flex gap-2">
+              <input
+                type="url"
+                value={urlInput}
+                onChange={e => setUrlInput(e.target.value)}
+                placeholder="https://..."
+                className="flex-1 bg-[#0A0A0A] border border-[#333] rounded-lg px-3 py-2 text-xs text-white placeholder-[#555] outline-none focus:border-[#444] transition-colors"
+                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); onAddUrl(urlInput); setUrlInput('') } }}
+              />
               <button
                 type="button"
-                onClick={() => setMode('upload')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${mode === 'upload' ? 'bg-[#333] text-white' : 'text-[#999] hover:text-[#B3B3B3]'}`}
+                onClick={() => { onAddUrl(urlInput); setUrlInput('') }}
+                disabled={!urlInput.trim()}
+                className="shrink-0 flex items-center gap-1 px-3 py-2 bg-[#333] hover:bg-[#444] disabled:opacity-40 text-white text-xs rounded-lg transition-colors"
               >
-                <Upload size={11} />
-                Upload
-              </button>
-              <button
-                type="button"
-                onClick={() => setMode('url')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${mode === 'url' ? 'bg-[#333] text-white' : 'text-[#999] hover:text-[#B3B3B3]'}`}
-              >
-                <Link size={11} />
-                URL
+                <Plus size={13} /> Adicionar
               </button>
             </div>
-
-            {mode === 'url' ? (
-              <>
-                <input
-                  value={caption}
-                  onChange={e => setCaption(e.target.value)}
-                  placeholder="Legenda opcional"
-                  className="w-full bg-[#0A0A0A] border border-[#333] rounded-lg px-3 py-2 text-xs text-white placeholder-[#555] outline-none focus:border-[#444] transition-colors"
-                />
-                <div className="flex gap-2">
-                  <input
-                    type="url"
-                    value={photoUrl}
-                    onChange={e => setPhotoUrl(e.target.value)}
-                    placeholder="https://..."
-                    className="flex-1 bg-[#0A0A0A] border border-[#333] rounded-lg px-3 py-2 text-xs text-white placeholder-[#555] outline-none focus:border-[#444] transition-colors"
-                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddUrl() } }}
-                  />
-                  <button
-                    type="button"
-                    onClick={handleAddUrl}
-                    disabled={!photoUrl.trim()}
-                    className="shrink-0 flex items-center gap-1 px-3 py-2 bg-[#333] hover:bg-[#444] disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs rounded-lg transition-colors"
-                  >
-                    <Plus size={13} />
-                    Adicionar
-                  </button>
-                </div>
-              </>
-            ) : (
-              <>
-                <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={handleFileChange} />
-                <div
-                  onDragOver={e => { e.preventDefault(); setDragging(true) }}
-                  onDragLeave={() => setDragging(false)}
-                  onDrop={handleDrop}
-                  onClick={() => fileRef.current?.click()}
-                  className={`w-full flex flex-col items-center justify-center gap-1.5 px-3 py-5 border-2 border-dashed rounded-lg cursor-pointer transition-all ${
-                    dragging ? 'border-[#E50914] bg-[#E50914]/10 text-[#E50914]' : 'border-[#333] hover:border-[#555] text-[#999] hover:text-[#B3B3B3]'
-                  }`}
-                >
-                  <Upload size={18} />
-                  <span className="text-xs">Arraste fotos aqui ou clique para selecionar</span>
-                  <span className="text-xs text-[#444]">Múltiplos arquivos · JPG, PNG, WebP · máx. 10 MB cada</span>
-                </div>
-              </>
-            )}
-          </div>
-        )}
-      </div>
+          ) : (
+            <>
+              <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={handleFileChange} />
+              <div
+                onDragOver={e => { e.preventDefault(); setDropping(true) }}
+                onDragLeave={() => setDropping(false)}
+                onDrop={handleDrop}
+                onClick={() => fileRef.current?.click()}
+                className={`w-full flex flex-col items-center justify-center gap-1.5 px-3 py-5 border-2 border-dashed rounded-lg cursor-pointer transition-all ${dropping ? 'border-[#E50914] bg-[#E50914]/10 text-[#E50914]' : 'border-[#333] hover:border-[#555] text-[#999] hover:text-[#B3B3B3]'}`}
+              >
+                <Upload size={18} />
+                <span className="text-xs">Arraste fotos aqui ou clique para selecionar</span>
+                <span className="text-xs text-[#444]">Múltiplos arquivos · JPG, PNG, WebP · máx. 10 MB cada</span>
+              </div>
+            </>
+          )}
+        </div>
+      )}
     </div>
   )
 }
