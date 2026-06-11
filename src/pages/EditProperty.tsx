@@ -50,7 +50,6 @@ export function EditProperty() {
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null)
   const dragIdx = useRef<number | null>(null)
   const [periods, setPeriods] = useState<PeriodDraft[]>([])
-  const [showCalPicker, setShowCalPicker] = useState(false)
   const [calFrom, setCalFrom] = useState('')
   const [calTo, setCalTo] = useState('')
   const [calPrice, setCalPrice] = useState('')
@@ -340,7 +339,7 @@ export function EditProperty() {
       end_date: calTo,
       priority: String(p.length),
     }])
-    setCalFrom(''); setCalTo(''); setCalPrice(''); setShowCalPicker(false)
+    setCalFrom(''); setCalTo(''); setCalPrice('')
   }
 
   function addPeriod() {
@@ -749,62 +748,50 @@ export function EditProperty() {
               <p className="text-xs text-[#999] mb-3">Preços por período — defina valores diferentes para fins de semana, feriados, alta temporada, etc.</p>
             </div>
 
-            {/* Quick date-range period */}
-            <div className="border border-[#2A2A2A] rounded-xl overflow-hidden">
-              <button
-                type="button"
-                onClick={() => setShowCalPicker(v => !v)}
-                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-[#2A2A2A] transition-colors text-left"
-              >
-                <Calendar size={16} className="text-[#F5A623] flex-shrink-0" />
+            {/* Quick date-range period — always open */}
+            <div className="border border-[#2A2A2A] rounded-xl p-4 space-y-3">
+              <div className="flex items-center gap-2 mb-1">
+                <Calendar size={15} className="text-[#F5A623]" />
+                <p className="text-sm font-semibold text-white">Adicionar preço por período de datas</p>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-[#999] block mb-1">Data início</label>
+                  <input
+                    type="date"
+                    value={calFrom}
+                    onChange={e => setCalFrom(e.target.value)}
+                    className="w-full bg-[#2A2A2A] border border-[#333] rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-[#555]"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-[#999] block mb-1">Data fim</label>
+                  <input
+                    type="date"
+                    value={calTo}
+                    min={calFrom}
+                    onChange={e => setCalTo(e.target.value)}
+                    className="w-full bg-[#2A2A2A] border border-[#333] rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-[#555]"
+                  />
+                </div>
+              </div>
+              <div className="flex items-end gap-3">
                 <div className="flex-1">
-                  <p className="text-sm font-semibold text-white">Adicionar preço por período de datas</p>
-                  <p className="text-xs text-[#999]">Defina um preço especial para um intervalo de datas</p>
+                  <label className="text-xs text-[#999] block mb-1">Preço por noite (R$)</label>
+                  <input
+                    type="number"
+                    min="1"
+                    step="0.01"
+                    value={calPrice}
+                    onChange={e => setCalPrice(e.target.value)}
+                    placeholder="0,00"
+                    className="w-full bg-[#2A2A2A] border border-[#333] rounded-lg px-3 py-2 text-sm text-white placeholder-[#555] outline-none focus:border-[#555]"
+                  />
                 </div>
-                <Plus size={14} className={`text-[#888] transition-transform ${showCalPicker ? 'rotate-45' : ''}`} />
-              </button>
-              {showCalPicker && (
-                <div className="border-t border-[#2A2A2A] p-4 space-y-3">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-xs text-[#999] block mb-1">Data início</label>
-                      <input
-                        type="date"
-                        value={calFrom}
-                        onChange={e => setCalFrom(e.target.value)}
-                        className="w-full bg-[#2A2A2A] border border-[#333] rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-[#555]"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs text-[#999] block mb-1">Data fim</label>
-                      <input
-                        type="date"
-                        value={calTo}
-                        min={calFrom}
-                        onChange={e => setCalTo(e.target.value)}
-                        className="w-full bg-[#2A2A2A] border border-[#333] rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-[#555]"
-                      />
-                    </div>
-                  </div>
-                  <div className="flex items-end gap-3">
-                    <div className="flex-1">
-                      <label className="text-xs text-[#999] block mb-1">Preço por noite (R$)</label>
-                      <input
-                        type="number"
-                        min="1"
-                        step="0.01"
-                        value={calPrice}
-                        onChange={e => setCalPrice(e.target.value)}
-                        placeholder="0,00"
-                        className="w-full bg-[#2A2A2A] border border-[#333] rounded-lg px-3 py-2 text-sm text-white placeholder-[#555] outline-none focus:border-[#555]"
-                      />
-                    </div>
-                    <Button type="button" onClick={addCalendarPeriod} disabled={!calFrom || !calTo || !calPrice}>
-                      <Check size={14} /> Adicionar
-                    </Button>
-                  </div>
-                </div>
-              )}
+                <Button type="button" onClick={addCalendarPeriod} disabled={!calFrom || !calTo || !calPrice}>
+                  <Check size={14} /> Adicionar
+                </Button>
+              </div>
             </div>
 
             {periods.length === 0 && (
@@ -851,7 +838,7 @@ export function EditProperty() {
                       </button>
                     </div>
 
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pl-7">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pl-7">
                       <div>
                         <label className="text-xs text-[#999] block mb-1">Preço/noite (R$)</label>
                         <input
@@ -864,19 +851,8 @@ export function EditProperty() {
                           className="w-full bg-[#2A2A2A] border border-[#333] rounded-lg px-3 py-2 text-sm text-white placeholder-[#555] outline-none focus:border-[#555]"
                         />
                       </div>
-                      <div>
-                        <label className="text-xs text-[#999] block mb-1">Prioridade</label>
-                        <input
-                          type="number"
-                          min="0"
-                          value={period.priority}
-                          onChange={e => updatePeriod(period.id, { priority: e.target.value })}
-                          placeholder="0"
-                          className="w-full bg-[#2A2A2A] border border-[#333] rounded-lg px-3 py-2 text-sm text-white placeholder-[#555] outline-none focus:border-[#555]"
-                        />
-                      </div>
                       {needsDates && (
-                        <div className="col-span-2 sm:col-span-1 grid grid-cols-2 gap-2">
+                        <div className="grid grid-cols-2 gap-2">
                           <div>
                             <label className="text-xs text-[#999] block mb-1">Início</label>
                             <input
