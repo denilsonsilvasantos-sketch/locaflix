@@ -4,10 +4,11 @@ import {
   Calendar, Heart, Bell, ShieldCheck, User,
   AlertTriangle, CheckCircle, XCircle, Star,
   BedDouble, MapPin, CreditCard, LogOut, Clock,
-  RefreshCw, Layers, ChevronDown, ChevronUp, Home,
+  RefreshCw, Layers, ChevronDown, ChevronUp, Home, Key, CalendarPlus,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import type { Booking, Favorite, Installment, Notification, KYCStatus, Property, InstallmentPaymentResponse } from '../types'
+import { Modal } from '../components/ui/Modal'
 import { useAuth } from '../hooks/useAuth'
 import { useNotifications } from '../hooks/useNotifications'
 import { useToast } from '../hooks/useToast'
@@ -605,6 +606,7 @@ function BookingCard({
   const [paymentData, setPaymentData] = useState<InstallmentPaymentResponse | null>(null)
   const [paymentModalOpen, setPaymentModalOpen] = useState(false)
   const [checkingPayment, setCheckingPayment] = useState(false)
+  const [extModalOpen, setExtModalOpen] = useState(false)
   const { user, profile } = useAuth()
 
   const insts = booking.installments ?? []
@@ -617,6 +619,15 @@ function BookingCard({
   const updatedValue = isOverdue && next
     ? calcularValorAtualizado(next.value, Math.abs(daysLeft ?? 0))
     : 0
+
+  const checkinDate = new Date(booking.check_in + 'T00:00:00')
+  const checkoutDate = new Date(booking.check_out + 'T00:00:00')
+  const hoursUntilCheckin = (checkinDate.getTime() - Date.now()) / 3600000
+  const showCheckinInstructions =
+    hoursUntilCheckin <= 48 &&
+    checkoutDate.getTime() > Date.now() &&
+    (booking.status === 'PAGO' || booking.status === 'PARCIAL') &&
+    !!booking.property?.checkin_instructions
 
   async function fetchOverdueQR() {
     if (!next?.asaas_payment_id) return
@@ -813,6 +824,21 @@ function BookingCard({
         </div>
       </div>
 
+      {/* Check-in instructions — shown 48h before check-in until checkout */}
+      {showCheckinInstructions && (
+        <div className="mt-3 pt-3 border-t border-[#46D369]/30">
+          <div className="bg-[#46D369]/10 border border-[#46D369]/30 rounded-xl p-3 space-y-1.5">
+            <div className="flex items-center gap-2">
+              <Key size={13} className="text-[#46D369] flex-shrink-0" />
+              <p className="text-xs font-semibold text-[#46D369]">Instruções de check-in</p>
+            </div>
+            <p className="text-xs text-[#B3B3B3] leading-relaxed whitespace-pre-line pl-5">
+              {booking.property!.checkin_instructions}
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Overdue installment panel */}
       {isOverdue && next?.asaas_payment_id && (
         <div className="mt-3 pt-3 border-t border-[#E50914]/30">
@@ -842,6 +868,20 @@ function BookingCard({
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Extension request — only for active paid bookings */}
+      {(booking.status === 'PAGO' || booking.status === 'PARCIAL') && s.label !== 'Reserva utilizada' && s.label !== 'Cancelada' && (
+        <div className="mt-3 pt-3 border-t border-[#222] flex items-center justify-between">
+          <button
+            onClick={() => setExtModalOpen(true)}
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#B3B3B3] hover:text-white transition-colors"
+          >
+            <CalendarPlus size={13} />
+            Prorrogar estadia
+          </button>
+          <span className="text-xs text-[#888]">Solicitar mais dias</span>
         </div>
       )}
 
@@ -884,7 +924,100 @@ function BookingCard({
         onCheckPayment={handleCheckInstallmentPaid}
         loading={checkingPayment}
       />
+
+      {/* Extension Modal */}
+      {extModalOpen && (
+        <ExtensionModal
+          open={extModalOpen}
+          booking={booking}
+          onClose={() => setExtModalOpen(false)}
+          onSuccess={() => setExtModalOpen(false)}
+        />
+      )}
     </Card>
+  )
+}
+
+function ExtensionModal({ open, booking, onClose, onSuccess }: {
+  open: boolean
+  booking: Booking
+  onClose: () => void
+  onSuccess: () => void
+}) {
+  const { user } = useAuth()
+  const { toast } = useToast()
+  const minDate = booking.check_out
+  const [newCheckout, setNewCheckout] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+
+  const extraNights = newCheckout
+    ? Math.round((new Date(newCheckout + 'T00:00:00').getTime() - new Date(minDate + 'T00:00:00').getTime()) / 86400000)
+    : 0
+  const pricePerNight = booking.property?.price_per_night ?? 0
+  const extraCost = extraNights * pricePerNight
+
+  async function handleSubmit() {
+    if (!user || !newCheckout || extraNights <= 0) return
+    setSubmitting(true)
+    const { error } = await supabase.from('extension_requests').insert({
+      booking_id: booking.id,
+      guest_id: booking.guest_id,
+      owner_id: booking.owner_id,
+      current_checkout: booking.check_out,
+      new_checkout: newCheckout,
+      extra_nights: extraNights,
+      extra_cost: extraCost,
+    })
+    setSubmitting(false)
+    if (error) {
+      toast('error', 'Erro ao enviar solicitação', error.message)
+      return
+    }
+    toast('success', 'Solicitação enviada', 'O anfitrião será notificado sobre seu pedido de prorrogação.')
+    onSuccess()
+  }
+
+  return (
+    <Modal open={open} onClose={onClose} title="Prorrogar estadia" size="sm">
+      <div className="space-y-5">
+        <p className="text-sm text-[#B3B3B3]">
+          Checkout atual: <span className="text-white font-medium">{formatShortDate(booking.check_out)}</span>
+        </p>
+        <div>
+          <label className="block text-xs font-semibold text-[#B3B3B3] uppercase tracking-wide mb-2">
+            Novo checkout <span className="text-[#E50914]">*</span>
+          </label>
+          <input
+            type="date"
+            value={newCheckout}
+            min={new Date(new Date(minDate + 'T00:00:00').getTime() + 86400000).toISOString().split('T')[0]}
+            onChange={e => setNewCheckout(e.target.value)}
+            className="w-full bg-[#0A0A0A] border border-[#333] rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#E50914] transition-colors"
+          />
+        </div>
+        {extraNights > 0 && (
+          <div className="bg-[#1F1F1F] border border-[#2A2A2A] rounded-xl p-4 space-y-1">
+            <div className="flex justify-between text-sm">
+              <span className="text-[#B3B3B3]">Noites adicionais</span>
+              <span className="text-white font-medium">{extraNights}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-[#B3B3B3]">Valor estimado</span>
+              <span className="text-[#F5A623] font-bold">{formatCurrency(extraCost)}</span>
+            </div>
+            <p className="text-xs text-[#888] pt-1">
+              O pagamento será combinado com o anfitrião após aprovação.
+            </p>
+          </div>
+        )}
+        <div className="flex gap-3">
+          <Button variant="secondary" fullWidth onClick={onClose} disabled={submitting}>Cancelar</Button>
+          <Button fullWidth onClick={handleSubmit} loading={submitting} disabled={extraNights <= 0}>
+            Enviar pedido
+          </Button>
+        </div>
+      </div>
+    </Modal>
   )
 }
 

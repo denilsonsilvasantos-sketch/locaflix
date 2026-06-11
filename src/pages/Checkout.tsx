@@ -372,6 +372,7 @@ export function Checkout() {
           userAgent: navigator.userAgent,
           paymentInfo: { method: paymentMethod as 'PIX' | 'BOLETO', installmentCount, total },
           policyRules: cancelPolicyRules.length > 0 ? cancelPolicyRules : undefined,
+          houseRules: property.house_rules ?? null,
         })
         await supabase.from('contracts').insert({
           booking_id: booking.id,
@@ -513,6 +514,7 @@ export function Checkout() {
           userAgent: navigator.userAgent,
           paymentInfo: { method: 'CARTAO', installmentCount: cardInstallments, cardFeePercent: feePercent, cardFeeValue: feeValue, total: cardTotal },
           policyRules: cancelPolicyRules.length > 0 ? cancelPolicyRules : undefined,
+          houseRules: property.house_rules ?? null,
         })
         await supabase.from('contracts').insert({
           booking_id: booking.id,
@@ -873,6 +875,7 @@ export function Checkout() {
                         ipAddress,
                         userAgent: navigator.userAgent,
                         policyRules: cancelPolicyRules.length > 0 ? cancelPolicyRules : undefined,
+                        houseRules: property.house_rules ?? null,
                       })}
                     </div>
                     <label className="flex items-start gap-3 cursor-pointer">

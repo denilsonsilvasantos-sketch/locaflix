@@ -81,6 +81,8 @@ export function NewProperty() {
     bathrooms: '1',
     max_guests: '4',
     cancellation_policy: 'MODERADO' as CancellationPolicy,
+    house_rules: '',
+    checkin_instructions: '',
   })
 
   useEffect(() => {
@@ -304,6 +306,8 @@ export function NewProperty() {
       photos: [] as string[],
       home_tags: Array.from(selectedHomeTags),
       cancellation_policy: form.cancellation_policy,
+      house_rules: form.house_rules.trim() || null,
+      checkin_instructions: form.checkin_instructions.trim() || null,
     }).select('id').single()
 
     if (propErr || !prop) {
@@ -460,6 +464,20 @@ export function NewProperty() {
                 options={CANCELLATION_POLICIES.map(p => ({ value: p.value, label: p.label }))}
               />
             </div>
+            <Textarea
+              label="Regras da casa"
+              value={form.house_rules}
+              onChange={e => upd('house_rules', e.target.value)}
+              placeholder="Ex: Não é permitido fumar, sem animais de estimação, silêncio após 22h, não são permitidas festas ou eventos..."
+              hint="Serão exibidas no anúncio e incluídas no contrato"
+            />
+            <Textarea
+              label="Instruções de check-in"
+              value={form.checkin_instructions}
+              onChange={e => upd('checkin_instructions', e.target.value)}
+              placeholder="Ex: A chave fica na caixa de senhas no portão. Código: 1234. Wi-Fi: NomeDaRede / Senha: ..."
+              hint="O hóspede verá estas instruções 48h antes do check-in"
+            />
           </section>
 
           {/* Localização */}

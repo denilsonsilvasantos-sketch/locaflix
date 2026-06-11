@@ -85,6 +85,8 @@ export interface Property {
   photos: string[]
   home_tags?: string[] | null
   cancellation_policy: CancellationPolicy
+  house_rules: string | null
+  checkin_instructions: string | null
   rating: number | null
   reviews_count: number
   ical_airbnb_url?: string | null
@@ -157,6 +159,7 @@ export interface Booking {
   owner?: UserProfile
   installments?: Installment[]
   contract?: Contract
+  checkin_instructions?: string | null
 }
 
 // ---- Installment ----
@@ -321,6 +324,26 @@ export interface PropertyPricingRule {
   end_date: string | null
   created_at: string
   updated_at: string
+}
+
+// ---- Extension Request ----
+export type ExtensionRequestStatus = 'PENDING' | 'ACCEPTED' | 'REJECTED'
+
+export interface ExtensionRequest {
+  id: string
+  booking_id: string
+  guest_id: string
+  owner_id: string
+  current_checkout: string
+  new_checkout: string
+  extra_nights: number
+  extra_cost: number
+  status: ExtensionRequestStatus
+  reject_reason: string | null
+  created_at: string
+  updated_at: string
+  booking?: Booking
+  guest?: Pick<UserProfile, 'id' | 'name' | 'avatar_url'>
 }
 
 // ---- Availability Block ----

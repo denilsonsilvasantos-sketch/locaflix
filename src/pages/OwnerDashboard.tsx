@@ -4,11 +4,11 @@ import {
   Home, Calendar, DollarSign, Star, Plus, Eye, Pencil,
   ToggleLeft, ToggleRight, ShieldCheck, Check, X, AlertCircle,
   ChevronUp, Trash2, LogOut, MessageSquare, TrendingUp, Info,
-  CalendarRange, RefreshCw, Link2, ChevronLeft, ChevronRight, Lock, Unlock, Copy,
+  CalendarRange, RefreshCw, Link2, ChevronLeft, ChevronRight, Lock, Unlock, Copy, CalendarPlus,
 } from 'lucide-react'
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
+import { BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 import { supabase } from '../lib/supabase'
-import type { Property, Booking, Installment, Review, KinshipType, OwnershipType, PricePeriod, PeriodType, CalendarBlock } from '../types'
+import type { Property, Booking, Installment, Review, KinshipType, OwnershipType, PricePeriod, PeriodType, CalendarBlock, ExtensionRequest } from '../types'
 import { useAuth } from '../hooks/useAuth'
 import { useToast } from '../hooks/useToast'
 import { useUnreadMessages } from '../hooks/useUnreadMessages'
@@ -62,6 +62,7 @@ export function OwnerDashboard() {
   const [properties, setProperties] = useState<Property[]>([])
   const [bookings, setBookings] = useState<Booking[]>([])
   const [reviews, setReviews] = useState<Review[]>([])
+  const [extensionRequests, setExtensionRequests] = useState<ExtensionRequest[]>([])
   const [loading, setLoading] = useState(true)
   const [submittingKyc, setSubmittingKyc] = useState(false)
 
@@ -169,7 +170,31 @@ export function OwnerDashboard() {
       }
     }
 
+    // Load pending extension requests
+    const { data: extData } = await supabase
+      .from('extension_requests')
+      .select('*, booking:bookings(id,check_in,check_out,booking_number,property:properties(name)), guest:users!guest_id(id,name,avatar_url)')
+      .eq('owner_id', user!.id)
+      .eq('status', 'PENDING')
+      .order('created_at', { ascending: false })
+    setExtensionRequests((extData ?? []) as ExtensionRequest[])
+
     setLoading(false)
+  }
+
+  async function handleExtensionAction(req: ExtensionRequest, action: 'ACCEPTED' | 'REJECTED') {
+    const { error } = await supabase
+      .from('extension_requests')
+      .update({ status: action })
+      .eq('id', req.id)
+    if (error) { toast('error', 'Erro', error.message); return }
+    if (action === 'ACCEPTED') {
+      await supabase.from('bookings').update({ check_out: req.new_checkout }).eq('id', req.booking_id)
+      toast('success', 'Prorrogação aceita', `Checkout atualizado para ${formatShortDate(req.new_checkout)}`)
+    } else {
+      toast('info', 'Prorrogação recusada')
+    }
+    setExtensionRequests(prev => prev.filter(r => r.id !== req.id))
   }
 
   async function toggleStatus(property: Property) {
@@ -306,6 +331,60 @@ export function OwnerDashboard() {
         receita: monthBks.reduce((s, b) => s + b.subtotal - b.platform_fee, 0),
       }
     })
+  }, [bookings])
+
+  const revenueChart = useMemo(() => {
+    const n = new Date()
+    return Array.from({ length: 12 }, (_, i) => {
+      const d = new Date(n.getFullYear(), n.getMonth() - (11 - i), 1)
+      const prefix = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+      const label = d.toLocaleString('pt-BR', { month: 'short', year: '2-digit' })
+      const monthBks = bookings.filter(b =>
+        ['PAGO', 'CONCLUIDA'].includes(b.status) &&
+        (b.check_in ?? '').startsWith(prefix)
+      )
+      return {
+        month: label,
+        liquido: Math.round(monthBks.reduce((s, b) => s + b.subtotal - b.platform_fee, 0)),
+        reservas: monthBks.length,
+        noites: monthBks.reduce((s, b) => s + (b.nights ?? 0), 0),
+      }
+    })
+  }, [bookings])
+
+  const revenueByProperty = useMemo(() => {
+    return properties.map(p => {
+      const propBks = bookings.filter(b => b.property_id === p.id && ['PAGO','CONCLUIDA'].includes(b.status))
+      return {
+        name: p.name.length > 20 ? p.name.slice(0, 20) + '…' : p.name,
+        liquido: Math.round(propBks.reduce((s, b) => s + b.subtotal - b.platform_fee, 0)),
+        reservas: propBks.length,
+      }
+    }).filter(p => p.reservas > 0).sort((a, b) => b.liquido - a.liquido)
+  }, [properties, bookings])
+
+  const occupancyRate = useMemo(() => {
+    const n = new Date()
+    const daysInMonth = new Date(n.getFullYear(), n.getMonth() + 1, 0).getDate()
+    const bookedNights = bookings
+      .filter(b => ['PAGO','CONCLUIDA'].includes(b.status))
+      .reduce((s, b) => {
+        const ci = new Date(b.check_in + 'T00:00:00')
+        const co = new Date(b.check_out + 'T00:00:00')
+        const monthStart = new Date(n.getFullYear(), n.getMonth(), 1)
+        const monthEnd = new Date(n.getFullYear(), n.getMonth(), daysInMonth)
+        const from = ci < monthStart ? monthStart : ci
+        const to = co > monthEnd ? monthEnd : co
+        const diff = Math.max(0, (to.getTime() - from.getTime()) / 86400000)
+        return s + diff
+      }, 0)
+    const totalCapacity = properties.length * daysInMonth
+    return totalCapacity > 0 ? Math.round((bookedNights / totalCapacity) * 100) : 0
+  }, [bookings, properties])
+
+  const avgTicket = useMemo(() => {
+    const paid = bookings.filter(b => ['PAGO','CONCLUIDA'].includes(b.status))
+    return paid.length > 0 ? paid.reduce((s, b) => s + b.total_price, 0) / paid.length : 0
   }, [bookings])
 
   return (
@@ -509,6 +588,64 @@ export function OwnerDashboard() {
               {tab === 'reservas' && (
                 <div>
                   <h2 className="font-display text-xl font-bold text-white mb-4">Reservas recebidas</h2>
+
+                  {/* Pending extension requests */}
+                  {extensionRequests.length > 0 && (
+                    <div className="mb-6">
+                      <div className="flex items-center gap-2 mb-3">
+                        <CalendarPlus size={16} className="text-[#F5A623]" />
+                        <h3 className="text-sm font-bold text-white">Pedidos de prorrogação pendentes</h3>
+                        <span className="bg-[#F5A623] text-black text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                          {extensionRequests.length}
+                        </span>
+                      </div>
+                      <div className="space-y-3">
+                        {extensionRequests.map(req => (
+                          <Card key={req.id} className="p-4 border-[#F5A623]/30 bg-[#F5A623]/5">
+                            <div className="flex items-start gap-3 flex-wrap">
+                              <div className="flex items-center gap-2 flex-1 min-w-0">
+                                <div className="w-8 h-8 rounded-full bg-[#F5A623] flex items-center justify-center text-sm font-bold text-black overflow-hidden flex-shrink-0">
+                                  {(req.guest as { avatar_url?: string | null; name?: string | null } | undefined)?.avatar_url
+                                    ? <img src={(req.guest as { avatar_url: string }).avatar_url} alt="" className="w-full h-full object-cover" />
+                                    : ((req.guest as { name?: string | null } | undefined)?.name?.[0] ?? 'H')
+                                  }
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="text-sm font-semibold text-white">
+                                    {(req.guest as { name?: string | null } | undefined)?.name ?? 'Hóspede'}
+                                  </p>
+                                  <p className="text-xs text-[#B3B3B3]">
+                                    {(req.booking as { property?: { name?: string | null } | null } | undefined)?.property?.name ?? 'Imóvel'}
+                                  </p>
+                                  <p className="text-xs text-[#999] mt-0.5">
+                                    Checkout atual: <strong className="text-white">{formatShortDate(req.current_checkout)}</strong>
+                                    {' → '}
+                                    Novo: <strong className="text-[#F5A623]">{formatShortDate(req.new_checkout)}</strong>
+                                    {' · '}+{req.extra_nights} noite{req.extra_nights !== 1 ? 's' : ''}
+                                    {' · '}{formatCurrency(req.extra_cost)}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="flex gap-2 flex-shrink-0">
+                                <button
+                                  onClick={() => handleExtensionAction(req, 'ACCEPTED')}
+                                  className="flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-lg bg-[#46D369]/10 border border-[#46D369]/30 text-[#46D369] hover:bg-[#46D369]/20 transition-colors"
+                                >
+                                  <Check size={11} /> Aceitar
+                                </button>
+                                <button
+                                  onClick={() => handleExtensionAction(req, 'REJECTED')}
+                                  className="flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-lg bg-[#E50914]/10 border border-[#E50914]/30 text-[#E50914] hover:bg-[#E50914]/20 transition-colors"
+                                >
+                                  <X size={11} /> Recusar
+                                </button>
+                              </div>
+                            </div>
+                          </Card>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   {bookings.length === 0 ? (
                     <div className="text-center py-16 text-[#888]">
                       <Calendar size={48} className="mx-auto mb-4" />
@@ -600,27 +737,81 @@ export function OwnerDashboard() {
 
               {/* ── FINANCEIRO ─────────────────────────────────── */}
               {tab === 'financeiro' && (
-                <div>
-                  <h2 className="font-display text-xl font-bold text-white mb-4">Financeiro</h2>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-                    <StatCard
-                      label="Receita bruta"
-                      value={formatCurrency(bookings.filter(b => ['PAGO','CONCLUIDA','PARCIAL'].includes(b.status)).reduce((s, b) => s + b.subtotal, 0))}
-                      icon={<DollarSign size={18} />}
-                      accent
-                    />
-                    <StatCard
-                      label="Taxa plataforma"
-                      value={formatCurrency(bookings.reduce((s, b) => s + b.platform_fee, 0))}
-                      icon={<DollarSign size={18} />}
-                    />
-                    <StatCard
-                      label="Receita líquida"
-                      value={formatCurrency(totalRevenue)}
-                      icon={<DollarSign size={18} />}
-                      accent
-                    />
+                <div className="space-y-6">
+                  <h2 className="font-display text-xl font-bold text-white">Painel de Receita</h2>
+
+                  {/* KPIs */}
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                    <StatCard label="Receita líquida total" value={formatCurrency(totalRevenue)} icon={<DollarSign size={18} />} accent />
+                    <StatCard label="Receita do mês" value={formatCurrency(monthlyRevenue)} icon={<TrendingUp size={18} />} accent />
+                    <StatCard label="Taxa de ocupação" value={`${occupancyRate}%`} icon={<Calendar size={18} />} />
+                    <StatCard label="Ticket médio" value={formatCurrency(avgTicket)} icon={<Star size={18} />} />
                   </div>
+
+                  {/* Revenue line chart — 12 months */}
+                  <Card className="p-5">
+                    <h3 className="text-sm font-semibold text-white mb-4">Receita líquida — últimos 12 meses</h3>
+                    {revenueChart.every(r => r.liquido === 0) ? (
+                      <p className="text-sm text-[#999]">Ainda sem reservas concluídas para exibir.</p>
+                    ) : (
+                      <ResponsiveContainer width="100%" height={220}>
+                        <LineChart data={revenueChart} margin={{ top: 4, right: 8, left: -10, bottom: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#222" vertical={false} />
+                          <XAxis dataKey="month" tick={{ fill: '#666', fontSize: 10 }} axisLine={false} tickLine={false} />
+                          <YAxis tick={{ fill: '#666', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={v => `R$${(v/1000).toFixed(0)}k`} />
+                          <Tooltip
+                            contentStyle={{ background: '#1A1A1A', border: '1px solid #333', borderRadius: 8 }}
+                            labelStyle={{ color: '#B3B3B3', fontSize: 11 }}
+                            formatter={(v) => [formatCurrency(Number(v ?? 0)), 'Receita líquida']}
+                          />
+                          <Line type="monotone" dataKey="liquido" stroke="#46D369" strokeWidth={2} dot={{ r: 3, fill: '#46D369' }} activeDot={{ r: 5 }} />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    )}
+                  </Card>
+
+                  {/* Reservas per month bar chart */}
+                  <Card className="p-5">
+                    <h3 className="text-sm font-semibold text-white mb-4">Reservas concluídas — últimos 12 meses</h3>
+                    {revenueChart.every(r => r.reservas === 0) ? (
+                      <p className="text-sm text-[#999]">Ainda sem reservas concluídas.</p>
+                    ) : (
+                      <ResponsiveContainer width="100%" height={180}>
+                        <BarChart data={revenueChart} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#222" vertical={false} />
+                          <XAxis dataKey="month" tick={{ fill: '#666', fontSize: 10 }} axisLine={false} tickLine={false} />
+                          <YAxis tick={{ fill: '#666', fontSize: 10 }} axisLine={false} tickLine={false} allowDecimals={false} />
+                          <Tooltip
+                            contentStyle={{ background: '#1A1A1A', border: '1px solid #333', borderRadius: 8 }}
+                            labelStyle={{ color: '#B3B3B3', fontSize: 11 }}
+                            formatter={(v) => [Number(v ?? 0), 'Reservas']}
+                          />
+                          <Bar dataKey="reservas" fill="#E50914" radius={[4, 4, 0, 0]} maxBarSize={36} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    )}
+                  </Card>
+
+                  {/* Revenue by property */}
+                  {revenueByProperty.length > 1 && (
+                    <Card className="p-5">
+                      <h3 className="text-sm font-semibold text-white mb-4">Receita por imóvel</h3>
+                      <ResponsiveContainer width="100%" height={180}>
+                        <BarChart data={revenueByProperty} layout="vertical" margin={{ top: 0, right: 16, left: 0, bottom: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#222" horizontal={false} />
+                          <XAxis type="number" tick={{ fill: '#666', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={v => `R$${(v/1000).toFixed(0)}k`} />
+                          <YAxis type="category" dataKey="name" tick={{ fill: '#B3B3B3', fontSize: 10 }} axisLine={false} tickLine={false} width={120} />
+                          <Tooltip
+                            contentStyle={{ background: '#1A1A1A', border: '1px solid #333', borderRadius: 8 }}
+                            formatter={(v) => [formatCurrency(Number(v ?? 0)), 'Receita líquida']}
+                          />
+                          <Bar dataKey="liquido" fill="#F5A623" radius={[0, 4, 4, 0]} maxBarSize={28} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </Card>
+                  )}
+
+                  {/* Payment history table */}
                   <Card className="p-5">
                     <h3 className="text-sm font-semibold text-white mb-3">Histórico de pagamentos</h3>
                     {bookings.length === 0 ? (

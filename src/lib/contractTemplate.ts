@@ -25,10 +25,11 @@ interface ContractParams {
   userAgent: string
   paymentInfo?: PaymentInfo
   policyRules?: DbPolicyRule[]
+  houseRules?: string | null
 }
 
 export function generateContractContent(params: ContractParams): string {
-  const { booking, guest, owner, ipAddress, userAgent, paymentInfo, policyRules } = params
+  const { booking, guest, owner, ipAddress, userAgent, paymentInfo, policyRules, houseRules } = params
   const now = new Date()
   const acceptedAt = format(now, "dd 'de' MMMM 'de' yyyy 'às' HH:mm:ss", { locale: ptBR })
 
@@ -111,7 +112,13 @@ DA POLÍTICA DE CANCELAMENTO
 
 ${getCancellationPolicyText(booking.property?.cancellation_policy ?? 'MODERADO', policyRules)}
 
+${houseRules ? `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+REGRAS DA CASA
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+${houseRules}
+
+` : ''}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 DISPOSIÇÕES GERAIS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 

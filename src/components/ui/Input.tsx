@@ -117,11 +117,13 @@ Select.displayName = 'Select'
 interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
   label?: string
   error?: string
+  hint?: string
 }
 
 export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(({
   label,
   error,
+  hint,
   className,
   id,
   ...props
@@ -150,6 +152,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(({
         {...props}
       />
       {error && <p className="text-xs text-red-400">{error}</p>}
+      {hint && !error && <p className="text-xs text-[#999]">{hint}</p>}
     </div>
   )
 })

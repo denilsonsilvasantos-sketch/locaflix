@@ -641,6 +641,16 @@ export function PropertyDetails() {
               </p>
             </section>
 
+            {/* House Rules */}
+            {property.house_rules && (
+              <section>
+                <h2 className="font-display text-xl font-bold text-white mb-3">Regras da casa</h2>
+                <div className="bg-[#1F1F1F] border border-[#2A2A2A] rounded-2xl p-5">
+                  <p className="text-[#B3B3B3] leading-relaxed whitespace-pre-line text-sm">{property.house_rules}</p>
+                </div>
+              </section>
+            )}
+
             {/* Amenities */}
             <section>
               <h2 className="font-display text-xl font-bold text-white mb-4">Comodidades</h2>
