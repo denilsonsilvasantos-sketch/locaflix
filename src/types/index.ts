@@ -87,6 +87,7 @@ export interface Property {
   cancellation_policy: CancellationPolicy
   house_rules: string | null
   checkin_instructions: string | null
+  rejection_reason: string | null
   rating: number | null
   reviews_count: number
   ical_airbnb_url?: string | null

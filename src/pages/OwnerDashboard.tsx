@@ -4,7 +4,7 @@ import {
   Home, Calendar, DollarSign, Star, Plus, Eye, Pencil,
   ToggleLeft, ToggleRight, ShieldCheck, Check, X, AlertCircle,
   ChevronUp, Trash2, LogOut, MessageSquare, TrendingUp, Info,
-  CalendarRange, RefreshCw, Link2, ChevronLeft, ChevronRight, Lock, Unlock, Copy, CalendarPlus,
+  CalendarRange, RefreshCw, Link2, ChevronLeft, ChevronRight, Lock, Unlock, Copy, CalendarPlus, XCircle,
 } from 'lucide-react'
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 import { supabase } from '../lib/supabase'
@@ -474,6 +474,31 @@ export function OwnerDashboard() {
               {/* ── IMÓVEIS / DASHBOARD ────────────────────────── */}
               {tab === 'imoveis' && (
                 <>
+                  {/* Rejected properties banner */}
+                  {properties.filter(p => p.status === 'REPROVADO').map(p => (
+                    <div key={p.id} className="mb-4 bg-[#E50914]/10 border border-[#E50914]/40 rounded-2xl p-4">
+                      <div className="flex items-start gap-3">
+                        <XCircle size={18} className="text-[#E50914] flex-shrink-0 mt-0.5" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-bold text-[#E50914]">Imóvel reprovado: {p.name}</p>
+                          {p.rejection_reason ? (
+                            <p className="text-sm text-[#B3B3B3] mt-1 leading-relaxed whitespace-pre-line">
+                              {p.rejection_reason}
+                            </p>
+                          ) : (
+                            <p className="text-xs text-[#888] mt-1">Nenhum motivo informado. Entre em contato para saber mais.</p>
+                          )}
+                          <Link
+                            to={APP_ROUTES.EDIT_PROPERTY(p.id)}
+                            className="inline-flex items-center gap-1.5 mt-2 text-xs font-semibold text-[#F5A623] hover:text-[#F5A623]/80 transition-colors"
+                          >
+                            <Pencil size={11} /> Editar e reenviar para aprovação
+                          </Link>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+
                   <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
                     <div>
                       <h1 className="font-display text-2xl font-bold text-white">Portal do Anfitrião</h1>
@@ -1286,8 +1311,11 @@ function PropertyRow({ property, onToggle }: { property: Property; onToggle: (p:
             <PropertyStatusBadge status={property.status} />
             <span className="text-xs text-[#999]">{formatCurrency(property.price_per_night)}/noite</span>
           </div>
+          {property.status === 'REPROVADO' && property.rejection_reason && (
+            <p className="text-xs text-[#E50914]/80 mt-1 line-clamp-2">{property.rejection_reason}</p>
+          )}
           <Link to={APP_ROUTES.EDIT_PROPERTY(property.id)} className="inline-block mt-1 text-xs text-[#F5A623] hover:underline">
-            Configurar disponibilidade →
+            {property.status === 'REPROVADO' ? 'Corrigir e reenviar →' : 'Configurar disponibilidade →'}
           </Link>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">

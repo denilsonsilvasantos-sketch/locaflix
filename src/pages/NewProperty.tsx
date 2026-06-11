@@ -1,6 +1,6 @@
 ﻿import { useEffect, useRef, useState } from 'react'
 import { useNavigate, Link as RouterLink } from 'react-router-dom'
-import { X, Plus, Upload, Trash2, Image, Link, DollarSign, AlertTriangle, Star, GripVertical, Calendar, Check } from 'lucide-react'
+import { X, Plus, Upload, Trash2, Image, Link, DollarSign, AlertTriangle, Star, GripVertical, Calendar, Check, MapPin, RefreshCw } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { useToast } from '../hooks/useToast'
@@ -44,6 +44,7 @@ export function NewProperty() {
   const { user, profile } = useAuth()
   const { toast } = useToast()
   const [saving, setSaving] = useState(false)
+  const [geocoding, setGeocoding] = useState(false)
   const [ownerUsers, setOwnerUsers] = useState<{ id: string; name: string | null }[]>([])
   const [selectedOwnerId, setSelectedOwnerId] = useState('')
   const [photos, setPhotos] = useState<PhotoDraft[]>([])
@@ -147,6 +148,30 @@ export function NewProperty() {
         }))
       }
     } catch { /* ignore */ }
+  }
+
+  async function geocodeAddress() {
+    const parts = [form.cep, form.address, form.number, form.neighborhood, form.city, form.state, 'Brasil'].filter(Boolean)
+    if (parts.length < 2) { toast('warning', 'Endereço incompleto', 'Preencha pelo menos cidade e estado antes de buscar.'); return }
+    setGeocoding(true)
+    try {
+      const q = parts.join(', ')
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&countrycodes=br&limit=1`, {
+        headers: { 'Accept-Language': 'pt-BR', 'User-Agent': 'Locaflix/1.0' },
+      })
+      const data = await res.json()
+      if (data?.[0]?.lat) {
+        upd('latitude', parseFloat(data[0].lat).toFixed(8))
+        upd('longitude', parseFloat(data[0].lon).toFixed(8))
+        toast('success', 'Coordenadas encontradas', `${parseFloat(data[0].lat).toFixed(5)}, ${parseFloat(data[0].lon).toFixed(5)}`)
+      } else {
+        toast('warning', 'Endereço não localizado', 'Verifique o CEP, cidade e estado e tente novamente.')
+      }
+    } catch {
+      toast('error', 'Erro ao buscar coordenadas', 'Verifique sua conexão.')
+    } finally {
+      setGeocoding(false)
+    }
   }
 
   function addPhotoByUrl(url: string) {
@@ -506,7 +531,23 @@ export function NewProperty() {
                 options={BRASIL_STATES.map(s => ({ value: s.uf, label: `${s.uf} — ${s.name}` }))}
               />
             </div>
-            {/* Lat/long only for admin — too technical for regular hosts */}
+            {/* Geocoding */}
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={geocodeAddress}
+                disabled={geocoding}
+                className="inline-flex items-center gap-2 text-xs font-semibold px-3 py-2 rounded-lg bg-[#2A2A2A] hover:bg-[#333] text-[#B3B3B3] hover:text-white border border-[#333] transition-colors disabled:opacity-50"
+              >
+                {geocoding ? <RefreshCw size={12} className="animate-spin" /> : <MapPin size={12} />}
+                {geocoding ? 'Buscando coordenadas...' : 'Buscar coordenadas automaticamente'}
+              </button>
+              {form.latitude && form.longitude && (
+                <span className="text-xs text-[#46D369]">
+                  {parseFloat(form.latitude).toFixed(4)}, {parseFloat(form.longitude).toFixed(4)}
+                </span>
+              )}
+            </div>
             {profile?.role === 'ADMIN' && (
               <div className="grid grid-cols-2 gap-4">
                 <Input
@@ -516,7 +557,6 @@ export function NewProperty() {
                   value={form.latitude}
                   onChange={e => upd('latitude', e.target.value)}
                   placeholder="-23.5505"
-                  hint="Botão direito no Google Maps → copiar coordenadas"
                 />
                 <Input
                   label="Longitude"

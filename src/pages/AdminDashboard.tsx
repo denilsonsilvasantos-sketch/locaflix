@@ -8,7 +8,7 @@ import {
   LayoutDashboard, Home, Users, ShieldCheck, DollarSign, Send,
   Settings, Menu, X, LogOut, Check, TrendingUp, Building2, CheckCircle2,
   Banknote, AlertTriangle, UserPlus, Ban, Search, Bell, RefreshCw, Plus, Eye, MessageSquare, Trash2,
-  Calendar, Pencil, Star,
+  Calendar, Pencil, Star, XCircle,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { Logo } from '../components/layout/Logo'
@@ -110,6 +110,7 @@ export function AdminDashboard() {
   const [repasses, setRepasses]     = useState<BookingRow[]>([])
   const [adminBookings, setAdminBookings] = useState<BookingRow[]>([])
   const [loadingTab, setLoadingTab] = useState(false)
+  const [rejectModal, setRejectModal] = useState<{ propId: string; reason: string } | null>(null)
 
   // Config tab
   const [settings, setSettings] = useState<PlatformSettings>({
@@ -395,11 +396,12 @@ export function AdminDashboard() {
     toast('success','Imóvel aprovado')
   }
 
-  async function rejectProperty(id: string) {
-    const { error } = await supabase.from('properties').update({ status: 'REPROVADO' }).eq('id', id)
+  async function rejectProperty(id: string, reason: string) {
+    const { error } = await supabase.from('properties').update({ status: 'REPROVADO', rejection_reason: reason.trim() || null }).eq('id', id)
     if (error) { toast('error','Erro', error.message); return }
-    setProperties(prev => prev.map(p => p.id === id ? { ...p, status: 'REPROVADO' as const } : p))
+    setProperties(prev => prev.map(p => p.id === id ? { ...p, status: 'REPROVADO' as const, rejection_reason: reason.trim() || null } : p))
     setPendingPropsCount(c => Math.max(0, c-1))
+    setRejectModal(null)
     toast('info','Imóvel reprovado')
   }
 
@@ -774,8 +776,8 @@ export function AdminDashboard() {
                                 )}
                                 {p.status === 'PENDENTE' && (
                                   <>
-                                    <button onClick={() => approveProperty(p.id)} className="p-1.5 rounded-lg text-[#46D369] hover:bg-[#46D369]/10 transition-colors"><Check size={13} /></button>
-                                    <button onClick={() => rejectProperty(p.id)} className="p-1.5 rounded-lg text-[#E50914] hover:bg-[#E50914]/10 transition-colors"><X size={13} /></button>
+                                    <button onClick={() => approveProperty(p.id)} className="p-1.5 rounded-lg text-[#46D369] hover:bg-[#46D369]/10 transition-colors" title="Aprovar"><Check size={13} /></button>
+                                    <button onClick={() => setRejectModal({ propId: p.id, reason: '' })} className="p-1.5 rounded-lg text-[#E50914] hover:bg-[#E50914]/10 transition-colors" title="Reprovar com motivo"><XCircle size={13} /></button>
                                   </>
                                 )}
                               </div>
@@ -1418,6 +1420,52 @@ export function AdminDashboard() {
       </div>
     </div>
     <Lightbox src={lightboxSrc} onClose={() => setLightboxSrc(null)} />
+
+    {/* Rejection reason modal */}
+    {rejectModal && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+        <div className="bg-[#1A1A1A] border border-[#333] rounded-2xl p-6 w-full max-w-md space-y-5 shadow-2xl">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <XCircle size={18} className="text-[#E50914]" />
+              <h2 className="font-display text-lg font-bold text-white">Reprovar imóvel</h2>
+            </div>
+            <button onClick={() => setRejectModal(null)} className="text-[#888] hover:text-white transition-colors">
+              <X size={18} />
+            </button>
+          </div>
+          <p className="text-sm text-[#B3B3B3]">
+            Informe o motivo da reprovação. O anfitrião verá essa mensagem ao acessar o painel.
+          </p>
+          <div>
+            <label className="block text-xs font-semibold text-[#B3B3B3] uppercase tracking-wide mb-2">
+              Motivo da reprovação <span className="text-[#999] font-normal">(opcional)</span>
+            </label>
+            <textarea
+              value={rejectModal.reason}
+              onChange={e => setRejectModal(m => m ? { ...m, reason: e.target.value } : m)}
+              placeholder="Ex: Fotos insuficientes ou de baixa qualidade; endereço incompleto; descrição genérica…"
+              rows={4}
+              className="w-full bg-[#0A0A0A] border border-[#333] rounded-xl px-4 py-3 text-sm text-white placeholder:text-[#555] focus:outline-none focus:border-[#E50914] resize-none transition-colors"
+            />
+          </div>
+          <div className="flex gap-3">
+            <button
+              onClick={() => setRejectModal(null)}
+              className="flex-1 py-2.5 text-sm font-semibold rounded-xl border border-[#333] text-[#B3B3B3] hover:text-white hover:border-[#555] transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={() => rejectProperty(rejectModal.propId, rejectModal.reason)}
+              className="flex-1 py-2.5 text-sm font-semibold rounded-xl bg-[#E50914] hover:bg-[#C50813] text-white transition-colors"
+            >
+              Confirmar reprovação
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
     </>
   )
 }

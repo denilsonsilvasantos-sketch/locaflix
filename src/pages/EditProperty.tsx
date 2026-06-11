@@ -1,6 +1,6 @@
 ﻿import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { X, Plus, Upload, Trash2, Image, Link, DollarSign, Star, GripVertical, Calendar, Check } from 'lucide-react'
+import { X, Plus, Upload, Trash2, Image, Link, DollarSign, Star, GripVertical, Calendar, Check, AlertCircle, MapPin, RefreshCw } from 'lucide-react'
 import { AvailabilityCalendar } from '../components/ui/AvailabilityCalendar'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
@@ -46,6 +46,8 @@ export function EditProperty() {
   const { toast } = useToast()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [originalStatus, setOriginalStatus] = useState<string | null>(null)
+  const [geocoding, setGeocoding] = useState(false)
   const [photos, setPhotos] = useState<PhotoDraft[]>([])
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null)
   const dragIdx = useRef<number | null>(null)
@@ -116,6 +118,7 @@ export function EditProperty() {
       return
     }
 
+    setOriginalStatus(prop.status ?? null)
     setForm({
       name: prop.name ?? '',
       description: prop.description ?? '',
@@ -252,6 +255,30 @@ export function EditProperty() {
     } catch { /* ignore */ }
   }
 
+  async function geocodeAddress() {
+    const parts = [form.cep, form.address, form.number, form.neighborhood, form.city, form.state, 'Brasil'].filter(Boolean)
+    if (parts.length < 2) { toast('warning', 'Endereço incompleto', 'Preencha pelo menos cidade e estado antes de buscar.'); return }
+    setGeocoding(true)
+    try {
+      const q = parts.join(', ')
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&countrycodes=br&limit=1`, {
+        headers: { 'Accept-Language': 'pt-BR', 'User-Agent': 'Locaflix/1.0' },
+      })
+      const data = await res.json()
+      if (data?.[0]?.lat) {
+        upd('latitude', parseFloat(data[0].lat).toFixed(8))
+        upd('longitude', parseFloat(data[0].lon).toFixed(8))
+        toast('success', 'Coordenadas encontradas', `${parseFloat(data[0].lat).toFixed(5)}, ${parseFloat(data[0].lon).toFixed(5)}`)
+      } else {
+        toast('warning', 'Endereço não localizado', 'Verifique o CEP, cidade e estado e tente novamente.')
+      }
+    } catch {
+      toast('error', 'Erro ao buscar coordenadas', 'Verifique sua conexão.')
+    } finally {
+      setGeocoding(false)
+    }
+  }
+
   function addPhotoByUrl(url: string) {
     const trimmed = url.trim()
     if (!trimmed) return
@@ -380,6 +407,7 @@ export function EditProperty() {
       .filter(Boolean)
     const customNames = customAmenities.map(a => `CUSTOM::${a.category}::${a.name}`)
 
+    const resubmitting = originalStatus === 'REPROVADO'
     const { error: propErr } = await supabase.from('properties').update({
       name: form.name,
       description: form.description || null,
@@ -406,6 +434,7 @@ export function EditProperty() {
       checkin_instructions: form.checkin_instructions.trim() || null,
       ical_airbnb_url: icalAirbnbUrl.trim() || null,
       ical_booking_url: icalBookingUrl.trim() || null,
+      ...(resubmitting ? { status: 'PENDENTE', rejection_reason: null } : {}),
     }).eq('id', id)
 
     if (propErr) {
@@ -458,7 +487,12 @@ export function EditProperty() {
     }
 
     setSaving(false)
-    toast('success', 'Imóvel atualizado!', 'As alterações foram salvas com sucesso.')
+    if (resubmitting) {
+      toast('success', 'Imóvel reenviado para aprovação!', 'O admin revisará e você será notificado.')
+      setOriginalStatus('PENDENTE')
+    } else {
+      toast('success', 'Imóvel atualizado!', 'As alterações foram salvas com sucesso.')
+    }
     navigate(backRoute)
   }
 
@@ -484,6 +518,19 @@ export function EditProperty() {
             <X size={22} />
           </button>
         </div>
+
+        {/* Rejection notice */}
+        {originalStatus === 'REPROVADO' && (
+          <div className="mb-6 bg-[#E50914]/10 border border-[#E50914]/40 rounded-2xl p-4 flex items-start gap-3">
+            <AlertCircle size={18} className="text-[#E50914] flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-bold text-[#E50914]">Imóvel reprovado — em edição</p>
+              <p className="text-xs text-[#B3B3B3] mt-0.5">
+                Corrija os pontos indicados e salve. O imóvel voltará automaticamente para análise do admin.
+              </p>
+            </div>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Informações básicas */}
@@ -547,6 +594,23 @@ export function EditProperty() {
                 options={BRASIL_STATES.map(s => ({ value: s.uf, label: `${s.uf} — ${s.name}` }))}
               />
             </div>
+            {/* Geocoding */}
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={geocodeAddress}
+                disabled={geocoding}
+                className="inline-flex items-center gap-2 text-xs font-semibold px-3 py-2 rounded-lg bg-[#2A2A2A] hover:bg-[#333] text-[#B3B3B3] hover:text-white border border-[#333] transition-colors disabled:opacity-50"
+              >
+                {geocoding ? <RefreshCw size={12} className="animate-spin" /> : <MapPin size={12} />}
+                {geocoding ? 'Buscando coordenadas...' : 'Buscar coordenadas automaticamente'}
+              </button>
+              {form.latitude && form.longitude && (
+                <span className="text-xs text-[#46D369]">
+                  {parseFloat(form.latitude).toFixed(4)}, {parseFloat(form.longitude).toFixed(4)}
+                </span>
+              )}
+            </div>
             {profile?.role === 'ADMIN' && (
               <div className="grid grid-cols-2 gap-4">
                 <Input
@@ -556,7 +620,6 @@ export function EditProperty() {
                   value={form.latitude}
                   onChange={e => upd('latitude', e.target.value)}
                   placeholder="-23.5505"
-                  hint="Botão direito no Google Maps → copiar coordenadas"
                 />
                 <Input
                   label="Longitude"
