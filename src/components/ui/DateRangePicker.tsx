@@ -301,7 +301,7 @@ export function DateRangePicker({ from, to, onChange, onClose, blockedDates = []
               {nights} {nights === 1 ? 'noite' : 'noites'}
             </span>
           )}
-          <Button size="sm" onClick={handleOK} disabled={!draftFrom}>
+          <Button type="button" size="sm" onClick={handleOK} disabled={!draftFrom}>
             OK
           </Button>
         </div>

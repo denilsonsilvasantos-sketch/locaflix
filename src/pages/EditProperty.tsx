@@ -114,7 +114,7 @@ export function EditProperty() {
 
     if (!prop) {
       toast('error', 'Imóvel não encontrado', '')
-      navigate(APP_ROUTES.OWNER_DASHBOARD)
+      navigate(backRoute)
       return
     }
 
@@ -475,8 +475,10 @@ export function EditProperty() {
 
     setSaving(false)
     toast('success', 'Imóvel atualizado!', 'As alterações foram salvas com sucesso.')
-    navigate(APP_ROUTES.OWNER_DASHBOARD)
+    navigate(backRoute)
   }
+
+  const backRoute = profile?.role === 'ADMIN' ? APP_ROUTES.ADMIN_DASHBOARD : APP_ROUTES.OWNER_DASHBOARD
 
   if (loading) {
     return (
@@ -492,7 +494,7 @@ export function EditProperty() {
         <div className="flex items-center justify-between mb-6">
           <h1 className="font-display text-2xl font-bold text-white">Editar imóvel</h1>
           <button
-            onClick={() => navigate(APP_ROUTES.OWNER_DASHBOARD)}
+            onClick={() => navigate(backRoute)}
             className="text-[#B3B3B3] hover:text-white transition-colors"
           >
             <X size={22} />
@@ -1016,7 +1018,7 @@ export function EditProperty() {
           </section>
 
           <div className="flex gap-4 pt-2">
-            <Button type="button" variant="secondary" onClick={() => navigate(APP_ROUTES.OWNER_DASHBOARD)} fullWidth>
+            <Button type="button" variant="secondary" onClick={() => navigate(backRoute)} fullWidth>
               Cancelar
             </Button>
             <Button type="submit" loading={saving} fullWidth>

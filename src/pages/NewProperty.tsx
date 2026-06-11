@@ -10,7 +10,6 @@ import { APP_ROUTES, PROPERTY_TYPES, CANCELLATION_POLICIES, BRASIL_STATES } from
 import type { PropertyType, CancellationPolicy, PeriodType, AmenityCatalog } from '../types'
 import { PERIOD_TYPE_LABELS, PERIOD_DEFAULT_NAMES, PERIOD_TYPES_WITH_DATES } from '../lib/pricing'
 import { AvailabilityCalendar } from '../components/ui/AvailabilityCalendar'
-import { DateRangePicker } from '../components/ui/DateRangePicker'
 
 const PERIOD_TYPE_OPTIONS = (Object.keys(PERIOD_TYPE_LABELS) as PeriodType[]).map(v => ({
   value: v,
@@ -361,6 +360,7 @@ export function NewProperty() {
   }
 
   const hasPixKey = !!profile?.pix_key
+  const backRoute = profile?.role === 'ADMIN' ? APP_ROUTES.ADMIN_DASHBOARD : APP_ROUTES.OWNER_DASHBOARD
 
   // After property is created: show availability calendar step
   if (createdPropertyId) {
@@ -381,7 +381,7 @@ export function NewProperty() {
             </div>
             <AvailabilityCalendar propertyId={createdPropertyId} />
           </section>
-          <Button fullWidth onClick={() => navigate(APP_ROUTES.OWNER_DASHBOARD)}>
+          <Button fullWidth onClick={() => navigate(backRoute)}>
             Concluir
           </Button>
         </div>
@@ -402,7 +402,7 @@ export function NewProperty() {
               </p>
             </div>
             <RouterLink
-              to="/anfitriao?tab=financeiro"
+              to={profile?.role === 'ADMIN' ? APP_ROUTES.ADMIN_DASHBOARD : '/anfitriao?tab=financeiro'}
               className="flex-shrink-0 text-xs font-semibold text-[#F5A623] border border-[#F5A623]/40 px-3 py-1.5 rounded-lg hover:bg-[#F5A623]/10 transition-colors whitespace-nowrap"
             >
               Cadastrar chave Pix
@@ -412,7 +412,7 @@ export function NewProperty() {
         <div className="flex items-center justify-between mb-6">
           <h1 className="font-display text-2xl font-bold text-white">Cadastrar imóvel</h1>
           <button
-            onClick={() => navigate(APP_ROUTES.OWNER_DASHBOARD)}
+            onClick={() => navigate(backRoute)}
             className="text-[#B3B3B3] hover:text-white transition-colors"
           >
             <X size={22} />
@@ -489,84 +489,38 @@ export function NewProperty() {
                 options={BRASIL_STATES.map(s => ({ value: s.uf, label: `${s.uf} — ${s.name}` }))}
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <Input
-                label="Latitude"
-                type="number"
-                step="0.00000001"
-                value={form.latitude}
-                onChange={e => upd('latitude', e.target.value)}
-                placeholder="-23.5505"
-                hint="Clique com botão direito no Google Maps e copie as coordenadas"
-              />
-              <Input
-                label="Longitude"
-                type="number"
-                step="0.00000001"
-                value={form.longitude}
-                onChange={e => upd('longitude', e.target.value)}
-                placeholder="-46.6333"
-              />
-            </div>
+            {/* Lat/long only for admin — too technical for regular hosts */}
+            {profile?.role === 'ADMIN' && (
+              <div className="grid grid-cols-2 gap-4">
+                <Input
+                  label="Latitude"
+                  type="number"
+                  step="0.00000001"
+                  value={form.latitude}
+                  onChange={e => upd('latitude', e.target.value)}
+                  placeholder="-23.5505"
+                  hint="Botão direito no Google Maps → copiar coordenadas"
+                />
+                <Input
+                  label="Longitude"
+                  type="number"
+                  step="0.00000001"
+                  value={form.longitude}
+                  onChange={e => upd('longitude', e.target.value)}
+                  placeholder="-46.6333"
+                />
+              </div>
+            )}
           </section>
 
-          {/* Capacidade e Preço */}
+          {/* Capacidade */}
           <section className="bg-[#1F1F1F] border border-[#333] rounded-2xl p-6 space-y-4">
-            <h2 className="font-display text-lg font-bold text-white">Capacidade e Preço</h2>
+            <h2 className="font-display text-lg font-bold text-white">Capacidade</h2>
             <div className="grid grid-cols-3 gap-4">
               <Input label="Quartos" type="number" min="1" value={form.bedrooms} onChange={e => upd('bedrooms', e.target.value)} required />
               <Input label="Banheiros" type="number" min="1" value={form.bathrooms} onChange={e => upd('bathrooms', e.target.value)} required />
               <Input label="Máx. hóspedes" type="number" min="1" value={form.max_guests} onChange={e => upd('max_guests', e.target.value)} required />
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <Input
-                label="Preço por noite (R$)"
-                type="number"
-                min="1"
-                step="0.01"
-                value={form.price_per_night}
-                onChange={e => upd('price_per_night', e.target.value)}
-                placeholder="0,00"
-                required
-                hint="Preço base (dias de semana)"
-              />
-              <Input
-                label="Preço mínimo (R$)"
-                type="number"
-                min="1"
-                step="0.01"
-                value={form.min_price}
-                onChange={e => upd('min_price', e.target.value)}
-                placeholder="0,00"
-                hint="Para promoções"
-              />
-            </div>
-            {/* Taxa de limpeza */}
-            <div className="flex items-start gap-3 pt-2">
-              <input
-                id="cleaning_fee_enabled"
-                type="checkbox"
-                checked={form.cleaning_fee_enabled}
-                onChange={e => upd('cleaning_fee_enabled', e.target.checked)}
-                className="mt-0.5 w-4 h-4 accent-[#E50914] flex-shrink-0 cursor-pointer"
-              />
-              <label htmlFor="cleaning_fee_enabled" className="cursor-pointer">
-                <p className="text-sm font-medium text-white">Cobrar taxa de limpeza</p>
-                <p className="text-xs text-[#999] mt-0.5">Valor fixo cobrado uma vez, independente do número de diárias</p>
-              </label>
-            </div>
-            {form.cleaning_fee_enabled && (
-              <Input
-                label="Taxa de limpeza (R$)"
-                type="number"
-                min="1"
-                step="0.01"
-                value={form.cleaning_fee}
-                onChange={e => upd('cleaning_fee', e.target.value)}
-                placeholder="0,00"
-                hint="Cobrado uma vez por reserva"
-              />
-            )}
           </section>
 
           {/* Comodidades */}
@@ -688,14 +642,68 @@ export function NewProperty() {
             />
           </section>
 
-          {/* Preços por período */}
+          {/* Preços */}
           <section className="bg-[#1F1F1F] border border-[#333] rounded-2xl p-6 space-y-4">
             <div>
-              <h2 className="font-display text-lg font-bold text-white">Preços por período</h2>
-              <p className="text-xs text-[#999] mt-0.5">Defina preços diferentes para fins de semana, feriados, alta temporada, etc.</p>
+              <h2 className="font-display text-lg font-bold text-white">Preços</h2>
+              <p className="text-xs text-[#999] mt-0.5">Configure o preço base e períodos especiais do seu imóvel.</p>
             </div>
 
-            {/* Calendar shortcut */}
+            {/* Base prices */}
+            <div className="grid grid-cols-2 gap-4">
+              <Input
+                label="Preço por noite (R$)"
+                type="number"
+                min="1"
+                step="0.01"
+                value={form.price_per_night}
+                onChange={e => upd('price_per_night', e.target.value)}
+                placeholder="0,00"
+                required
+                hint="Preço base (dias de semana)"
+              />
+              <Input
+                label="Preço mínimo (R$)"
+                type="number"
+                min="1"
+                step="0.01"
+                value={form.min_price}
+                onChange={e => upd('min_price', e.target.value)}
+                placeholder="0,00"
+                hint="Para promoções"
+              />
+            </div>
+            <div className="flex items-start gap-3">
+              <input
+                id="cleaning_fee_enabled"
+                type="checkbox"
+                checked={form.cleaning_fee_enabled}
+                onChange={e => upd('cleaning_fee_enabled', e.target.checked)}
+                className="mt-0.5 w-4 h-4 accent-[#E50914] flex-shrink-0 cursor-pointer"
+              />
+              <label htmlFor="cleaning_fee_enabled" className="cursor-pointer">
+                <p className="text-sm font-medium text-white">Cobrar taxa de limpeza</p>
+                <p className="text-xs text-[#999] mt-0.5">Valor fixo cobrado uma vez, independente do número de diárias</p>
+              </label>
+            </div>
+            {form.cleaning_fee_enabled && (
+              <Input
+                label="Taxa de limpeza (R$)"
+                type="number"
+                min="1"
+                step="0.01"
+                value={form.cleaning_fee}
+                onChange={e => upd('cleaning_fee', e.target.value)}
+                placeholder="0,00"
+                hint="Cobrado uma vez por reserva"
+              />
+            )}
+
+            <div className="border-t border-[#2A2A2A] pt-4">
+              <p className="text-xs text-[#999] mb-3">Preços por período — defina valores diferentes para fins de semana, feriados, alta temporada, etc.</p>
+            </div>
+
+            {/* Quick date-range period */}
             <div className="border border-[#2A2A2A] rounded-xl overflow-hidden">
               <button
                 type="button"
@@ -704,20 +712,35 @@ export function NewProperty() {
               >
                 <Calendar size={16} className="text-[#F5A623] flex-shrink-0" />
                 <div className="flex-1">
-                  <p className="text-sm font-semibold text-white">Selecionar datas no calendário</p>
-                  <p className="text-xs text-[#999]">Escolha um intervalo de datas e defina o preço da diária</p>
+                  <p className="text-sm font-semibold text-white">Adicionar preço por período de datas</p>
+                  <p className="text-xs text-[#999]">Defina um preço especial para um intervalo de datas</p>
                 </div>
                 <Plus size={14} className={`text-[#888] transition-transform ${showCalPicker ? 'rotate-45' : ''}`} />
               </button>
               {showCalPicker && (
                 <div className="border-t border-[#2A2A2A] p-4 space-y-3">
-                  <DateRangePicker
-                    from={calFrom}
-                    to={calTo}
-                    onChange={(f, t) => { setCalFrom(f); setCalTo(t) }}
-                    onClose={() => {}}
-                  />
-                  <div className="flex items-center gap-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs text-[#999] block mb-1">Data início</label>
+                      <input
+                        type="date"
+                        value={calFrom}
+                        onChange={e => setCalFrom(e.target.value)}
+                        className="w-full bg-[#2A2A2A] border border-[#333] rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-[#555]"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-[#999] block mb-1">Data fim</label>
+                      <input
+                        type="date"
+                        value={calTo}
+                        min={calFrom}
+                        onChange={e => setCalTo(e.target.value)}
+                        className="w-full bg-[#2A2A2A] border border-[#333] rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-[#555]"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex items-end gap-3">
                     <div className="flex-1">
                       <label className="text-xs text-[#999] block mb-1">Preço por noite (R$)</label>
                       <input
@@ -734,17 +757,11 @@ export function NewProperty() {
                       type="button"
                       onClick={addCalendarPeriod}
                       disabled={!calFrom || !calTo || !calPrice}
-                      className="self-end"
                     >
                       <Check size={14} />
                       Adicionar
                     </Button>
                   </div>
-                  {calFrom && calTo && (
-                    <p className="text-xs text-[#46D369]">
-                      Período: {calFrom.split('-').reverse().join('/')} → {calTo.split('-').reverse().join('/')}
-                    </p>
-                  )}
                 </div>
               )}
             </div>
@@ -894,7 +911,7 @@ export function NewProperty() {
           )}
 
           <div className="flex gap-4 pt-2">
-            <Button type="button" variant="secondary" onClick={() => navigate(APP_ROUTES.OWNER_DASHBOARD)} fullWidth>
+            <Button type="button" variant="secondary" onClick={() => navigate(backRoute)} fullWidth>
               Cancelar
             </Button>
             <Button type="submit" loading={saving} fullWidth>
