@@ -389,9 +389,9 @@ export function AdminDashboard() {
   }
 
   async function approveProperty(id: string) {
-    const { error } = await supabase.from('properties').update({ status: 'ATIVO' }).eq('id', id)
+    const { error } = await supabase.from('properties').update({ status: 'ATIVO', rejection_reason: null }).eq('id', id)
     if (error) { toast('error','Erro', error.message); return }
-    setProperties(prev => prev.map(p => p.id === id ? { ...p, status: 'ATIVO' as const } : p))
+    setProperties(prev => prev.map(p => p.id === id ? { ...p, status: 'ATIVO' as const, rejection_reason: null } : p))
     setPendingPropsCount(c => Math.max(0, c-1))
     toast('success','Imóvel aprovado')
   }
@@ -774,11 +774,13 @@ export function AdminDashboard() {
                                     <Star size={13} className={p.plan === 'DESTAQUE' ? 'fill-[#F5A623]' : ''} />
                                   </button>
                                 )}
-                                {p.status === 'PENDENTE' && (
-                                  <>
-                                    <button onClick={() => approveProperty(p.id)} className="p-1.5 rounded-lg text-[#46D369] hover:bg-[#46D369]/10 transition-colors" title="Aprovar"><Check size={13} /></button>
-                                    <button onClick={() => setRejectModal({ propId: p.id, reason: '' })} className="p-1.5 rounded-lg text-[#E50914] hover:bg-[#E50914]/10 transition-colors" title="Reprovar com motivo"><XCircle size={13} /></button>
-                                  </>
+                                {/* Approve: show for PENDENTE and REPROVADO */}
+                                {(p.status === 'PENDENTE' || p.status === 'REPROVADO') && (
+                                  <button onClick={() => approveProperty(p.id)} className="p-1.5 rounded-lg text-[#46D369] hover:bg-[#46D369]/10 transition-colors" title="Aprovar"><Check size={13} /></button>
+                                )}
+                                {/* Reject: show for PENDENTE and ATIVO */}
+                                {(p.status === 'PENDENTE' || p.status === 'ATIVO') && (
+                                  <button onClick={() => setRejectModal({ propId: p.id, reason: '' })} className="p-1.5 rounded-lg text-[#E50914] hover:bg-[#E50914]/10 transition-colors" title="Reprovar com motivo"><XCircle size={13} /></button>
                                 )}
                               </div>
                             </td>
